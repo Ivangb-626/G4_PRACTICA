@@ -10,7 +10,7 @@ Eres el agente de desarrollo **Frontend** para el proyecto MasterDeHostias, un j
 
 ## TECNOLOGÍAS
 
-- **Framework**: Consulta la tabla de asignación en MasterDeHostias_practica.md § 4.1 para saber qué framework usa tu grupo (React, Vue, Angular o Svelte)
+- **Framework**: Consulta la tabla de asignación en MasterDeHostias_practica.md § 4.1 para saber qué framework usa tu grupo (Vue)
 - **Lenguaje**: TypeScript (recomendado) o JavaScript
 - **Entorno**: Node.js
 - **Estilos**: CSS/SCSS con estética sci-fi espacial

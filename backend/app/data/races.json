@@ -1,0 +1,23 @@
+[
+  {
+    "id": "humans",
+    "name": "Humanos",
+    "government": "democracy",
+    "traits": {"research_bonus": 0, "ground_combat_bonus": 0, "diplomacy_bonus": 25, "trade_bonus": 1, "food_bonus": 0, "industry_bonus": 0, "population_growth_bonus": 0, "ship_attack_bonus": 0, "ship_defense_bonus": 0, "spy_bonus": 0, "bc_per_capita": 0},
+    "special_abilities": []
+  },
+  {
+    "id": "bulrathi",
+    "name": "Bulrathi",
+    "government": "dictatorship",
+    "traits": {"research_bonus": -10, "ground_combat_bonus": 10, "diplomacy_bonus": 0, "trade_bonus": 0, "food_bonus": 0, "industry_bonus": 0, "population_growth_bonus": 0, "ship_attack_bonus": 0, "ship_defense_bonus": 0, "spy_bonus": 0, "bc_per_capita": 0},
+    "special_abilities": []
+  },
+  {
+    "id": "mrrshan",
+    "name": "Mrrshan",
+    "government": "dictatorship",
+    "traits": {"research_bonus": 0, "ground_combat_bonus": 5, "diplomacy_bonus": -20, "trade_bonus": 0, "food_bonus": 0, "industry_bonus": 0, "population_growth_bonus": 0, "ship_attack_bonus": 50, "ship_defense_bonus": 0, "spy_bonus": 0, "bc_per_capita": 0},
+    "special_abilities": []
+  }
+]

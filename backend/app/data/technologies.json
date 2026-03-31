@@ -1,0 +1,6 @@
+[
+  {"id":"construction_1","field":"construction","level":1,"name":"Automated Factory","research_cost":50,"alternative_group":1,"unlocks":{"buildings":["automated_factory"]}},
+  {"id":"sociology_1","field":"sociology","level":1,"name":"Trade Center","research_cost":50,"alternative_group":4,"unlocks":{"buildings":["trade_center"]}},
+  {"id":"biology_1","field":"biology","level":1,"name":"Hydroponic Farm","research_cost":50,"alternative_group":5,"unlocks":{"buildings":["hydroponic_farm"]}},
+  {"id":"computers_1","field":"computers","level":1,"name":"Research Lab","research_cost":50,"alternative_group":6,"unlocks":{"buildings":["research_lab"]}}
+]

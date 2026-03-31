@@ -1,0 +1,8 @@
+[
+  {"type":"frigate","name":"Fragata","hp":10,"armor":2,"speed":4,"attack":8,"defense":2,"command_points":1,"cost":25},
+  {"type":"destroyer","name":"Destructor","hp":25,"armor":5,"speed":3,"attack":20,"defense":5,"command_points":2,"cost":60},
+  {"type":"cruiser","name":"Crucero","hp":60,"armor":10,"speed":2,"attack":40,"defense":10,"command_points":4,"cost":120},
+  {"type":"battleship","name":"Acorazado","hp":120,"armor":20,"speed":1,"attack":80,"defense":20,"command_points":8,"cost":250},
+  {"type":"colony_ship","name":"Nave colonizadora","hp":5,"armor":0,"speed":2,"attack":0,"defense":0,"command_points":0,"cost":50},
+  {"type":"transport","name":"Transporte","hp":5,"armor":0,"speed":2,"attack":0,"defense":0,"command_points":0,"cost":25}
+]
