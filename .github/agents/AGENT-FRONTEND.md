@@ -1,328 +1,388 @@
-# AGENT-FRONTEND.md — MasterDeHostias: Instrucciones para Copilot Agent (Frontend Developer)
+# AGENT-FRONTEND.md — MyMasterOfHostias: Frontend Developer Instructions
 
 ---
 
-## ROL
+## ROLE
 
-Eres el agente de desarrollo **Frontend** para el proyecto MasterDeHostias, un juego web de estrategia 4X espacial por turnos. Tu responsabilidad principal es implementar toda la interfaz de usuario, las vistas del juego, la integración con la API del backend, y la experiencia visual del jugador.
-
----
-
-## TECNOLOGÍAS
-
-- **Framework**: Consulta la tabla de asignación en MasterDeHostias_practica.md § 4.1 para saber qué framework usa tu grupo (Vue)
-- **Lenguaje**: TypeScript (recomendado) o JavaScript
-- **Entorno**: Node.js
-- **Estilos**: CSS/SCSS con estética sci-fi espacial
-- **Estado**: Usa el store nativo del framework (Redux/Zustand para React, Pinia para Vue, NgRx para Angular, Svelte stores para Svelte)
-- **HTTP**: fetch API o axios para comunicación con backend
-- **Routing**: React Router / Vue Router / Angular Router / SvelteKit routing
+You are the **Frontend** developer agent for MyMasterOfHostias, a MOO2-faithful 4X space strategy game. You maintain the React/TypeScript UI, Canvas2D rendering, Zustand stores, API integration, and UX features.
 
 ---
 
-## ARQUITECTURA FRONTEND
+## TECH STACK
+
+- **Framework**: React 18 + TypeScript + Vite
+- **State Management**: Zustand (2 stores)
+- **Rendering**: Canvas 2D API (galaxy map, tactical combat)
+- **Styling**: Inline CSS-in-JS objects (no CSS files, no Tailwind)
+- **Containerization**: nginx serving Vite build via Docker
+- **API**: Fetch-based HTTP client (no axios)
+
+---
+
+## ACTUAL PROJECT STRUCTURE
 
 ```
 frontend/
 ├── src/
-│   ├── components/        # Componentes reutilizables (Button, Modal, Panel, etc.)
-│   ├── views/             # Vistas/páginas principales
-│   │   ├── LandingPage
-│   │   ├── LoginPage
-│   │   ├── RegisterPage
-│   │   ├── Dashboard
-│   │   ├── GameView
-│   │   ├── GalaxyMap
-│   │   ├── SystemView
-│   │   ├── ColonyView
-│   │   ├── TechTree
-│   │   ├── FleetManager
-│   │   └── CombatResult
-│   ├── store/             # Estado global de la aplicación
-│   ├── services/          # Llamadas HTTP al backend (api.ts)
-│   ├── types/             # Tipos TypeScript (interfaces del juego)
-│   ├── assets/            # Imágenes, sprites, iconos
-│   │   └── ai-generated/  # Recursos generados por IA (etiquetados)
-│   ├── utils/             # Utilidades (formateo, cálculos de UI)
-│   └── styles/            # Estilos globales, tema sci-fi
-├── public/
-├── Dockerfile
+│   ├── App.tsx                    # Root component: screen router + global keyboard shortcuts
+│   ├── main.tsx                   # React entry point
+│   ├── api/
+│   │   └── client.ts             # Centralized API client (all backend HTTP calls)
+│   ├── store/
+│   │   ├── gameStore.ts           # Game state Zustand store (auth, game, galaxy, colonies, fleets, research, diplomacy, leaders, tactical, events)
+│   │   └── uiStore.ts            # UI state Zustand store (screen routing, selections, modals, sidebar, cheats, notifications, event log)
+│   ├── components/               # All screens and UI components
+│   │   ├── MainMenu.tsx          # Login/register + game list (card grid layout)
+│   │   ├── NewGame.tsx           # New game form (race, AI races, galaxy size, difficulty)
+│   │   ├── GalaxyMap.tsx         # Galaxy canvas + sidebar panel (zoom/pan support)
+│   │   ├── ColonyScreen.tsx      # Colony detail (population, buildings, build queue)
+│   │   ├── ResearchScreen.tsx    # Tech tree (8 fields, current research, available techs)
+│   │   ├── FleetScreen.tsx       # Fleet management (list, move, merge)
+│   │   ├── ShipDesigner.tsx      # Ship design (hull, weapons, specials)
+│   │   ├── DiplomacyScreen.tsx   # Diplomacy (relations, treaties, war)
+│   │   ├── LeadersScreen.tsx     # Leaders (hire, assign, unassign)
+│   │   ├── EspionageScreen.tsx   # Espionage (recruit, missions)
+│   │   ├── CombatScreen.tsx      # Tactical combat (12×12 grid canvas)
+│   │   ├── TurnSummary.tsx       # End-of-turn summary (events, victory/defeat)
+│   │   ├── CouncilScreen.tsx     # Galactic Council voting
+│   │   ├── InventoryScreen.tsx   # Ship inventory
+│   │   ├── TopBar.tsx            # Game info bar (turn, race, BC, nav buttons, end turn)
+│   │   ├── EventLogModal.tsx     # Blocking modal: events + AI actions after each turn
+│   │   └── common/
+│   │       ├── Tooltip.tsx       # Reusable tooltip
+│   │       └── Modal.tsx         # Reusable modal wrapper
+│   ├── canvas/
+│   │   ├── galaxyRenderer.ts    # Galaxy map rendering (spiral bg texture, stars, fleets, nebulae, range circles)
+│   │   └── combatRenderer.ts    # Tactical combat rendering (12×12 grid)
+│   └── types/                   # TypeScript type definitions
+│       ├── game.ts              # Game, Star, Planet, Colony, Fleet, etc.
+│       ├── research.ts          # Tech, TechField, TechState
+│       ├── combat.ts            # CombatLog, TacticalState
+│       ├── diplomacy.ts         # Relation, Treaty types
+│       ├── ship.ts              # ShipDesign, Hull, Weapon, Special
+│       ├── leader.ts            # Leader, LeaderTrait
+│       ├── espionage.ts         # Spy, Mission types
+│       ├── council.ts           # Council vote types
+│       └── event.ts             # GameEvent types
+├── index.html
+├── vite.config.ts
+├── tsconfig.json
 ├── package.json
-└── tsconfig.json
+├── Dockerfile
+└── nginx.conf
 ```
 
 ---
 
-## VISTAS PRINCIPALES — QUÉ IMPLEMENTAR
+## SCREEN ROUTING
 
-### 1. LandingPage (`/`)
-- Logo del juego y título "MasterDeHostias"
-- Botones de Login y Registro
-- Diseño atractivo con fondo espacial
-
-### 2. LoginPage (`/login`)
-- Formulario: username + password
-- Llamada a `POST /api/auth/login`
-- Almacenar JWT en store y localStorage
-- Redirigir a Dashboard tras login exitoso
-- Mostrar errores de autenticación
-
-### 3. RegisterPage (`/register`)
-- Formulario: username + email + password + confirmar password
-- Validación client-side antes de enviar
-- Llamada a `POST /api/auth/register`
-- Redirigir a Dashboard tras registro exitoso
-
-### 4. Dashboard (`/dashboard`)
-- Lista de partidas guardadas (`GET /api/games`)
-- Botón "Nueva Partida" que abre modal de configuración:
-  - Selector de raza (3 asignadas al grupo + custom si Grupo 3)
-  - Tamaño de galaxia (small, + medium/large si Grupo 6)
-  - Número de oponentes
-  - Dificultad
-- Botón "Cargar" en cada partida
-- Botón "Eliminar" con confirmación
-- Info de cada partida: nombre, turno, raza, última fecha guardado
-
-### 5. GalaxyMap (`/game/:id/galaxy`)
-**VISTA PRINCIPAL DEL JUEGO**
-- Renderizar estrellas como nodos en posiciones 2D
-- Líneas de conexión entre sistemas conectados
-- Colores de estrellas según tipo (rojo, naranja, amarillo, blanco, azul)
-- Iconos sobre estrellas:
-  - Bandera del jugador (si tiene colonia)
-  - Bandera enemiga (si se detecta colonia enemiga)
-  - Icono de flota propia
-  - Icono de flota enemiga (si visible)
-- **Fog of War**: Sistemas no explorados oscurecidos/ocultos
-- Click en estrella → navegar a SystemView
-- Click en flota propia → abrir panel de flota
-- Panel lateral con:
-  - Recursos del jugador (BC, comida total, producción, investigación, puntos de comando)
-  - Turno actual
-  - Botón "Fin de Turno"
-  - Botón "Guardar"
-- **Atajos de teclado MOO2**: Todos los atajos definidos en SPECS.md § 4.3 deben funcionar aquí (`T` fin de turno, `C` colonias, `F` flotas, `P` planetas, `R` razas, `G` menú, `+`/`-` zoom, `F1`/`F2` ciclar colonias, `F10` guardar, `Alt+F` rutas de flotas, etc.)
-- **Ctrl+Tab** → abrir consola de cheats (CheatConsole)
-
-### 6. SystemView (`/game/:id/system/:sysId`)
-- Estrella central con planetas orbitando
-- Click en planeta → tooltip con info (tipo, tamaño, minerales, gravedad)
-- Click en planeta colonizado → navegar a ColonyView
-- Botón "Colonizar" si hay nave colonizadora y planeta libre
-- Lista de flotas en el sistema
-- Botón "Volver al mapa"
-
-### 7. ColonyView (`/game/:id/colony/:colId`)
-- **Panel de Población**: Sliders o +/- para Granjeros, Trabajadores, Científicos
-  - Suma debe ser = total population
-  - Actualización en tiempo real de producción estimada
-- **Barras de Producción**: Comida, Industria, Investigación, BC
-- **Edificios Construidos**: Grid de iconos con nombre
-- **Cola de Construcción**: Lista de hasta 7 elementos, drag-and-drop para reordenar
-  - Barra de progreso en el primer elemento
-  - Botón para añadir/eliminar elementos
-- **Selector de Construcción**: Categorías (Edificios | Naves), filtrado por disponibilidad tecnológica
-- Botón "Aplicar Cambios" → `POST /api/games/{gameId}/colony/{colonyId}/manage`
-- Info del planeta (tipo, tamaño, minerales, gravedad)
-
-### 8. TechTree (`/game/:id/tech`)
-- 8 columnas (una por campo de investigación)
-- Filas por nivel (1, 2, 3+)
-- Cada tech es un nodo con estado visual:
-  - Verde brillante: disponible para investigar
-  - Azul: ya investigado
-  - Gris: bloqueado (nivel anterior no completado)
-  - Rojo tachado: descartado (se eligió otra opción del mismo nivel)
-- Click en tech disponible → confirmación → `POST /api/games/{gameId}/research`
-- Tooltip con descripción, coste, desbloqueos
-- Barra de progreso de investigación actual
-
-### 9. FleetManager (`/game/:id/fleets`)
-- Lista de todas las flotas del jugador
-- Para cada flota: nombre, ubicación, composición (tipos y cantidades), destino si en tránsito
-- Click en flota → opciones:
-  - Mover: seleccionar destino en mapa
-  - Ver composición detallada
-- Indicador de puntos de comando (usados / total)
-- Posibilidad de seleccionar destino directamente desde el GalaxyMap
-
-### 10. CombatResult (`/game/:id/combat/:combatId`)
-- Pantalla dividida: lado atacante vs lado defensor
-- Sprites/iconos de naves de cada bando
-- Después de la resolución: naves tachadas = destruidas
-- Resultado claro: VICTORIA / DERROTA
-- Detalles de bajas
-- Botón "Continuar"
-
-### 11. AITurnViewer (componente overlay)
-- Se activa al pulsar "Fin de Turno"
-- **Modo Pantalla Completa**: reemplaza la vista del jugador
-- **Modo Pantalla Dividida**: izquierda estática (jugador), derecha dinámica (IA)
-- Controles: Play/Pause, Paso adelante, Paso atrás, Velocidad (Normal/Rápido/Instantáneo)
-- Animaciones:
-  - Movimiento de flotas: línea animada entre estrellas
-  - Combate: destello/explosión
-  - Colonización: icono de bandera aparece
-  - Investigación: icono de bombilla
-- Panel con reasoning de la IA (texto explicativo)
-- Botón "Saltar al resultado final"
-
-### 12. EventLogPanel (componente modal)
-- Modal bloqueante que aparece al inicio de cada turno del jugador, tras resolver el turno de la IA
-- Lista todos los eventos del turno: combates, colonizaciones, investigaciones completadas, escasez de comida, edificios/naves completados, ataques Antaranos, votaciones del Consejo, victoria/derrota
-- Cada evento con icono según tipo y color (rojo: ataques/pérdidas, verde: completados/victorias, amarillo: alertas)
-- Botón "Continuar" o Escape para cerrar
-- Si no hay eventos, no se muestra
-- Fuente de datos: campo `events` de la respuesta de `POST /api/games/{gameId}/endTurn`
-
-### 13. CheatConsole (componente overlay)
-- Se activa con Ctrl+Tab
-- Input de texto para escribir código
-- Selector de target (sistema/colonia) si lo requiere el cheat
-- Historial de cheats aplicados
-- Botón "Aplicar" → `POST /api/games/{gameId}/cheat`
-- Respuesta visual del resultado
-- Botón "Cerrar" o Escape
-
----
-
-## SERVICIO API (services/api.ts)
-
-Implementar un servicio centralizado para todas las llamadas HTTP:
+**NO URL-based routing.** The app uses Zustand state-based screen routing via `useUIStore`:
 
 ```typescript
-// services/api.ts
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
-async function request(method: string, path: string, body?: any) {
-  const token = localStorage.getItem('token');
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-    },
-    body: body ? JSON.stringify(body) : undefined
-  });
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.error || 'Request failed');
-  }
-  return res.json();
+// uiStore.ts
+interface UIState {
+  activeScreen: ScreenName;
+  setScreen: (screen: ScreenName) => void;
+  // ...
 }
 
-export const api = {
-  // Auth
-  login: (username: string, password: string) => request('POST', '/api/auth/login', { username, password }),
-  register: (username: string, email: string, password: string) => request('POST', '/api/auth/register', { username, email, password }),
-  getProfile: () => request('GET', '/api/auth/profile'),
+type ScreenName =
+  | 'main_menu'     // Login/register + game list
+  | 'new_game'      // New game creation form
+  | 'galaxy'        // Galaxy map (main game screen)
+  | 'colony'        // Colony detail
+  | 'research'      // Tech tree
+  | 'fleet'         // Fleet management
+  | 'ship_designer' // Ship designer
+  | 'diplomacy'     // Diplomacy relations
+  | 'leaders'       // Leaders panel
+  | 'espionage'     // Espionage panel
+  | 'combat'        // Tactical combat
+  | 'turn_summary'  // Turn summary
+  | 'council'       // Galactic Council
+  | 'inventory';    // Ship inventory
+```
 
-  // Games
-  listGames: () => request('GET', '/api/games'),
-  createGame: (config: any) => request('POST', '/api/games', config),
-  loadGame: (gameId: string) => request('GET', `/api/games/${gameId}`),
-  saveGame: (gameId: string, name?: string) => request('POST', `/api/games/${gameId}/save`, { name }),
-  deleteGame: (gameId: string) => request('DELETE', `/api/games/${gameId}`),
+**App.tsx screen switch:**
+```tsx
+function App() {
+  const { activeScreen } = useUIStore();
+  const { eventLogOpen } = useUIStore();
+  // ... keyboard shortcut useEffect ...
 
-  // In-game
-  manageColony: (gameId: string, colonyId: string, data: any) => request('POST', `/api/games/${gameId}/colony/${colonyId}/manage`, data),
-  selectResearch: (gameId: string, data: any) => request('POST', `/api/games/${gameId}/research`, data),
-  moveFleet: (gameId: string, fleetId: string, destination: string) => request('POST', `/api/games/${gameId}/fleet/${fleetId}/move`, { destination }),
-  colonize: (gameId: string, fleetId: string, planetIndex: number) => request('POST', `/api/games/${gameId}/colonize`, { fleet_id: fleetId, planet_index: planetIndex }),
-  endTurn: (gameId: string) => request('POST', `/api/games/${gameId}/endTurn`),
-  applyCheat: (gameId: string, code: string, target?: any) => request('POST', `/api/games/${gameId}/cheat`, { cheat_code: code, target }),
+  if (!inGame) return <MainMenu />;
 
-  // Queries
-  getGalaxy: (gameId: string) => request('GET', `/api/games/${gameId}/galaxy`),
-  getTechTree: (gameId: string) => request('GET', `/api/games/${gameId}/tech-tree`),
-  getColony: (gameId: string, colonyId: string) => request('GET', `/api/games/${gameId}/colony/${colonyId}`),
-  getScenarios: () => request('GET', '/api/scenarios'),
-};
+  return (
+    <>
+      <TopBar />
+      {eventLogOpen && <EventLogModal />}
+      {activeScreen === 'galaxy' && <GalaxyMap />}
+      {activeScreen === 'colony' && <ColonyScreen />}
+      {/* ... other screens ... */}
+    </>
+  );
+}
 ```
 
 ---
 
-## TIPOS TYPESCRIPT
+## ZUSTAND STORES
 
-Consultar SPECS.md § 1 para los modelos de datos completos. Crear interfaces TypeScript que reflejen exactamente esos modelos:
+### gameStore.ts — Game State
+```typescript
+interface GameState {
+  // Auth
+  token: string | null;
+  username: string | null;
+  login(u: string, p: string): Promise<void>;
+  register(u: string, p: string): Promise<void>;
+  logout(): void;
+
+  // Game
+  gameId: string | null;
+  game: GameData | null;
+  games: GameSummary[];
+  createGame(opts): Promise<void>;
+  loadGame(id: string): Promise<void>;
+  listGames(): Promise<void>;
+  deleteGame(id: string): Promise<void>;
+
+  // Galaxy
+  galaxy: Galaxy | null;
+  fetchGalaxy(): Promise<void>;
+
+  // Colonies
+  colonies: Colony[];
+  fetchColonies(): Promise<void>;
+  assignPopulation(colonyId, assignment): Promise<void>;
+  setBuildQueue(colonyId, queue): Promise<void>;
+
+  // Fleets
+  fleets: Fleet[];
+  fetchFleets(): Promise<void>;
+  moveFleet(fleetId, dest): Promise<void>;
+  colonize(fleetId): Promise<void>;
+
+  // Ship Designs
+  designs: ShipDesign[];
+  fetchDesigns(): Promise<void>;
+  createDesign(design): Promise<void>;
+
+  // Research
+  techState: TechState | null;
+  fetchResearch(): Promise<void>;
+  selectResearch(techId): Promise<void>;
+
+  // Diplomacy
+  relations: DiplomacyRelation[];
+  fetchDiplomacy(): Promise<void>;
+  propose/accept/reject/cancel/war...
+
+  // Leaders
+  leaders: Leader[];
+  availableLeaders: LeaderTemplate[];
+  fetchLeaders/hireLeader/assignLeader/unassignLeader...
+
+  // Tactical Combat
+  tacticalState: TacticalState | null;
+  startTactical/submitAction/autoTactical...
+
+  // Turn
+  events: GameEvent[];
+  aiActions: Record<string, unknown>[];
+  endTurn(): Promise<void>;  // auto-opens EventLogModal when events/aiActions exist
+}
+```
+
+### uiStore.ts — UI State
+```typescript
+interface UIState {
+  activeScreen: ScreenName;
+  setScreen(s: ScreenName): void;
+
+  selectedStarIndex: number | null;
+  selectStar(idx: number | null): void;
+
+  selectedColonyId: string | null;
+  selectColony(id: string | null): void;
+
+  sidebarOpen: boolean;
+  toggleSidebar(): void;
+
+  cheatInput: string;
+  setCheatInput(s: string): void;
+
+  notification: string | null;
+  showNotification(msg: string): void;
+  clearNotification(): void;
+
+  eventLogOpen: boolean;
+  openEventLog(): void;
+  closeEventLog(): void;
+}
+```
+
+---
+
+## KEYBOARD SHORTCUTS (Global, App.tsx)
+
+All shortcuts are handled by a global `keydown` event listener in App.tsx. Only active when `inGame` (not on main_menu/new_game). Disabled when an input/textarea/select has focus.
+
+| Key | Action |
+|-----|--------|
+| `T` | End turn (`endTurn()`) |
+| `G` | Galaxy map screen |
+| `C` | Colony screen |
+| `R` | Research screen |
+| `F` | Fleet screen |
+| `L` | Leaders screen |
+| `D` | Diplomacy screen |
+| `S` | Ship designer screen |
+| `I` | Inventory screen |
+| `+`/`=` | Zoom in (galaxy map) |
+| `-` | Zoom out (galaxy map) |
+| `0` | Reset zoom |
+| `Ctrl+Tab` / `` ` `` | Toggle cheat console |
+| `Y` | Confirm (turn_summary/council) |
+| `Escape` | Close modal / back to galaxy |
+
+---
+
+## GALAXY MAP — Canvas Rendering
+
+### galaxyRenderer.ts
 
 ```typescript
-// types/game.ts — Crear interfaces para:
-interface User { ... }
-interface Race { ... }
-interface Planet { ... }
-interface StarSystem { ... }
-interface Colony { ... }
-interface Building { ... }
-interface Technology { ... }
-interface Ship { ... }
-interface Fleet { ... }
-interface GameState { ... }
-interface PlayerState { ... }
-interface AIAction { ... }
-interface CombatResult { ... }
-interface CheatResponse { ... }
+renderGalaxy(
+  ctx: CanvasRenderingContext2D,
+  galaxy: Galaxy,
+  width: number,
+  height: number,
+  selectedStarIndex: number | null,
+  playerFleets: Fleet[],
+  playerId: string,
+  zoom: number,
+  panX: number,
+  panY: number
+): void
+```
+
+Renders in layers:
+1. Deep-space background (gradient)
+2. **Spiral galaxy texture** (procedural Milky Way: 4 arms, 900 particles/arm, warm core, nebulae, dust stars — 2048px offscreen canvas, cached)
+3. Stars (colored circles sized by type) — FOW: only explored stars shown
+4. Star names (below stars)
+5. Fleet indicators (ship icon next to owned stars)
+6. Selection ring (around selected star)
+7. Fleet range circle (dashed circle around selected fleet origin)
+
+### Zoom & Pan (GalaxyMap.tsx)
+- **Scroll wheel**: smooth zoom via `requestAnimationFrame` + lerp (factor 0.18), multiplicative (×0.9/×1.1) toward cursor position
+- **Range**: 0.3×–6×
+- **Shift+click drag** or **middle-click drag**: pan
+- **+/-/0 keys**: zoom in/out/reset
+- Zoom indicator overlay shows current percentage and control hints
+
+### Hit Testing
+```typescript
+hitTestStar(
+  galaxy: Galaxy, x: number, y: number, w: number, h: number,
+  zoom: number, panX: number, panY: number
+): number | null
 ```
 
 ---
 
-## ESTILO VISUAL
+## EVENT LOG MODAL (EventLogModal.tsx)
 
-- **Tema**: Sci-fi espacial, oscuro
-- **Colores base**: Negro (#0a0a1a), azul oscuro (#1a1a3e), cyan (#00d4ff), verde (#00ff88), rojo (#ff3366)
-- **Fuentes**: Monoespaciada para datos numéricos, sans-serif para texto general
-- **Elementos**: Bordes biselados estilo panel de nave, glow effects en iconos activos
-- **Fondo**: Estrellas animadas (partículas) o imagen estática de campo estelar
-- **Iconos**: Generados con IA o pixel art, etiquetados como generados por IA
+Shown automatically after `endTurn()` when events or AI actions exist. Blocks interaction until dismissed.
 
----
-
-## MÓDULO ESPECÍFICO DEL GRUPO
-
-Consultar SPECS.md § 6 para los requisitos del módulo asignado a tu grupo. El frontend debe implementar la interfaz correspondiente:
-
-| Grupo | Módulo | Frontend adicional |
-|-------|--------|--------------------|
-| 1 | Combate Táctico | Arena de combate 12×12, sprites, orden de turnos, acciones tácticas |
-| 2 | Espionaje | Panel de espías, asignación de misiones, informes |
-| 3 | Constructor Razas | Pantalla de creación con picks, preview, validación en tiempo real |
-| 4 | Diplomacia | Embajadores, tratados, votación del Consejo |
-| 5 | Diseño Naves | Designer drag-and-drop, componentes, preview de stats |
-| 6 | Galaxia Grande | Mapa escalable, minimapa, zoom, lazy loading |
+Features:
+- Player events with type-specific icons and color-coded borders
+- AI actions section showing what each AI player did
+- "Continue (Esc)" and "Full Summary" buttons
+- Dismissable with Escape key
 
 ---
 
-## REGLAS DE DESARROLLO
+## API CLIENT (api/client.ts)
 
-1. **Consulta SPECS.md** antes de implementar cualquier endpoint o componente
-2. **No inventes datos** — usa los modelos exactos de SPECS.md
-3. **Fog of War**: Nunca renderices información de sistemas no visibles para el jugador
-4. **Feedback visual**: Toda acción del usuario debe tener feedback inmediato (loading, success, error)
-5. **Reutiliza componentes**: Panel, Modal, Button, Tooltip deben ser componentes compartidos
-6. **Manejo de errores HTTP**: Capturar y mostrar errores al usuario de forma amigable
-7. **JWT**: Guardar en localStorage, enviar en headers, redirigir a login si 401
-8. **Ctrl+Tab cheats**: Debe funcionar desde el GalaxyMap, implementar listener de teclado
-9. **Recursos IA**: Todo recurso visual generado con IA va en `/assets/ai-generated/` con etiqueta
-10. **Atajos de teclado MOO2**: Implementar todos los atajos de SPECS.md § 4.3. Los atajos globales deben funcionar cuando GalaxyMap tiene foco, usando un `keydown` listener en el componente raíz del juego. Ignorar atajos si un `<input>` o `<textarea>` tiene foco.
+All backend calls go through `api/client.ts`. Functions organized by resource:
+
+```typescript
+// Auth
+login(username, password): Promise<{token}>
+register(username, password): Promise<{token}>
+
+// Game
+createGame(token, opts): Promise<GameData>
+getGame(token, gameId): Promise<GameData>
+listGames(token): Promise<GameSummary[]>
+deleteGame(token, gameId): Promise<void>
+endTurn(token, gameId): Promise<{turn, events, combat_results, ai_actions}>
+
+// Galaxy
+getGalaxy(token, gameId): Promise<Galaxy>
+getStarDetail(token, gameId, starIdx): Promise<StarDetail>
+
+// Colony, Fleet, Research, Diplomacy, Ship Design, Leaders, Espionage, Combat, Cheat...
+```
+
+Base URL: resolved at runtime from `window.location.origin` (nginx proxies `/api/` to backend).
 
 ---
 
-## CHECKLIST ANTES DE ENTREGAR
+## STYLING CONVENTIONS
 
-- [ ] Login/Register funcionales con feedback de errores
-- [ ] Dashboard con lista de partidas y creación de nueva
-- [ ] GalaxyMap renderiza estrellas, conexiones, fog of war
-- [ ] SystemView muestra planetas con info + colonización
-- [ ] ColonyView con gestión de población y cola de construcción
-- [ ] TechTree interactivo con estados visuales
-- [ ] FleetManager con movimiento de flotas
-- [ ] CombatResult con resumen visual
-- [ ] AITurnViewer con al menos 1 modo de visualización
-- [ ] EventLogPanel modal bloqueante al inicio de turno
-- [ ] CheatConsole funcional con Ctrl+Tab
-- [ ] Atajos de teclado MOO2 funcionales (T, C, F, P, R, G, +/-, F1/F2, F10, Alt+F, etc.)
-- [ ] Estética sci-fi coherente
-- [ ] Sin errores en consola del navegador
-- [ ] Módulo específico del grupo implementado
-- [ ] Dockerfile funcional
+- **No CSS files**: All styles are inline `style={{...}}` objects
+- **Color palette**: Dark space theme (#0a0a2e background, #1a1a3e panels, cyan/gold accents)
+- **Font**: monospace or system fonts
+- **Canvas**: Full-panel rendering, no DOM overlays except zoom indicator
+- **Responsive**: Not required (desktop-only game)
+
+---
+
+## KEY CONVENTIONS
+
+1. **State-based routing** — No React Router, no URL paths. `useUIStore.activeScreen` drives rendering
+2. **Two stores** — `gameStore` for game data + API calls, `uiStore` for UI state
+3. **Canvas for maps** — Galaxy and combat use Canvas 2D, not SVG or DOM
+4. **Token in store** — JWT stored in `gameStore.token`, passed to all API calls
+5. **Auto-refresh** — After `endTurn()`, `loadGame()` and `fetchGalaxy()` are called automatically
+6. **Event-driven modals** — `EventLogModal` auto-opens when turn events exist
+7. **Inline styles only** — No external CSS, no CSS modules, no Tailwind
+
+---
+
+## CHECKLIST
+
+- [x] Login/Register on MainMenu
+- [x] Game creation with race selection, AI config, galaxy settings
+- [x] Game list with card grid layout and delete
+- [x] Galaxy map with Canvas2D rendering
+- [x] Zoom (scroll/keys 0.5-4×) and pan (shift+drag)
+- [x] Star selection with sidebar details
+- [x] Colony management (population, buildings, build queue)
+- [x] Research screen (8 fields, tech selection)
+- [x] Fleet management (move, colonize, split)
+- [x] Ship designer (hull, weapons, specials)
+- [x] Diplomacy (relations, treaties, war)
+- [x] Leaders (hire, assign, unassign)
+- [x] Espionage (recruit, missions)
+- [x] Tactical combat (12×12 canvas grid)
+- [x] End turn with spinner overlay
+- [x] Event log modal (auto-show after turn)
+- [x] AI action visualization in event log
+- [x] Turn summary (events, victory/defeat)
+- [x] Galactic Council voting
+- [x] Keyboard shortcuts (15+ bindings)
+- [x] Cheat console (Ctrl+Tab)
+- [x] TopBar navigation
+- [x] Dark space theme
+- [x] Fleet List screen (F key, sortable table)
+- [x] Fleet split UI (select ships, create new fleet)
+- [x] Build queue reorder (▲/▼ buttons per item)
+- [x] Smooth zoom (requestAnimationFrame + lerp toward cursor, 0.3×–6×)
+- [x] Spiral galaxy background (procedural 4-arm Milky Way, 2048px cached texture)
+- [x] Planet max_pop display in SystemView (from backend enrichment)
+- [x] Colony List screen (C key, sortable table)

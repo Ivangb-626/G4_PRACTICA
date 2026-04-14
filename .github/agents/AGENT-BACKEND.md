@@ -1,70 +1,81 @@
-# AGENT-BACKEND.md — MasterDeHostias: Instrucciones para Copilot Agent (Backend Developer)
+# AGENT-BACKEND.md — MyMasterOfHostias: Backend Developer Instructions
 
 ---
 
-## ROL
+## ROLE
 
-Eres el agente de desarrollo **Backend** para el proyecto MasterDeHostias, un juego web de estrategia 4X espacial por turnos. Tu responsabilidad principal es implementar la API REST, la lógica del juego, la interacción con MongoDB, la mecánica de turnos, el sistema de combate, y la configuración de deployment con Docker.
-
----
-
-## TECNOLOGÍAS
-
-- **Framework**: Consulta la tabla de asignación en MasterDeHostias_practica.md § 4.1 para saber si usas Flask o FastAPI
-- **Lenguaje**: Python 3.11+
-- **Base de datos**: MongoDB (pymongo o motor para async)
-- **Auth**: JWT (PyJWT), bcrypt para hashing de passwords
-- **Contenedores**: Docker, Docker Compose
-- **Variables de entorno**: python-dotenv
-- **Validación**: pydantic (FastAPI nativo) o marshmallow/cerberus (Flask)
+You are the **Backend** developer agent for MyMasterOfHostias, a MOO2-faithful 4X space strategy game. You maintain the Flask REST API, game logic services, MongoDB interaction, turn processing, combat systems, and Docker deployment.
 
 ---
 
-## ARQUITECTURA BACKEND
+## TECH STACK
+
+- **Framework**: Flask 3.x + Gunicorn (4 workers)
+- **Language**: Python 3.11+
+- **Database**: MongoDB 7 (pymongo, synchronous)
+- **Auth**: JWT (PyJWT) + bcrypt password hashing
+- **Containers**: Docker + Docker Compose v3.9
+- **Config**: python-dotenv, env vars
+- **AI Communication**: `requests` to call FastAPI AI service at `http://mmoh-ai-service:8000`
+
+---
+
+## ACTUAL PROJECT STRUCTURE
 
 ```
 backend/
 ├── app/
-│   ├── __init__.py
-│   ├── main.py                # Entry point (FastAPI app o Flask app)
-│   ├── config.py              # Configuración y variables de entorno
-│   ├── models/                # Modelos de datos (pydantic/dataclass)
-│   │   ├── user.py
-│   │   ├── game.py
-│   │   ├── colony.py
-│   │   ├── fleet.py
-│   │   ├── technology.py
-│   │   └── combat.py
-│   ├── routes/                # Endpoints de la API
-│   │   ├── auth.py            # /api/auth/*
-│   │   ├── games.py           # /api/games/*
-│   │   ├── colony.py          # /api/games/{id}/colony/*
-│   │   ├── research.py        # /api/games/{id}/research
-│   │   ├── fleet.py           # /api/games/{id}/fleet/*
-│   │   ├── combat.py          # /api/games/{id}/combat/*
-│   │   └── cheat.py           # /api/games/{id}/cheat
-│   ├── services/              # Lógica de negocio
-│   │   ├── game_service.py    # Orquestación de turnos
-│   │   ├── colony_service.py  # Lógica de colonias
-│   │   ├── combat_service.py  # Resolución de combates
-│   │   ├── research_service.py # Lógica de investigación
-│   │   ├── fleet_service.py   # Movimiento de flotas
-│   │   ├── galaxy_service.py  # Generación de galaxias
-│   │   ├── economy_service.py # Cálculos económicos
-│   │   └── cheat_service.py   # Lógica de cheats
-│   ├── db/                    # Interacción con MongoDB
-│   │   ├── database.py        # Conexión a MongoDB
-│   │   ├── user_repo.py
-│   │   └── game_repo.py
-│   ├── auth/                  # Autenticación
-│   │   ├── jwt_handler.py     # Crear y verificar JWT tokens
-│   │   └── password.py        # Hash y verify con bcrypt
-│   ├── data/                  # Datos estáticos del juego
-│   │   ├── races.json         # Definición de las 3 razas asignadas al grupo
-│   │   ├── buildings.json     # Definición de edificios
-│   │   ├── technologies.json  # Árbol tecnológico completo
-│   │   └── ships.json         # Tipos de naves
-│   └── middleware/            # Middleware (CORS, auth, logging)
+│   ├── __init__.py              # Flask app factory, MongoDB setup, registers 12 blueprints
+│   ├── models/                  # MongoDB document models (create/find/update/delete)
+│   │   ├── user.py              # User: register, login, JWT auth
+│   │   ├── game.py              # Game: CRUD, player/AI state, turn counter
+│   │   ├── galaxy.py            # Galaxy: star generation, planets, wormholes, creatures
+│   │   ├── colony.py            # Colony: population, buildings, build queue
+│   │   ├── fleet.py             # Fleet: ships, transit state, ETA tracking
+│   │   ├── ship.py              # ShipDesign: hull, weapons, specials, computed stats
+│   │   ├── tech.py              # TechState: per-player research progress
+│   │   ├── combat.py            # CombatLog: battle records
+│   │   ├── diplomacy.py         # DiplomacyRelation: treaties, war state
+│   │   └── leader.py            # Leader: hired leaders with traits
+│   ├── routes/                  # API endpoints (12 Flask Blueprints)
+│   │   ├── auth.py              # /api/auth/register, /api/auth/login + @require_auth decorator
+│   │   ├── game.py              # /api/game/new, /<id>, /list, /<id>/end-turn, DELETE /<id>
+│   │   ├── galaxy.py            # /api/game/<id>/galaxy, /galaxy/star/<idx>
+│   │   ├── colony.py            # /api/game/<id>/colony (list, get, assign, build-queue)
+│   │   ├── fleet.py             # /api/game/<id>/fleet (list, move, range, split, colonize)
+│   │   ├── ship_design.py       # /api/game/<id>/ship-design (list, create)
+│   │   ├── research.py          # /api/game/<id>/research (get, select)
+│   │   ├── diplomacy.py         # /api/game/<id>/diplomacy (list, propose, accept, reject, cancel, war)
+│   │   ├── combat.py            # /api/game/<id>/combat (auto, tactical/start, action, auto, state, log)
+│   │   ├── espionage.py         # /api/game/<id>/espionage (list, recruit, mission)
+│   │   ├── leaders.py           # /api/game/<id>/leaders (list, available, hire, assign, unassign)
+│   │   └── cheat.py             # /api/game/<id>/cheat (apply, codes)
+│   ├── services/                # Business logic (15 service modules)
+│   │   ├── turn_engine.py       # Main turn orchestrator: economy→growth→builds→fleets→creatures→combat→Antarans→council→events→victory→AI
+│   │   ├── colony_service.py    # MOO2-accurate formulas (FP/PP/RP/BC), 8 government types, GOV_EFFECTS
+│   │   ├── research_service.py  # 148+ techs, 8 fields, breakthrough, miniaturization, future techs
+│   │   ├── fleet_service.py     # Movement, ETA, range, wormholes, merge at star
+│   │   ├── combat_service.py    # 5-round auto-resolve with shield/armor pipeline
+│   │   ├── tactical_combat.py   # 12×12 grid tactical combat
+│   │   ├── ground_combat.py     # 3-round ground invasion
+│   │   ├── diplomacy_service.py # Treaties, personality modifiers, relation scoring
+│   │   ├── espionage_service.py # 5 mission types, spy skill progression
+│   │   ├── antaran_service.py   # Escalating attacks (fleet composition table by turn)
+│   │   ├── creature_service.py  # 4 types (crystal/dragon/amoeba/guardian), placement, combat, rewards
+│   │   ├── council_service.py   # Pop-weighted voting every 25 turns, 2/3 threshold
+│   │   ├── event_service.py     # Random events with probability rolls
+│   │   ├── leader_service.py    # Hire/assign/unassign, upkeep costs
+│   │   └── __init__.py
+│   └── data/                    # Static game data (9 JSON files)
+│       ├── races.json           # 18 playable races with traits and bonuses
+│       ├── tech_tree.json       # 148 techs across 8 fields + 8 exotic
+│       ├── buildings.json       # 14 building types with costs and effects
+│       ├── weapons.json         # 9 weapon types
+│       ├── ship_hulls.json      # 6 combat hulls + colony_ship + transport
+│       ├── leaders.json         # Leader templates with traits
+│       ├── planet_types.json    # Planet habitability and attributes
+│       ├── random_events.json   # Random event definitions
+│       └── specials.json        # Ship special components
 ├── tests/
 ├── requirements.txt
 ├── Dockerfile
@@ -73,462 +84,184 @@ backend/
 
 ---
 
-## ENDPOINTS — RESUMEN
+## API ROUTES (40 endpoints across 12 blueprints)
 
-Consultar SPECS.md § 2 para detalles completos. Aquí el resumen:
+**IMPORTANT**: The URL prefix is `/api/game/` (singular), NOT `/api/games/` (plural).
 
-### Auth (`/api/auth/`)
-| Método | Ruta | Función |
-|--------|------|---------|
-| POST | `/api/auth/register` | Registrar usuario |
-| POST | `/api/auth/login` | Login, devolver JWT |
-| GET | `/api/auth/profile` | Perfil del usuario autenticado |
+### Auth (`/api/auth`)
+| Method | Route | Handler |
+|--------|-------|---------|
+| POST | `/api/auth/register` | Register new user |
+| POST | `/api/auth/login` | Login, returns JWT |
 
-### Games (`/api/games/`)
-| Método | Ruta | Función |
-|--------|------|---------|
-| GET | `/api/games` | Listar partidas del usuario |
-| POST | `/api/games` | Crear nueva partida |
-| GET | `/api/games/{gameId}` | Cargar partida |
-| POST | `/api/games/{gameId}/save` | Guardar partida |
-| DELETE | `/api/games/{gameId}` | Eliminar partida |
+### Game (`/api/game`)
+| Method | Route | Handler |
+|--------|-------|---------|
+| POST | `/api/game/new` | Create game (race, AI races, galaxy size, difficulty) |
+| GET | `/api/game/<id>` | Get game state |
+| GET | `/api/game/list` | List user's games |
+| DELETE | `/api/game/<id>` | Delete game (cascade) |
+| POST | `/api/game/<id>/end-turn` | Process full turn + AI |
 
-### Acciones en partida
-| Método | Ruta | Función |
-|--------|------|---------|
-| POST | `/api/games/{gameId}/colony/{colonyId}/manage` | Gestionar colonia |
-| POST | `/api/games/{gameId}/research` | Seleccionar investigación |
-| POST | `/api/games/{gameId}/fleet/{fleetId}/move` | Mover flota |
-| POST | `/api/games/{gameId}/colonize` | Colonizar planeta |
-| POST | `/api/games/{gameId}/endTurn` | Fin de turno + turno IA |
-| POST | `/api/games/{gameId}/cheat` | Aplicar cheat |
+### Galaxy (`/api/game/<id>/galaxy`)
+| Method | Route | Handler |
+|--------|-------|---------|
+| GET | `/galaxy` | Full galaxy (fog of war filtered) |
+| GET | `/galaxy/star/<idx>` | Single star details |
 
-### Consultas
-| Método | Ruta | Función |
-|--------|------|---------|
-| GET | `/api/games/{gameId}/galaxy` | Mapa galáctico (con fog of war) |
-| GET | `/api/games/{gameId}/tech-tree` | Árbol tecnológico |
-| GET | `/api/games/{gameId}/colony/{colonyId}` | Detalle de colonia |
-| GET | `/api/scenarios` | Escenarios disponibles |
+### Colony (`/api/game/<id>/colony`)
+| Method | Route | Handler |
+|--------|-------|---------|
+| GET | `/colony` | List player colonies |
+| GET | `/colony/<cid>` | Get colony detail |
+| POST | `/colony/<cid>/assign` | Set farmers/workers/scientists |
+| POST | `/colony/<cid>/build-queue` | Set build queue |
+
+### Fleet (`/api/game/<id>/fleet`)
+| Method | Route | Handler |
+|--------|-------|---------|
+| GET | `/fleet` | List player fleets |
+| POST | `/fleet/<fid>/move` | Move fleet to star |
+| GET | `/fleet/range` | Get fleet range |
+| POST | `/fleet/<fid>/split` | Split fleet (move ships to new fleet) |
+| POST | `/fleet/<fid>/colonize` | Colonize planet |
+
+### Ship Design (`/api/game/<id>/ship-design`)
+| Method | Route | Handler |
+|--------|-------|---------|
+| GET | `/ship-design` | List designs |
+| POST | `/ship-design` | Create new design |
+
+### Research (`/api/game/<id>/research`)
+| Method | Route | Handler |
+|--------|-------|---------|
+| GET | `/research` | Get tech state + available techs |
+| POST | `/research/select` | Select research |
+
+### Diplomacy (`/api/game/<id>/diplomacy`)
+| Method | Route | Handler |
+|--------|-------|---------|
+| GET | `/diplomacy` | List relations |
+| POST | `/diplomacy/propose` | Propose treaty |
+| POST | `/diplomacy/accept` | Accept treaty |
+| POST | `/diplomacy/reject` | Reject treaty |
+| POST | `/diplomacy/cancel` | Cancel treaty |
+| POST | `/diplomacy/war` | Declare war |
+
+### Combat (`/api/game/<id>/combat`)
+| Method | Route | Handler |
+|--------|-------|---------|
+| POST | `/combat/auto` | Auto-resolve combat |
+| POST | `/combat/tactical/start` | Start tactical session |
+| POST | `/combat/tactical/<sid>/action` | Submit tactical action |
+| POST | `/combat/tactical/<sid>/auto` | Auto-resolve tactical |
+| GET | `/combat/tactical/<sid>/state` | Get tactical state |
+| GET | `/combat/log` | Get combat logs |
+
+### Espionage (`/api/game/<id>/espionage`)
+| Method | Route | Handler |
+|--------|-------|---------|
+| GET | `/espionage` | List spies |
+| POST | `/espionage/recruit` | Recruit spy |
+| POST | `/espionage/mission` | Assign mission |
+
+### Leaders (`/api/game/<id>/leaders`)
+| Method | Route | Handler |
+|--------|-------|---------|
+| GET | `/leaders` | List hired leaders |
+| GET | `/leaders/available` | Available templates |
+| POST | `/leaders/hire` | Hire leader |
+| POST | `/leaders/<lid>/assign` | Assign to target |
+| POST | `/leaders/<lid>/unassign` | Unassign |
+
+### Cheat (`/api/game/<id>/cheat`)
+| Method | Route | Handler |
+|--------|-------|---------|
+| POST | `/cheat` | Apply cheat code |
+| GET | `/cheat/codes` | List available codes |
 
 ---
 
-## LÓGICA DEL JUEGO — QUÉ IMPLEMENTAR
+## TURN ENGINE FLOW (`turn_engine.py`)
 
-### 1. Generación de Galaxia (`galaxy_service.py`)
-
-```python
-def generate_galaxy(size: str, num_opponents: int, player_race_id: str) -> dict:
-    """
-    1. Generar N sistemas estelares con posiciones aleatorias (20-30 para small)
-    2. Asignar tipo de estrella (red, orange, yellow, white, blue)
-    3. Generar planetas por sistema (1-5, influenciados por tipo de estrella)
-    4. Conectar sistemas (cada sistema con 2-4 conexiones, grafo conexo)
-    5. Colocar sistema Orion con Guardián (planeta Gaia ultra-rich)
-    6. Asignar planetas natales: jugador y cada IA lo más lejos posible entre sí
-    7. Cada planeta natal es Terran, Large, Abundant, Normal gravity
-    8. Inicializar fog of war: solo sistema natal visible
-    """
 ```
-
-### 2. Gestión de Turnos (`game_service.py`)
-
-```python
-def end_turn(game_id: str) -> dict:
-    """
-    Secuencia de fin de turno del jugador:
-    1. Resolver combates pendientes (flotas enemigas en mismo sistema)
-    2. Procesar colas de construcción (aplicar producción a primer elemento)
-    3. Actualizar recursos (BC, comida, producción, investigación)
-    4. Crecimiento de población en colonias con excedente de comida
-    5. Pérdida de población en colonias con déficit de comida
-    6. Progreso de investigación (acumular puntos, completar si suficiente)
-    7. Mover flotas en tránsito (reducir ETA, resolver llegadas)
-    8. Actualizar fog of war
-    9. Verificar condiciones de victoria/derrota
-    9.5. Verificar ataque Antarano: si turn >= antaran_next_attack_turn,
-         generar flota según escalada (ver SPECS.md § 3.11), seleccionar colonia
-         aleatoria, auto-resolver combate, bombardear si no hay defensas,
-         otorgar recompensa si defensor gana, programar siguiente ataque.
-    10. Autoguardar
-    11. Ejecutar turno de IA (llamar al servicio de IA)
-    12. Resolver combates de la IA
-    13. Incrementar turno
-    14. Devolver estado actualizado + acciones de IA para visualización
-    """
-```
-
-> **Eventos**: Cada sub-fase (economía, combate, investigación, crecimiento, construcción, Antaranos) debe generar objetos de evento y agregarlos al array `events` de la respuesta. Ver SPECS.md § 2.3 para el enum de tipos de evento.
-```
-
-### 3. Economía de Colonia (`economy_service.py`)
-
-Implementar las fórmulas exactas de SPECS.md § 3.1-3.4:
-
-- **Comida**: food_per_farmer × farmers - total_pop (con modificadores de planeta y raza)
-- **Producción**: workers × 2 × minerals_mod + building_bonuses + race_bonuses
-- **Investigación**: scientists × 2 + building_bonuses + (total × race.research_bonus/100)
-- **BC**: building_bc + (trade_bonus × pop) - maintenance
-- **Crecimiento**: base_rate × race_mod × (1 - pop/max_pop)
-- **Moral**: gobierno + conquista + sobrepoblación + edificios
-
-### 4. Colonización (`colony_service.py`)
-
-```python
-def colonize_planet(game_state: dict, fleet_id: str, planet_index: int) -> dict:
-    """
-    1. Verificar flota contiene colony_ship
-    2. Verificar planeta no colonizado
-    3. Verificar planeta colonizable (habitable, o tech permite tóxico/estéril)
-    4. Consumir colony_ship de la flota
-    5. Crear colonia con 1 de población (1 farmer)
-    6. Retornar colonia nueva y flota actualizada
-    """
-```
-
-### 5. Investigación (`research_service.py`)
-
-```python
-def select_research(game_state: dict, field: str, level: int, tech_id: str) -> dict:
-    """
-    1. Verificar nivel anterior completado en este campo
-    2. Verificar tech_id es opción válida para este nivel/campo
-    3. Verificar tech no descartada previamente
-    4. Establecer como investigación actual
-    5. Si ya había investigación en curso en otro campo, el progreso se pierde
-    """
-
-def apply_research_progress(game_state: dict) -> dict:
-    """
-    1. Sumar total_empire_research a current_research.progress
-    2. Si progress >= total_cost:
-       - Marcar tech como researched
-       - Aplicar efectos (desbloquear edificios, componentes, etc.)
-       - Marcar otras opciones del mismo nivel como discarded
-       - Limpiar current_research
-    """
-```
-
-### 6. Movimiento de Flotas (`fleet_service.py`)
-
-```python
-def move_fleet(game_state: dict, fleet_id: str, destination: str) -> dict:
-    """
-    1. Verificar flota pertenece al jugador
-    2. Verificar destino es sistema conectado o alcanzable
-    3. Verificar flota no está ya en tránsito
-    4. Calcular ETA: ceil(distance / min_ship_speed)
-    5. Actualizar flota con destino y ETA
-    """
-
-def process_fleet_movements(game_state: dict) -> list:
-    """
-    Para cada flota en tránsito:
-    1. Reducir eta_turns en 1
-    2. Si eta_turns == 0:
-       - Mover flota al destino
-       - Revelar sistema en fog of war
-       - Si hay flota enemiga: marcar combate pendiente
-       - Limpiar destino y ETA
-    Retornar lista de eventos (llegada, combate, exploración)
-    """
-```
-
-### 7. Combate Automático (`combat_service.py`)
-
-Implementar exactamente las fórmulas de SPECS.md § 3.6:
-
-```python
-def resolve_combat(attacker_fleet: dict, defender_fleet: dict, 
-                   defender_orbital_defense: int = 0) -> dict:
-    """
-    1. Calcular fuerza de ataque y defensa
-    2. Simular 5 rondas de combate
-    3. Cada ronda: daño proporcional con factor aleatorio (0.8-1.2) - escudos
-    4. Eliminar naves empezando por las más débiles
-    5. Determinar ganador
-    6. Retornar resultado con bajas por bando
-    """
-
-def resolve_ground_combat(num_transports: int, race_bonus_attacker: int,
-                          colony: dict, race_bonus_defender: int) -> dict:
-    """
-    Implementar fórmula de SPECS.md § 3.7
-    """
-```
-
-### 8. Cheats (`cheat_service.py`)
-
-```python
-def apply_cheat(game_state: dict, cheat_code: str, target: dict = None) -> dict:
-    """
-    Implementar cada cheat código de SPECS.md § 2.3 (POST /cheat).
-    Registrar cheat aplicado en game_state.cheats_used.
-    Loguear en server para debug.
-    """
-```
-
-### 9. Fog of War
-
-```python
-def get_visible_systems(game_state: dict, player_id: str) -> list[str]:
-    """
-    Un sistema es visible si:
-    - El jugador tiene colonia en ese sistema
-    - El jugador tiene flota en ese sistema
-    - El sistema es adyacente a un sistema con colonia del jugador
-    - Scanner techs extienden el rango
-    Retornar lista de system_ids visibles.
-    """
-
-def filter_galaxy_for_player(galaxy: dict, visible_systems: list[str]) -> dict:
-    """
-    Para sistemas no visibles: ocultar planetas, flotas enemigas, colonias enemigas.
-    Solo incluir: id, name, position, connections, explored (si fue explorado alguna vez).
-    """
+end_turn(game_id) → dict {turn, events, combat_results, ai_actions}
+  │
+  ├─ For each player (player + alive AIs):
+  │   ├─ Process colonies: morale → food → pop growth → production → build queue → research → BC
+  │   ├─ Process empire research (breakthrough check)
+  │   ├─ Update empire BC
+  │   └─ Update diplomacy relations
+  │
+  ├─ Advance fleets (reduce ETA, handle arrivals)
+  ├─ Explore stars on arrival
+  ├─ Creature combat at arrival
+  ├─ Fleet-vs-fleet combat resolution
+  ├─ Antaran attack check (escalating by turn)
+  ├─ Council vote check (every 25 turns)
+  ├─ Random events
+  ├─ Victory/defeat check
+  ├─ AI turns (_execute_ai_turns → calls AI service)
+  └─ Increment turn
 ```
 
 ---
 
-## AUTENTICACIÓN
+## AI SERVICE INTEGRATION
 
-### JWT
-
-```python
-# auth/jwt_handler.py
-import jwt
-from datetime import datetime, timedelta
-
-SECRET_KEY = os.getenv("JWT_SECRET")
-ALGORITHM = "HS256"
-EXPIRATION_HOURS = 24
-
-def create_token(user_id: str) -> str:
-    payload = {
-        "sub": user_id,
-        "exp": datetime.utcnow() + timedelta(hours=EXPIRATION_HOURS),
-        "iat": datetime.utcnow()
-    }
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-
-def verify_token(token: str) -> dict:
-    return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-```
-
-### Password Hashing
+The backend calls the AI service (FastAPI, separate container) via HTTP:
 
 ```python
-# auth/password.py
-import bcrypt
-
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-
-def verify_password(password: str, password_hash: str) -> bool:
-    return bcrypt.checkpw(password.encode(), password_hash.encode())
+# In turn_engine.py → _execute_ai_turns()
+POST http://mmoh-ai-service:8000/ai/turn
+Body: {game_id, ai_player_id, personality, difficulty, state}
+Response: {actions: [...]}
 ```
 
-### Middleware de Autenticación
-
-Cada endpoint protegido debe:
-1. Extraer token del header `Authorization: Bearer <token>`
-2. Verificar token con `verify_token()`
-3. Extraer `user_id` del payload
-4. Inyectar user_id en el handler
+`_prepare_ai_state()` filters galaxy to only visible stars (fog of war).
+`_validate_and_execute_ai_action()` validates and executes each AI action.
 
 ---
 
-## INTEGRACIÓN CON SERVICIO DE IA
+## KEY CONVENTIONS
 
-El backend se comunica con el servicio de IA (contenedor separado) vía HTTP:
-
-```python
-async def get_ai_decisions(game_state: dict, ai_player_id: str) -> list[dict]:
-    """
-    1. Preparar estado visible para la IA (fog of war)
-    2. Llamar a servicio de IA: POST http://ai-service:8001/api/ai/turn
-    3. Recibir lista de acciones en JSON
-    4. Validar cada acción contra las reglas del juego
-    5. Descartar acciones inválidas
-    6. Ejecutar acciones válidas en orden
-    7. Registrar acciones para visualización en frontend
-    """
-```
-
-**Endpoint que llama al servicio de IA:**
-```
-POST http://ai-service:8001/api/ai/turn
-Body: {
-    "game_state": <estado visible>,
-    "ai_player": <datos del jugador IA>,
-    "personality": <personalidad>,
-    "difficulty": <dificultad>
-}
-Response: {
-    "actions": [...],
-    "reasoning": "...",
-    "analysis": "..."
-}
-```
+1. **All API paths use `/api/game/` (singular)** — not `/api/games/`
+2. **Auth**: `@require_auth` decorator sets `g.user_id` from JWT
+3. **ObjectId handling**: Always convert to `str()` before returning JSON
+4. **Fog of war**: `_prepare_ai_state()` and galaxy routes filter by `explored_by` list
+5. **MOO2-accurate formulas**: All in `colony_service.py` with GOV_EFFECTS dict for 8 government types
+6. **Tech tree**: 148+ regular techs + 8 exotic, field-dependent future tech costs
+7. **Events**: Every sub-phase appends typed event dicts to the `events` list
+8. **CORS**: Configured in `__init__.py` via flask-cors
+9. **Secrets**: JWT_SECRET, MONGO_URI from env vars — never hardcoded
 
 ---
 
-## MONGODB — COLECCIONES
+## CHECKLIST
 
-### users
-```python
-# Esquema
-{
-    "_id": ObjectId,
-    "username": str,        # unique index
-    "email": str,           # unique index
-    "password_hash": str,
-    "created_at": datetime,
-    "last_login": datetime,
-    "games_played": int,
-    "games_won": int
-}
-```
-
-### games
-```python
-# Esquema
-{
-    "_id": ObjectId,
-    "user_id": ObjectId,    # index
-    "name": str,
-    "scenario_id": str,
-    "created_at": datetime,
-    "last_saved": datetime,
-    "is_autosave": bool,
-    "game_state": dict      # GameState completo embebido
-}
-```
-
-### Índices recomendados:
-```python
-db.users.create_index("username", unique=True)
-db.users.create_index("email", unique=True)
-db.games.create_index("user_id")
-db.games.create_index([("user_id", 1), ("last_saved", -1)])
-```
-
----
-
-## DATOS ESTÁTICOS DEL JUEGO
-
-Crear JSONs de referencia en `app/data/`:
-
-### races.json
-Contiene las 3 razas asignadas al grupo con todos sus atributos (ver SPECS.md § 1.2 y MasterDeHostias_practica.md § 2 para la asignación grupo→razas).
-
-### buildings.json
-Contiene los 8 edificios core con costes, mantenimiento, efectos y prerequisitos (ver SPECS.md § 1.6).
-
-### technologies.json
-Contiene los 24+ tecnologías (8 campos × 3 niveles) con costes, opciones y desbloqueos (ver SPECS.md § 1.7).
-
-### ships.json
-Contiene los 6 tipos de nave con stats base (ver SPECS.md § 1.8).
-
----
-
-## MÓDULO ESPECÍFICO DEL GRUPO
-
-Consultar SPECS.md § 6 para los requisitos del módulo asignado. El backend debe implementar la lógica correspondiente:
-
-| Grupo | Módulo | Backend adicional |
-|-------|--------|-------------------|
-| 1 | Combate Táctico | Motor de combate por cuadrícula, pathfinding, cálculo de daño por tipo de arma |
-| 2 | Espionaje | Reclutamiento, misiones, probabilidades, efectos sobre estado del juego |
-| 3 | Constructor Razas | Validación de picks, aplicación de rasgos en toda la lógica |
-| 4 | Diplomacia | Tratados, relaciones numéricas, Consejo Galáctico, personalidades |
-| 5 | Diseño Naves | Validación de diseños, miniaturización, reequipamiento |
-| 6 | Galaxia Grande | Generación de galaxias grandes, multi-IA, optimización de queries |
-
----
-
-## DOCKER
-
-### Dockerfile del backend
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-# FastAPI:
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-
-# Flask:
-# CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:8000", "app.main:app"]
-```
-
-### requirements.txt (FastAPI)
-```
-fastapi>=0.104.0
-uvicorn>=0.24.0
-pymongo>=4.6.0
-motor>=3.3.0
-pydantic>=2.5.0
-PyJWT>=2.8.0
-bcrypt>=4.1.0
-python-dotenv>=1.0.0
-httpx>=0.25.0
-```
-
-### requirements.txt (Flask)
-```
-flask>=3.0.0
-gunicorn>=21.2.0
-pymongo>=4.6.0
-marshmallow>=3.20.0
-flask-cors>=4.0.0
-PyJWT>=2.8.0
-bcrypt>=4.1.0
-python-dotenv>=1.0.0
-requests>=2.31.0
-```
-
----
-
-## REGLAS DE DESARROLLO
-
-1. **Consulta SPECS.md** antes de implementar cualquier endpoint o lógica
-2. **Validación de input** en TODOS los endpoints (tipos, rangos, pertenencia del recurso)
-3. **Autorización**: Verificar que el recurso pertenece al usuario autenticado
-4. **Fog of War**: NUNCA exponer información que el jugador no debería ver
-5. **Fórmulas exactas**: Usar las fórmulas de SPECS.md § 3 para cálculos de juego
-6. **Error handling**: Devolver códigos HTTP apropiados (400, 401, 403, 404, 500)
-7. **Logging**: Loguear acciones de la IA y cheats para debug
-8. **Secretos**: NUNCA hardcodear tokens o passwords — usar variables de entorno
-9. **Transacciones**: Las operaciones de fin de turno deben ser atómicas (si falla algo, rollback)
-10. **CORS**: Configurar para permitir requests del frontend
-
----
-
-## CHECKLIST ANTES DE ENTREGAR
-
-- [ ] Registro/Login con JWT funcional
-- [ ] CRUD de partidas (crear, cargar, guardar, eliminar)
-- [ ] Generación de galaxia con estrellas, planetas y conexiones
-- [ ] Gestión de colonias (población, construcción)
-- [ ] Investigación tecnológica con progreso y desbloqueos
-- [ ] Movimiento de flotas entre sistemas
-- [ ] Colonización de planetas
-- [ ] Combate automático con bajas
-- [ ] Invasión terrestre
-- [ ] Turno de IA integrado (llamada al servicio de IA)
-- [ ] Fog of war funcional
-- [ ] Sistema de cheats completo
-- [ ] Condiciones de victoria/derrota
-- [ ] Autoguardado al final de cada turno
-- [ ] Todos los endpoints devuelven errores apropiados
-- [ ] Módulo específico del grupo implementado
-- [ ] Dockerfile funcional
-- [ ] Docker Compose con los 4 contenedores
-- [ ] CORS configurado para el frontend
+- [x] Register/Login with JWT
+- [x] Game CRUD (create, load, list, delete)
+- [x] Galaxy generation with stars, planets, wormholes, creatures
+- [x] Colony management (population, buildings, build queue)
+- [x] Research with 148+ techs, breakthrough, miniaturization
+- [x] Fleet movement with ETA tracking
+- [x] Colonization (colony ship consumed)
+- [x] Auto-combat (5-round with shields/armor)
+- [x] Tactical combat (12×12 grid)
+- [x] Ground invasion (3-round)
+- [x] AI turn via AI service (fog of war, validate actions)
+- [x] Fog of war (explored_by tracking)
+- [x] Cheat system (13 codes: 11 original + RUSHBUY + CRUNCH)
+- [x] Antaran attacks (escalating)
+- [x] Space creatures (4 types + rewards)
+- [x] Galactic Council (pop-weighted voting)
+- [x] Diplomacy (treaties, war, personality)
+- [x] Espionage (5 mission types)
+- [x] Leaders (hire, assign, upkeep)
+- [x] Ship designer (6 hulls)
+- [x] Victory/defeat detection
+- [x] Docker deployment (4 containers)
+- [x] CORS configured
+- [x] Fleet split endpoint (POST /fleet/{id}/split)
+- [x] Planet max_pop enrichment in galaxy route (derived from size)
+- [x] Ships auto-assigned to fleet on build completion

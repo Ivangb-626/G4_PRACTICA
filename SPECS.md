@@ -282,48 +282,137 @@ Cada grupo implementa exactamente las 3 razas asignadas en `MasterDeHostias_prac
 ```json
 {
   "id": "string",
-  "field": "string",
-  "level": "number (1-3+)",
+  "field": "string (construction|power|chemistry|sociology|computers|biology|physics|force_fields)",
+  "level": "number (1-11, varies by field)",
+  "level_name": "string (MOO2 level name)",
   "name": "string",
   "description": "string",
-  "research_cost": "number",
-  "alternative_group": "number (technologies in same group are mutually exclusive)",
+  "research_cost": "number (50–15000 RP)",
+  "alternative_group": "number (technologies in same field+level are mutually exclusive)",
   "unlocks": {
     "buildings": ["string"],
     "ship_components": ["string"],
-    "abilities": ["string"]
+    "abilities": ["string"],
+    "empire_bonus": "string (optional: gov_upgrade, etc.)"
   }
 }
 ```
 
-**Árbol Tecnológico Simplificado (Core — mínimo 3 niveles × 8 campos = 24 techs):**
+**Árbol Tecnológico Completo MOO2 (8 campos × 7-11 niveles ≈ 200 techs):**
 
-| field | level | options (choose 1) | research_cost |
-|-------|-------|-------------------|---------------|
-| construction | 1 | automated_factory, reinforced_hull | 50 |
-| construction | 2 | star_base, pollution_processor | 150 |
-| construction | 3 | robotic_factory, advanced_city_planning | 400 |
-| power | 1 | nuclear_engine, nuclear_bomb | 50 |
-| power | 2 | fusion_engine, augmented_engine | 150 |
-| power | 3 | ion_engine, high_energy_focus | 400 |
-| chemistry | 1 | nuclear_missile, titanium_armor | 50 |
-| chemistry | 2 | merculite_missile, zortrium_armor | 150 |
-| chemistry | 3 | pulson_missile, adamantium_armor | 400 |
-| sociology | 1 | trade_center, morale_boost | 50 |
-| sociology | 2 | planetary_supercomputer, advanced_government | 150 |
-| sociology | 3 | galactic_unification, telepathic_training | 400 |
-| computers | 1 | electronic_computer, scanner | 50 |
-| computers | 2 | positronic_computer, deep_scanner | 150 |
-| computers | 3 | cybertronic_computer, battle_scanner | 400 |
-| biology | 1 | hydroponic_farm, biosphere | 50 |
-| biology | 2 | soil_enrichment, cloning_center | 150 |
-| biology | 3 | terraforming, evolutionary_mutation | 400 |
-| physics | 1 | laser_cannon, laser_rifle | 50 |
-| physics | 2 | fusion_beam, ion_cannon | 150 |
-| physics | 3 | phasor, plasma_cannon | 400 |
-| force_fields | 1 | class_i_shield, mass_driver | 50 |
-| force_fields | 2 | class_iii_shield, personal_shield | 150 |
-| force_fields | 3 | class_v_shield, planetary_barrier | 400 |
+##### Construction / Engineering (11 niveles)
+
+| Lvl | Nivel MOO2 | RP | Techs (choose 1, Creative gets all) |
+|-----|-----------|-----|--------------------------------------|
+| 1 | Engineering | 80 | Colony Base, Star Base |
+| 2 | Advanced Engineering | 150 | Automated Factory, Missile Base |
+| 3 | Advanced Construction | 250 | Pollution Processor, Reinforced Hull |
+| 4 | Capsule Construction | 400 | Battle Pods, Troop Pods, Survival Pods |
+| 5 | Astro Engineering | 650 | Spaceport, Fighter Bays |
+| 6 | Robotics | 900 | Robotic Factory, Ground Batteries |
+| 7 | Servo Mechanics | 1150 | Fast Missile Racks, Armor Barracks |
+| 8 | Astro Construction | 1500 | Titan Construction, Hercular Construction |
+| 9 | Advanced Manufacturing | 2000 | Recyclotron, Automated Repair Unit |
+| 10 | Super Construction | 3500 | Star Fortress, Advanced Damage Control |
+| 11 | Hyper-Advanced Engineering | 7500+ | Future Tech (repeatable, miniaturization) |
+
+##### Power (8 niveles)
+
+| Lvl | Nivel MOO2 | RP | Techs |
+|-----|-----------|-----|-------|
+| 1 | Nuclear Fission | 50 | Nuclear Drive, Nuclear Bomb |
+| 2 | Cold Fusion | 80 | Colony Ship, Freighters, Outpost Ship |
+| 3 | Advanced Fusion | 250 | Fusion Drive, Fusion Bomb, Augmented Engines |
+| 4 | Ion Fission | 900 | Ion Drive, Ion Pulse Cannon |
+| 5 | Anti-Matter Fission | 2000 | Anti-Matter Drive, Anti-Matter Bomb, Anti-Matter Torpedoes |
+| 6 | Matter-Energy Conversion | 2750 | High Energy Focus, Energy Absorber |
+| 7 | Hyper-Dimensional Fission | 3500 | Hyper Drive, Proton Torpedoes |
+| 8 | Interphased Fission | 4500 | Interphased Drive, Plasma Torpedoes |
+| 9 | Hyper-Advanced Power | 10000+ | Future Tech (repeatable) |
+
+##### Chemistry (7 niveles)
+
+| Lvl | Nivel MOO2 | RP | Techs |
+|-----|-----------|-----|-------|
+| 1 | Chemistry | 50 | Nuclear Missile, Standard Fuel Cells |
+| 2 | Advanced Metallurgy | 250 | Tritanium Armor, Merculite Missile |
+| 3 | Advanced Chemistry | 650 | Pollution Processor, Atmospheric Renewer |
+| 4 | Molecular Compression | 1150 | Deuterium Fuel Cells, Zortrium Armor |
+| 5 | Nano Technology | 2000 | Nano Disassemblers, Microlite Construction |
+| 6 | Molecular Manipulation | 4500 | Pulson Missile, Adamantium Armor |
+| 7 | Hyper-Advanced Chemistry | 10000+ | Future Tech (repeatable) |
+
+##### Sociology (7 niveles)
+
+| Lvl | Nivel MOO2 | RP | Techs |
+|-----|-----------|-----|-------|
+| 1 | Military Tactics | 150 | Space Academy |
+| 2 | Xeno Relations | 650 | Xeno Psychology, Alien Management Center |
+| 3 | Macro Economics | 1150 | Planetary Stock Exchange |
+| 4 | Teaching Methods | 2000 | Astro University |
+| 5 | Advanced Government | 4500 | Confederation, Imperium, Federation, Galactic Unification (según gobierno actual) |
+| 6 | Galactic Economics | 6000 | Galactic Currency Exchange |
+| 7 | Hyper-Advanced Sociology | 9000+ | Future Tech (repeatable) |
+
+> **Nota:** Sociology es especial — la mayoría de niveles tienen 1 sola tech (no electiva). El nivel 5 (Advanced Government) desbloquea la mejora de gobierno actual.
+
+##### Computers (8 niveles)
+
+| Lvl | Nivel MOO2 | RP | Techs |
+|-----|-----------|-----|-------|
+| 1 | Electronics | 50 | Electronic Computer, Scanner |
+| 2 | Optronics | 150 | Optronic Computer, Dauntless Guidance System, Scout Lab |
+| 3 | Artificial Intelligence | 400 | Positronic Computer, Neural Scanner, Holo Simulator |
+| 4 | Positronics | 900 | Emissions Guidance System, Rangemaster Unit, Cyber Security Link |
+| 5 | Cybertronics | 1500 | Cybertronic Computer, Battle Scanner, Virtual Reality Network |
+| 6 | Cybertechnics | 2750 | Android Workers, Android Farmers, Android Scientists |
+| 7 | Galactic Networking | 3500 | Galactic Cybernet |
+| 8 | Moleculartronics | 4500 | Moleculartronic Computer, Achilles Targeting Unit |
+| 9 | Hyper-Advanced Computers | 6000+ | Future Tech (repeatable) |
+
+##### Biology (8 niveles)
+
+| Lvl | Nivel MOO2 | RP | Techs |
+|-----|-----------|-----|-------|
+| 1 | Astro Biology | 80 | Hydroponic Farm, Biospheres |
+| 2 | Advanced Biology | 400 | Soil Enrichment, Cloning Center |
+| 3 | Genetic Engineering | 900 | Death Spores, Bio Terminator |
+| 4 | Genetic Mutations | 1150 | Telepathic Training, Microbiotics |
+| 5 | Macro Genetics | 1500 | Terraforming, Subterranean Farms |
+| 6 | Evolutionary Genetics | 2750 | Evolutionary Mutation, Gaia Transformation |
+| 7 | Artificial Life | 4500 | Bio Armor, Universal Antidote |
+| 8 | Hyper-Advanced Biology | 7500+ | Future Tech (repeatable) |
+
+##### Physics (10 niveles)
+
+| Lvl | Nivel MOO2 | RP | Techs |
+|-----|-----------|-----|-------|
+| 1 | Physics | 50 | Laser Cannon, Laser Rifle, Space Scanner |
+| 2 | Fusion Physics | 150 | Fusion Beam, Fusion Rifle |
+| 3 | Tachyon Physics | 250 | Tachyon Communications, Tachyon Scanner |
+| 4 | Neutrino Physics | 900 | Neutron Blaster, Neutron Scanner |
+| 5 | Artificial Gravity | 1150 | Tractor Beam, Graviton Beam, Planetary Gravity Generator |
+| 6 | Subspace Physics | 1500 | Subspace Communications |
+| 7 | Multi-Phased Physics | 2000 | Phasor, Phasor Rifle, Multi-Phased Shields |
+| 8 | Plasma Physics | 3500 | Plasma Cannon, Plasma Rifle, Plasma Web |
+| 9 | Multi-Dimensional Physics | 4500 | Disruptor Cannon, Dimensional Portal |
+| 10 | Temporal Physics | 6000 | Stellar Converter, Star Gate, Time Warp Facilitator |
+| 11 | Hyper-Advanced Physics | 15000+ | Future Tech (repeatable) |
+
+##### Force Fields (9 niveles)
+
+| Lvl | Nivel MOO2 | RP | Techs |
+|-----|-----------|-----|-------|
+| 1 | Advanced Magnetism | 250 | Class I Shield, Mass Driver |
+| 2 | Gravimetrics | 650 | Anti-Missile Rockets, Gyro Destabilizer |
+| 3 | Magneto Gravitics | 900 | Class III Shield, Planetary Radiation Shield, Warp Field Interdictor |
+| 4 | Electromagnetic Refraction | 1500 | Stealth Field, Personal Shield, Stealth Suit |
+| 5 | Warp Fields | 2000 | Class V Shield, Multi-Wave ECM Jammer, Gauss Cannon |
+| 6 | Subspace Fields | 2750 | Class VII Shield, Planetary Flux Shield, Wide Area Jammer |
+| 7 | Distortion Fields | 3500 | Cloaking Device, Stasis Field |
+| 8 | Quantum Fields | 4500 | Class X Shield, Planetary Barrier, Phasing Cloak |
+| 9 | Transwarp Fields | 7500 | Displacement Device, Subspace Teleporter |
+| 10 | Hyper-Advanced Force Fields | 15000+ | Future Tech (repeatable) |
 
 ---
 
@@ -464,6 +553,26 @@ Para `AIPlayerState`, agregar:
   }
 }
 ```
+
+### 1.13. Leader
+
+```json
+{
+  "id": "string",
+  "type": "string (colony | fleet)",
+  "name": "string",
+  "skill": "string (production | research | food | morale | attack | speed | defense)",
+  "bonus": "number",
+  "hire_cost": "number (BC)",
+  "upkeep": "number (BC/turno)"
+}
+```
+
+**Líderes de colonia** (4): Ingeniero (+5 producción), Científico (+5 investigación), Agrónomo (+3 comida), Gobernador (+2 moral).
+
+**Líderes de flota** (3): Capitán (+15 ataque), Navegante (+1 velocidad), Táctico (+15 defensa).
+
+Se contratan pagando `hire_cost` BC y consumen `upkeep` BC por turno de mantenimiento. Un líder puede asignarse a una colonia o flota específica.
 
 ---
 
@@ -631,7 +740,7 @@ Crea una nueva partida.
 
 ---
 
-#### GET /api/games/{gameId}
+#### GET /api/game/{gameId}
 Carga una partida guardada.
 
 **Headers:** `Authorization: Bearer <JWT>`
@@ -661,7 +770,7 @@ Carga una partida guardada.
 
 ---
 
-#### POST /api/games/{gameId}/save
+#### POST /api/game/{gameId}/save
 Guarda manualmente la partida actual.
 
 **Headers:** `Authorization: Bearer <JWT>`
@@ -683,7 +792,7 @@ Guarda manualmente la partida actual.
 
 ---
 
-#### DELETE /api/games/{gameId}
+#### DELETE /api/game/{gameId}
 Elimina una partida guardada.
 
 **Headers:** `Authorization: Bearer <JWT>`
@@ -699,7 +808,7 @@ Elimina una partida guardada.
 
 Todos los endpoints de esta sección requieren `Authorization: Bearer <JWT>` y validan que la partida pertenece al usuario.
 
-#### POST /api/games/{gameId}/colony/{colonyId}/manage
+#### POST /api/game/{gameId}/colony/{colonyId}/manage
 Gestiona una colonia (asignar población, modificar cola de construcción).
 
 **Request Body:**
@@ -739,7 +848,7 @@ Gestiona una colonia (asignar población, modificar cola de construcción).
 
 ---
 
-#### POST /api/games/{gameId}/research
+#### POST /api/game/{gameId}/research
 Selecciona qué tecnología investigar.
 
 **Request Body:**
@@ -776,7 +885,7 @@ Selecciona qué tecnología investigar.
 
 ---
 
-#### POST /api/games/{gameId}/fleet/{fleetId}/move
+#### POST /api/game/{gameId}/fleet/{fleetId}/move
 Mueve una flota a otro sistema.
 
 **Request Body:**
@@ -807,7 +916,38 @@ Mueve una flota a otro sistema.
 
 ---
 
-#### POST /api/games/{gameId}/colonize
+#### POST /api/game/{gameId}/fleet/{fleetId}/split
+Divide una flota en dos, moviendo las naves indicadas a una nueva flota.
+
+**Request Body:**
+```json
+{
+  "ships": [{"design_id": "string", "count": "number"}]
+}
+```
+
+**Response 200:**
+```json
+{
+  "original": "Fleet (updated, remaining ships)",
+  "new_fleet": "Fleet (newly created with split ships)"
+}
+```
+
+**Response 400:**
+```json
+{"error": "Cannot split — not enough ships | Fleet in transit"}
+```
+
+**Criterios de aceptación:**
+- [ ] Solo permite split si la flota tiene suficientes naves del tipo indicado
+- [ ] No permite split de flotas en tránsito
+- [ ] La nueva flota hereda la posición (star_index) de la original
+- [ ] Ambas flotas mantienen ships consistentes tras el split
+
+---
+
+#### POST /api/game/{gameId}/colonize
 Envía nave colonizadora a colonizar un planeta.
 
 **Request Body:**
@@ -840,7 +980,7 @@ Envía nave colonizadora a colonizar un planeta.
 
 ---
 
-#### POST /api/games/{gameId}/endTurn
+#### POST /api/game/{gameId}/endTurn
 Finaliza el turno del jugador y ejecuta el turno de la IA.
 
 **Request Body:**
@@ -881,17 +1021,17 @@ Finaliza el turno del jugador y ejecuta el turno de la IA.
 ```
 
 **Criterios de aceptación:**
-- [ ] Procesa fin de turno del jugador: recursos, crecimiento, investigación, producción, combates
-- [ ] Ejecuta turno de la IA (llamada a LLM)
-- [ ] Devuelve lista de acciones de IA para visualización (solo las visibles al jugador)
-- [ ] Incluye eventos generados (combates, investigaciones completadas, etc.)
-- [ ] Autoguarda la partida
-- [ ] Detecta condiciones de victoria/derrota
-- [ ] Incrementa contador de turno
+- [x] Procesa fin de turno del jugador: recursos, crecimiento, investigación, producción, combates
+- [x] Ejecuta turno de la IA (llamada a LLM)
+- [x] Devuelve lista de acciones de IA para visualización (solo las visibles al jugador)
+- [x] Incluye eventos generados (combates, investigaciones completadas, etc.)
+- [x] Autoguarda la partida
+- [x] Detecta condiciones de victoria/derrota
+- [x] Incrementa contador de turno
 
 ---
 
-#### POST /api/games/{gameId}/cheat
+#### POST /api/game/{gameId}/cheat
 Aplica un código de cheat.
 
 **Request Body:**
@@ -934,6 +1074,8 @@ Aplica un código de cheat.
 | `naves_gratis` | No | Coste 0 para naves este turno |
 | `guardian_eliminado` | No | Elimina Guardián de Orion |
 | `antaranos_desactivados` | No | Desactiva ataques de los Antaranos |
+| `RUSHBUY` | No | Completa inmediatamente el primer elemento de la cola de construcción de todas las colonias del jugador |
+| `CRUNCH` | No | Completa inmediatamente TODA la cola de construcción de todas las colonias del jugador |
 
 **Criterios de aceptación:**
 - [ ] Cada cheat produce el efecto descrito
@@ -945,7 +1087,7 @@ Aplica un código de cheat.
 
 ### 2.4. Consultas de Estado
 
-#### GET /api/games/{gameId}/galaxy
+#### GET /api/game/{gameId}/galaxy
 Devuelve el estado actual de la galaxia (respetando fog of war).
 
 **Response 200:**
@@ -970,7 +1112,7 @@ Devuelve el estado actual de la galaxia (respetando fog of war).
 
 ---
 
-#### GET /api/games/{gameId}/tech-tree
+#### GET /api/game/{gameId}/tech-tree
 Devuelve el árbol tecnológico con estado de investigación actual.
 
 **Response 200:**
@@ -1002,7 +1144,7 @@ Devuelve el árbol tecnológico con estado de investigación actual.
 
 ---
 
-#### GET /api/games/{gameId}/colony/{colonyId}
+#### GET /api/game/{gameId}/colony/{colonyId}
 Devuelve detalle completo de una colonia.
 
 **Response 200:**
@@ -1043,61 +1185,156 @@ Lista escenarios disponibles.
 
 ## 3. REGLAS DEL JUEGO
 
-### 3.1. Economía de Colonia
+### 3.1. Economía de Colonia (MOO2 Wiki-accurate)
 
-#### Producción de Comida
+La producción en cada colonia sigue la fórmula general:
 ```
-food_per_farmer = 1 + planet.food_modifier + race.food_bonus + tech_bonuses
-food_produced = farmers × food_per_farmer
-food_consumed = total_population × 1
-food_surplus = food_produced - food_consumed
+P = P_const + ROUND(P_base + P_bonus)
+```
+Donde:
+- `P_const` = bonuses fijos de edificios (ej. Hydroponic Farm +2 FP, Auto Factory +5 PP)
+- `P_base` = colonists × (planet_coeff + race_coeff + tech_coeff + buildings_coeff)
+- `P_bonus` = P_total ajustado por gobierno, moral, gravedad, líder, etc.
+
+#### Producción de Comida (FP)
+```
+FP_const = sum(building.flat_food_bonus)   // Hydroponic Farm +2, etc.
+FP_base = farmers × (planet.food_modifier + race.food_bonus + tech_food_bonus)
+FP_gov = FP_base × gov.food_multiplier    // Unification +50%, Galactic Unification +100%
+FP_total = FP_const + ROUND(FP_base + FP_gov)
+
+food_consumed = total_population × 1      // Lithovores consume 0
+food_surplus = FP_total - food_consumed
 ```
 - Si `food_surplus < 0`: la colonia pierde 1 de población por turno
-- Si `food_surplus > 0`: la colonia gana población según tasa de crecimiento
+- Si `food_surplus > 0`: la colonia gana población según § 3.2
 
-#### Producción Industrial
+#### Producción Industrial (PP)
 ```
-base_production = workers × 2
-mineral_modifier = planet.minerals_modifier  // 0.33 to 2.0
-building_bonuses = sum(building.production_bonus)
-race_bonus = race.industry_bonus × workers
-production_output = (base_production + building_bonuses + race_bonus) × mineral_modifier
-```
+PP_const = sum(building.flat_prod_bonus)   // Auto Factory +5, Robo Miners +10, etc.
+PP_base = workers × (2 + race.industry_bonus + tech_prod_bonus)
+PP_mineral = PP_base × planet.minerals_modifier   // Ultra Poor ×0.33, Ultra Rich ×2.0
+PP_gov = PP_mineral × gov.prod_multiplier         // Unification +50%, Galactic Unif +100%
+PP_morale = PP_gov × morale_modifier              // jubilant +20%, revolt -50%
+PP_gravity = PP_morale × gravity_penalty           // 1.0 normal, 0.75 heavy (wrong gravity)
+PP_total = PP_const + ROUND(PP_gravity)
 
-#### Producción Científica
-```
-base_research = scientists × 2
-building_bonuses = sum(building.research_bonus)
-race_bonus = total_research × (race.research_bonus / 100)
-research_output = base_research + building_bonuses + race_bonus
+// Pollution reduces effective PP:
+pollution = ROUNDUP((PP_base + PP_gov) / pollution_divisor × tolerance - planet_size) / 2)
+PP_effective = PP_total - pollution
 ```
 
-#### Recaudación de BC
+#### Producción Científica (RP)
 ```
-colony_bc = building_bc_bonuses + (race.trade_bonus × total_population)
-total_bc = sum(all_colonies.colony_bc) - sum(all_maintenance)
+RP_const = sum(building.flat_research_bonus)  // Research Lab +5, Supercomputer +10, etc.
+RP_base = scientists × (2 + race.research_bonus + tech_research_bonus)
+RP_gov = RP_base × gov.research_multiplier    // Democracy +50%, Federation +75%, Feudal -50%, Confederation -25%
+RP_morale = (RP_base + RP_gov) × morale_modifier
+RP_total = RP_const + ROUND(RP_morale)
 ```
 
-### 3.2. Crecimiento de Población
+#### Recaudación de BC (créditos)
+```
+BC_const = sum(building.flat_bc_bonus)        // Marketplace, Stock Exchange, etc.
+BC_population = total_population × base_tax    // base tax ~1 BC/pop
+BC_gov = BC_population × gov.income_multiplier // Democracy +50%, Federation +75%
+BC_trade = race.trade_bonus × total_population
+BC_total = BC_const + BC_population + BC_gov + BC_trade - maintenance
+
+maintenance = sum(building.maintenance_cost) + fleet_maintenance
+```
+
+#### Tabla de Modificadores de Planeta
+
+| Propiedad | Modificadores |
+|-----------|--------------|
+| Minerales | Ultra Poor ×0.33, Poor ×0.5, Abundant ×1.0, Rich ×1.5, Ultra Rich ×2.0 |
+| Comida | Toxic -1, Radiated -1, Barren 0, Desert 0, Tundra 0, Ocean +1, Swamp +1, Arid 0, Terran +1, Gaia +2 |
+| Gravedad | Low Gravity ×0.75 (wrong gravity races), Normal ×1.0, Heavy Gravity ×0.75 (wrong gravity races) |
+| Tamaño → Max Pop | Tiny: 1-3, Small: 3-5, Medium: 5-8, Large: 8-12, Huge: 12-17 |
+
+#### Tabla de Costes de Compra Inmediata
+
+| % completado | Coste multiplicador |
+|-------------|---------------------|
+| 0% | 4× coste restante |
+| 1-25% | 3× coste restante |
+| 25-50% | 2× coste restante |
+| 50%+ | 2× coste restante |
+
+### 3.2. Crecimiento de Población (MOO2 Wiki-accurate)
 
 ```
-base_growth_rate = 0.5 per turn (if food_surplus > 0)
+// Fórmula MOO2 real:
+growth = ROUNDDOWN(SQRT(2000 × colonists × free_space / capacity))
+// donde:
+//   colonists = current_population (en millones)
+//   free_space = max_pop - current_population
+//   capacity = max_pop
+
+// Modificadores:
 race_modifier = 1 + (race.population_growth_bonus / 100)
-max_pop = planet.max_pop_base + tech_bonuses
-growth = base_growth_rate × race_modifier × (1 - current_pop / max_pop)
-new_population = min(current_pop + growth, max_pop)
+cloning_center_bonus = +100K/turn if cloning_center built
+growth_final = growth × race_modifier + cloning_center_bonus
+
+new_population = min(current_pop + growth_final, max_pop)
 ```
 
-### 3.3. Investigación
+- Crecimiento = 0 si `food_surplus < 0` o `morale == revolt`
+- Máximo crecimiento cuando población está al ~50% de capacidad (curva parabólica)
+
+### 3.3. Investigación (MOO2 Wiki-accurate)
 
 ```
 total_empire_research = sum(all_colonies.research_output)
 research_progress += total_empire_research
+
+// Mecánica de breakthrough (MOO2):
 if research_progress >= tech.research_cost:
+    // Guaranteed completion at 1× cost
     tech is completed
-    unlock tech effects
-    prompt for next research selection
+elif research_progress >= tech.research_cost × 0.5:
+    // After 50% of cost: breakthrough chance each turn
+    // Chance increases linearly, guaranteed at 2× cost
+    breakthrough_chance = (research_progress - cost) / cost
+    if random() < breakthrough_chance:
+        tech is completed
+
+// On completion:
+unlock tech effects
+discard alternatives (same field+level, other group)
+prompt for next research selection
 ```
+
+**Rasgos de raza que afectan investigación:**
+- **Creative**: obtiene TODAS las techs de cada nivel (no elige, no descarta)
+- **Uncreative**: se le asigna 1 tech aleatoria por nivel (no puede elegir)
+- **Normal**: elige 1 tech por nivel, las demás se descartan
+
+**El árbol tiene 8 campos con 7-11 niveles cada uno (ver § 1.7). Solo se puede investigar 1 tech a la vez (empire-wide). Cada nivel requiere completar el nivel anterior del mismo campo.**
+
+#### Investigación Hiper-Avanzada (Future Techs)
+
+Cuando **todas** las tecnologías regulares de un campo han sido investigadas o descartadas, se desbloquea una tecnología sintética repetible:
+
+| Propiedad | Valor |
+|-----------|-------|
+| id | `future_{field}` |
+| cost | campo-dependiente (último nivel × 1.5) |
+| repeatable | sí (se puede investigar múltiples veces) |
+| unlocks | `{"bonus": "miniaturization"}` |
+
+Esto permite al jugador seguir investigando (y terminar turno) cuando el árbol regular está completo.
+
+#### Miniaturización
+
+En MOO2, cada nivel tecnológico ganado más allá del nivel original de un componente reduce su tamaño y coste:
+```
+miniaturization_levels = current_field_level - component_original_level
+size_reduction = min(miniaturization_levels × 5%, 50%)   // máximo 50%
+cost_reduction = min(miniaturization_levels × 5%, 50%)
+```
+Las Future Techs cuentan como niveles adicionales para miniaturización.
 
 ### 3.4. Puntos de Comando
 
@@ -1118,6 +1355,8 @@ eta_turns = ceil(distance / fleet_speed)
 ```
 - Las flotas solo pueden moverse a sistemas conectados
 - Al llegar a un sistema no explorado, se revela el sistema (fog of war)
+- **Auto-assign to fleet**: cuando una nave se completa en build queue, se crea una flota automáticamente en el sistema de la colonia (o se añade a la flota existente del jugador)
+- **Fleet Split**: `POST /fleet/{id}/split` permite dividir una flota especificando qué naves mover a una nueva flota
 
 ### 3.6. Combate Automático (Core)
 
@@ -1174,7 +1413,9 @@ Un sistema es visible para un jugador si:
 - **Consejo Galáctico**: Cada 25 turnos, se celebra votación. `player_population / total_population >= 2/3` → victoria
 - **Derrota**: `count(player_colonies) == 0 AND count(player_fleets) == 0`
 
-### 3.10. Moral
+### 3.10. Moral y Gobierno
+
+#### Niveles de Moral
 
 | morale | production_modifier | description |
 |--------|-------------------|-------------|
@@ -1185,10 +1426,43 @@ Un sistema es visible para un jugador si:
 | `revolt` | -50%, no growth | Sublevación |
 
 Factores que afectan moral:
-- Gobierno tipo (Unificación +2, Democracia +1, Dictadura 0, Feudalismo -1)
-- Conquista reciente de la colonia: -2 durante 5 turnos
+- Gobierno tipo: cada gobierno tiene efectos complejos (ver tabla abajo)
+- Conquista reciente de la colonia: -2 durante 5 turnos (asimilación)
 - Sobrepoblación (pop > max\_pop × 0.9): -1
 - Edificios de moral (ej. Virtual Reality Center): +1
+- Pérdida de capitol: penalización según gobierno
+
+> **Nota:** La Unificación es **INMUNE a la moral** (positiva y negativa). Los colonos siempre producen al 100%.
+
+#### Tipos de Gobierno (Wiki-accurate)
+
+Cada raza tiene un gobierno base. La tecnología `advanced_government` (Sociology, 4500 RP) mejora el gobierno **actual** a su forma avanzada (NO es una escalera lineal).
+
+| Gobierno Base | Picks | Food | Producción | Investigación | Ingresos | Spy Def | Moral | Coste naves | Asimilación | Pérdida Capitol |
+|---------------|-------|------|-----------|---------------|----------|---------|-------|------------|-------------|-----------------|
+| **Feudalismo** | -4 | — | — | **-50%/scientist** | — | +10% | barracks requeridos | **-33%** | normal | -50% moral |
+| **Dictadura** | 0 | — | — | — | — | +10% | barracks requeridos | — | normal | -35% moral |
+| **Democracia** | 7 | — | — | **+50%/scientist** | **+50%/taxpayer** | -10% | sin penalización en colonias nuevas | — | 2× más rápida | -20% moral |
+| **Unificación** | 6 | **+50%/farmer** | **+50%/worker** | — | — | +15% | **INMUNE** | — | 250% más lenta (20 turnos) | N/A (sin capitol) |
+
+#### Gobiernos Avanzados (tras investigar `advanced_government`)
+
+| Gobierno Avanzado | Evoluciona de | Food | Producción | Investigación | Ingresos | Spy Def | Moral | Extras |
+|-------------------|--------------|------|-----------|---------------|----------|---------|-------|--------|
+| **Confederación** | Feudalismo | — | — | **-25%/scientist** (mejora de -50%) | — | +10% | barracks requeridos | -33% coste naves |
+| **Imperium** | Dictadura | — | — | — | — | +20% | **+20% con barracks** | **+50% command pts**, 2× asimilación |
+| **Federación** | Democracia | — | — | **+75%/scientist** | **+75%/taxpayer** | -10% | sin penalización | 4× asimilación |
+| **Unificación Galáctica** | Unificación | **+100%/farmer** | **+100%/worker** | — | — | +15% | **INMUNE** | asimilación 188% (15 turnos) |
+
+#### Gobierno en el Estado del Juego
+
+El gobierno se almacena en `player.government` (inicializado desde `race.government`). Al investigar `advanced_government`, se actualiza automáticamente:
+- `feudalism` → `confederation`
+- `dictatorship` → `imperium`
+- `democracy` → `federation`
+- `unification` → `galactic_unification`
+
+Los modificadores de gobierno se aplican como multiplicadores en las fórmulas de economía (§ 3.1), NO como simples bonuses de moral.
 
 ### 3.11. Ataques Antaranos
 
@@ -1232,6 +1506,58 @@ if no unresearched_techs: reward = 500 BC
 
 **Cheat:** `antaranos_desactivados` establece `antaran_next_attack_turn = null` e impide futuros ataques.
 
+#### Tecnologías Exóticas (MOO2 Wiki-accurate)
+
+Las tecnologías exóticas son 8 techs únicas que NO se pueden investigar normalmente. Solo se obtienen conquistando Orión o defendiendo ataques Antaranos.
+
+| # | Exotic Tech | Tipo | Efecto | Miniaturización |
+|---|------------|------|--------|-----------------|
+| 1 | **Death Ray** | Beam weapon | 50-100 dmg, mata 1 marine/5 dmg | No |
+| 2 | **Particle Beam** | Beam weapon | 10-30 dmg, ignora escudos (shield-piercing) | No |
+| 3 | **Black Hole Generator** | Special weapon | Inmoviliza + destruye objetivo en 2 turnos | No |
+| 4 | **Spatial Compressor** | Bomb weapon | 4-32 × tamaño_clase dmg, radio AoE 2 casillas | No |
+| 5 | **Damper Field** | Defense | Reduce TODO el daño recibido al 25% | No |
+| 6 | **Xentronium Armor** | Armor | 25% más resistente que Adamantium, bloquea AP | No |
+| 7 | **Quantum Detonator** | Special | Al morir la nave, explosión = 3× drive normal | No |
+| 8 | **Reflection Field** | Defense | Probabilidad de reflejar beams = 10/(10+power) | No |
+
+**Obtención:**
+- **Conquistar Orión**: Death Ray + 3 exotic techs aleatorias + líder Loknar + nave Titan + acceso al planeta Gaia
+- **Victoria defensiva vs Antaranos**: 1 tech aleatoria no investigada (exótica O regular). Si todas investigadas → 500 BC
+
+Las exóticas **nunca se miniaturizan** — su tamaño es fijo.
+
+#### Criaturas Espaciales (MOO2 Wiki-accurate)
+
+Los sistemas estelares más valiosos están custodiados por criaturas espaciales. Deben ser derrotadas antes de colonizar.
+
+| Criatura | HP | Ataque | Escudo | Sistemas | Recompensa |
+|----------|-----|--------|--------|----------|------------|
+| **Space Crystal** | 50 | 30 | 5 | Planets buenos (Rich+) | 1 random tech |
+| **Space Dragon** | 100 | 60 | 15 | Planets excelentes (Ultra Rich, Gaia) | 1 random tech |
+| **Space Amoeba** | 200 | 40 | 0 | Planets raros (Artifacts) | 1 random tech |
+| **Orion Guardian** | 300 | 100 | 30 | Solo Orión | Death Ray + 3 exóticas + líder + Titan |
+
+**Generación:** Durante la creación de la galaxia, se colocan criaturas en ~5-10% de los sistemas no-home y no-Orión. Las criaturas más fuertes custodian sistemas más valiosos.
+
+**Combate:** Cuando una flota llega a un sistema con criatura:
+1. Auto-resolve combate (fórmulas de § 3.6)
+2. Si jugador gana: criatura eliminada, sistema accesible, recompensa otorgada
+3. Si jugador pierde: flota destruida, criatura permanece
+
+**Estado en galaxia:**
+```json
+{
+  "creature": {
+    "type": "space_crystal|space_dragon|space_amoeba|orion_guardian",
+    "hp": "number",
+    "attack": "number",
+    "shield": "number"
+  }
+}
+```
+Campo `creature` en cada star system — `null` si no hay criatura.
+
 ---
 
 ## 4. COMPONENTES FRONTEND
@@ -1262,6 +1588,8 @@ if no unresearched_techs: reward = 500 BC
 - Click en estrella → navegar a SystemView
 - Click en flota → panel de flota con opciones de movimiento
 - Ctrl+Tab → abrir consola de cheats
+- **Spiral Galaxy Background**: Textura procedural de galaxia espiral Milky-Way (4 brazos, 900 partículas/brazo, núcleo brillante warmish, nebulosas) dibujada en offscreen canvas (2048px) y cacheada. Se mueve con zoom/pan alineada al campo de estrellas. Colores cálidos (amarillo→azul) a lo largo de los brazos.
+- **Smooth Zoom**: Zoom suave con `requestAnimationFrame` + lerp (factor 0.18) hacia el punto del cursor. Zoom multiplicativo (×0.9/×1.1) en lugar de lineal. Rango 0.3×–6×.
 
 #### SystemView
 - Renderizar planetas orbitando la estrella
@@ -1273,7 +1601,8 @@ if no unresearched_techs: reward = 500 BC
 - Sliders o selectores para asignar población (Farmers/Workers/Scientists)
 - Barras de producción (comida, industria, investigación, BC)
 - Lista de edificios construidos con iconos
-- Cola de construcción drag-and-drop (hasta 7 elementos)
+- Cola de construcción con hasta 7 elementos
+- Botones ▲/▼ por cada elemento de la cola para reordenar (swap con el vecino), botón ✕ para eliminar
 - Selector de edificios/naves disponibles para construir
 
 #### TechTree
@@ -1287,6 +1616,18 @@ if no unresearched_techs: reward = 500 BC
 - Posición actual y destino (si en tránsito)
 - Click en flota → opciones (mover, dividir, unir)
 - Indicador de puntos de comando (usados/total)
+
+#### FleetList (F)
+- Tabla sortable con todas las flotas del jugador
+- Columnas: Flota, Sistema, Naves, Destino, ETA
+- Click en fila → navegar a FleetPanel de esa flota
+- Botón "← Galaxy" para volver al mapa
+
+#### FleetPanel (enhanced)
+- Detalle de una flota: nombre, posición, naves con diseño
+- Split: seleccionar naves a mover y crear nueva flota (POST /fleet/{id}/split)
+- Colonize: si hay colony ship y estamos en sistema con planetas no colonizados
+- Move: seleccionar destino en el mapa
 
 #### CombatResult
 - Resumen visual del combate
@@ -1317,56 +1658,43 @@ if no unresearched_techs: reward = 500 BC
 
 ### 4.3. Atajos de Teclado (MOO2-faithful)
 
-El frontend debe implementar los siguientes atajos de teclado, fieles al Master of Orion II original.
+El frontend implementa los siguientes atajos de teclado, fieles al Master of Orion II original.
+Referencia: https://strategywiki.org/wiki/Master_of_Orion_II:_Battle_at_Antares/Hotkeys
+
+**Estado**: ✅ Implementados en `App.tsx` (handler global en `useEffect` + `keydown`).
 
 #### Mapa Galáctico (GalaxyMap)
 
 | Tecla | Acción |
 |-------|--------|
 | `T` | Fin de turno |
+| `G` | Ir al mapa galáctico |
 | `C` | Abrir pantalla de Colonias |
 | `F` | Abrir pantalla de Flotas |
-| `P` | Abrir pantalla de Planetas |
-| `R` | Abrir pantalla de Razas |
-| `G` | Abrir menú de Juego (guardar, cargar, opciones) |
-| `I` | Abrir pantalla de Información |
+| `R` | Abrir pantalla de Investigación (Research) |
 | `L` | Abrir pantalla de Líderes |
-| `F1` | Ir a siguiente colonia |
-| `F2` | Ir a anterior colonia |
-| `F4` | Reubicar colonos |
-| `F7` | Ciclar flotas enemigas detectadas |
-| `F8` | Ciclar colonias enemigas detectadas |
-| `F9` | Herramienta de medición de parsecs |
-| `F10` | Guardar partida rápido |
-| `Alt+F` | Alternar visibilidad de rutas de flotas |
-| `+` / `Shift+=` / `Num+` | Zoom in |
-| `-` / `Num-` | Zoom out |
-| `Ctrl+Tab` | Abrir consola de cheats |
+| `D` | Abrir pantalla de Diplomacia |
+| `S` | Abrir Diseñador de Naves |
+| `I` | Abrir pantalla de Espionaje (Intel) |
+| `+` / `=` | Zoom in |
+| `-` | Zoom out |
+| `0` | Reset zoom y pan |
+| `Ctrl+Tab` / `` ` `` | Abrir consola de cheats |
 
 #### Diálogos y Modales
 
 | Tecla | Acción |
 |-------|--------|
-| `Y` | Confirmar (equivale a botón "Sí") |
-| `N` | Cancelar (equivale a botón "No") |
-| `Escape` | Cerrar modal / volver atrás |
-| `Enter` | Aceptar opción por defecto |
-
-#### ColonyView
-
-| Tecla | Acción |
-|-------|--------|
-| `F1` | Siguiente colonia |
-| `F2` | Anterior colonia |
-| `Escape` | Volver al mapa galáctico |
+| `Y` | Confirmar / Continuar (TurnSummary, Council) |
+| `Escape` | Cerrar modal / volver al mapa galáctico |
 
 #### General
 
 | Tecla | Acción |
 |-------|--------|
-| `Q` | Salir / Cerrar ventana actual |
+| `Escape` | Cerrar cheat console → cerrar event log → volver al mapa |
 
-> **Nota**: Los atajos solo deben activarse cuando no hay un `<input>` o `<textarea>` con foco, para evitar conflictos con la escritura de texto.
+> **Nota**: Los atajos solo se activan cuando no hay un `<input>` o `<textarea>` con foco, para evitar conflictos con la escritura de texto.
 
 ### 4.4. Estado Global (Store)
 
@@ -1521,7 +1849,7 @@ Ver sección 14 del documento de práctica (`MasterDeHostias_practica.md`) para 
 
 **Endpoints adicionales:**
 
-#### POST /api/games/{gameId}/tactical-combat/{combatId}/action
+#### POST /api/game/{gameId}/tactical-combat/{combatId}/action
 Ejecuta una acción en el combate táctico.
 
 **Request Body:**
@@ -1623,7 +1951,7 @@ Ejecuta una acción en el combate táctico.
 
 **Endpoints adicionales:**
 
-#### GET /api/games/{gameId}/spies
+#### GET /api/game/{gameId}/spies
 Lista espías del jugador.
 
 **Response 200:**
@@ -1647,7 +1975,7 @@ Lista espías del jugador.
 }
 ```
 
-#### POST /api/games/{gameId}/spies/recruit
+#### POST /api/game/{gameId}/spies/recruit
 Recluta un nuevo espía.
 
 **Response 201:**
@@ -1659,7 +1987,7 @@ Recluta un nuevo espía.
 }
 ```
 
-#### POST /api/games/{gameId}/spies/{spyId}/mission
+#### POST /api/game/{gameId}/spies/{spyId}/mission
 Asigna misión a un espía.
 
 **Request Body:**
@@ -1835,7 +2163,7 @@ Lista rasgos disponibles para constructor de razas.
 
 **Endpoints adicionales:**
 
-#### GET /api/games/{gameId}/diplomacy
+#### GET /api/game/{gameId}/diplomacy
 Estado diplomático con todos los jugadores conocidos.
 
 **Response 200:**
@@ -1860,7 +2188,7 @@ Estado diplomático con todos los jugadores conocidos.
 }
 ```
 
-#### POST /api/games/{gameId}/diplomacy/{targetPlayerId}/propose
+#### POST /api/game/{gameId}/diplomacy/{targetPlayerId}/propose
 Propone un tratado.
 
 **Request Body:**
@@ -1884,7 +2212,7 @@ Propone un tratado.
 }
 ```
 
-#### POST /api/games/{gameId}/diplomacy/{targetPlayerId}/demand
+#### POST /api/game/{gameId}/diplomacy/{targetPlayerId}/demand
 Exige algo a otro jugador.
 
 **Request Body:**
@@ -1895,7 +2223,7 @@ Exige algo a otro jugador.
 }
 ```
 
-#### GET /api/games/{gameId}/diplomacy/council
+#### GET /api/game/{gameId}/diplomacy/council
 Estado del Consejo Galáctico.
 
 **Response 200:**
@@ -1910,7 +2238,7 @@ Estado del Consejo Galáctico.
 }
 ```
 
-#### POST /api/games/{gameId}/diplomacy/council/vote
+#### POST /api/game/{gameId}/diplomacy/council/vote
 Vota en el Consejo.
 
 **Request Body:**
@@ -1961,7 +2289,7 @@ treaty_acceptance_chance = base + relation_score_modifier + personality_modifier
 
 **Endpoints adicionales:**
 
-#### GET /api/games/{gameId}/ship-designs
+#### GET /api/game/{gameId}/ship-designs
 Lista diseños de naves activos.
 
 **Response 200:**
@@ -1992,7 +2320,7 @@ Lista diseños de naves activos.
 }
 ```
 
-#### POST /api/games/{gameId}/ship-designs
+#### POST /api/game/{gameId}/ship-designs
 Crea un nuevo diseño de nave.
 
 **Request Body:**
@@ -2019,7 +2347,7 @@ Crea un nuevo diseño de nave.
 {"error": "Exceeds space limit | Component requires tech not researched | Max designs reached"}
 ```
 
-#### POST /api/games/{gameId}/ship-designs/{designId}/refit
+#### POST /api/game/{gameId}/ship-designs/{designId}/refit
 Reequipa naves existentes a un nuevo diseño.
 
 **Request Body:**
@@ -2112,7 +2440,7 @@ Acepta sizes adicionales.
 
 **Endpoints adicionales:**
 
-#### GET /api/games/{gameId}/galaxy?page={n}&viewport={x1,y1,x2,y2}
+#### GET /api/game/{gameId}/galaxy?page={n}&viewport={x1,y1,x2,y2}
 Devuelve sistemas estelares paginados o filtrados por viewport.
 
 **Response 200:**
@@ -2317,3 +2645,47 @@ GITHUB_MODEL_FALLBACK=gpt-4o-mini
 - [ ] Navegación fluida entre vistas
 - [ ] Información claramente presentada
 - [ ] Sin errores JavaScript en consola durante uso normal
+
+---
+
+## 9. Changelog — Auditoría y Mejoras
+
+### 9.1. Bug Fixes (Auditoría)
+
+| Bug | Descripción | Corrección |
+|-----|------------|------------|
+| **tech_req mismatch** | `buildings.json` usa `tech_req` como `construction_1` (campo+nivel) pero los IDs reales de tech son `colony_base`, `star_base_tech`, etc. Ningún edificio aparecía en la cola de construcción | Añadido `_FIELD_LEVEL_TECHS` lookup y helper `_has_tech_req()` en `colony_service.py` |
+| **Cloning center flat vs multiplicative** | El bonus de cloning center se sumaba como flat en vez de multiplicar | Cambiado a multiplicativo (ej. +50% = ×1.5) |
+| **Morale threshold** | El umbral de overpop usaba `pop > max × 0.9` | Corregido a `pop > max_population` |
+| **Research overflow lost** | El overflow de investigación se perdía al completar una tech | Se almacena `research_overflow` y se aplica al siguiente turno |
+| **3 propulsion techs missing** | `nuclear_engines`, `fusion_drive`, `ion_drive` faltaban del árbol | Añadidos a `tech_tree.json` |
+| **Ship HP double-count** | La armadura se contaba dos veces en HP de naves | Corregido cálculo de HP |
+| **Spy training never completing** | Los espías nunca terminaban su entrenamiento | Corregido tick de entrenamiento en `turn_engine.py` |
+| **Combat ignoring diplomacy** | El combate se ejecutaba sin verificar estado diplomático | Añadida verificación de diplomacia antes de combate |
+| **max_pop display bug** | Backend envía `max_population` pero frontend usaba `max_pop` → mostraba `8/undefined` | Renombrado `max_pop` → `max_population` en `colony.ts` y todos los componentes |
+
+### 9.2. Nuevas Features
+
+| Feature | Descripción |
+|---------|------------|
+| **Autobuild** | Cuando la cola de construcción está vacía y `autobuild=true`, selecciona automáticamente el edificio más barato disponible. Si no hay edificios, produce trade goods |
+| **Trade goods fallback** | Trade goods convierte producción a BC, nunca se completa |
+| **Game Menu (ESC)** | Menú in-game accesible con ESC o botón ☰: Resume, Save, Colony List, Quit to Main Menu |
+| **Colony List (C)** | Tabla sortable con todas las colonias del jugador: Planeta, Pop, Morale, Food, Prod, Research, BC, Cola. Click en fila abre colonia |
+| **Game Speed** | Selector en New Game: Fast (0.5× costes), Normal (1×), Slow (2×). Afecta producción efectiva e investigación |
+| **Settings Persistence** | Los ajustes de New Game (tamaño, dificultad, IA, raza, velocidad) se guardan en localStorage |
+| **Spiral Galaxy Background** | Fondo de galaxia espiral procedural con 4 brazos, 900 partículas/brazo, núcleo brillante warm, nebulosas y polvo estelar. Textura 2048px cacheada, colores cálidos amarillo→azul. Mucho más visible que la versión original |
+| **Smooth Zoom** | Zoom suave con `requestAnimationFrame` + lerp (factor 0.18) hacia cursor, rango 0.3×–6×, multiplicativo |
+| **Fleet Split** | `POST /fleet/{id}/split` — dividir flota seleccionando naves a mover a nueva flota |
+| **Fleet List (F)** | Pantalla FleetList con tabla sortable de todas las flotas del jugador, accesible con tecla F |
+| **Build Queue Reorder** | Botones ▲/▼ en cada elemento de la cola de construcción para reordenar prioridades |
+| **Planet max_pop** | La ruta `/galaxy` ahora incluye `max_pop` en cada planeta (derivado del tamaño: tiny=8, small=12, medium=16, large=22, huge=28), visible en SystemView |
+| **RUSHBUY Cheat** | Completa inmediatamente el primer elemento de la cola de todas las colonias |
+| **CRUNCH Cheat** | Completa inmediatamente TODA la cola de construcción de todas las colonias |
+
+### 9.3. Cambios en Modelo de Datos
+
+- `games` collection: nuevo campo `game_speed` (string: `"fast"` | `"normal"` | `"slow"`, default `"normal"`)
+- `POST /api/game/new` acepta parámetro `speed` opcional
+- `NewGameOptions` tipo frontend: campo `speed` opcional
+- `Colony` tipo frontend: `max_pop` renombrado a `max_population`
