@@ -19,7 +19,11 @@ def create_game(user_id: str, name: str, scenario_id: str, game_state: dict):
 
 
 def list_games(user_id: str):
-    cursor = games.find({'user_id': ObjectId(user_id)}).sort('last_saved', -1)
+    try:
+        owner_id = ObjectId(user_id)
+    except Exception:
+        return []
+    cursor = games.find({'user_id': owner_id}).sort('last_saved', -1)
     out = []
     for g in cursor:
         gs = g['game_state']

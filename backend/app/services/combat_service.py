@@ -1,4 +1,5 @@
 import random
+from pathlib import Path
 
 def get_ship_stats(ship_type_name, ship_types_data):
     """Obtains the stats of a ship type from ship_types_data."""
@@ -21,7 +22,8 @@ def resolve_combat(attacker_fleet: dict, defender_fleet: dict, defender_orbital_
         import json
         import os
         try:
-            with open('backend/app/data/ships.json', 'r', encoding='utf-8') as f:
+            data_dir = Path(__file__).resolve().parents[1] / 'data'
+            with (data_dir / 'ships.json').open('r', encoding='utf-8') as f:
                 ship_types_data = {s['type']: s for s in json.load(f)}
         except:
             ship_types_data = {}

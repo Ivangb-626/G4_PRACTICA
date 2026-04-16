@@ -1,11 +1,14 @@
 <template>
   <div id="app">
-    <header class="app-header">
-      <h1>MasterDeHostias</h1>
+    <header class="app-header retro-panel">
+      <h1 class="brand">MasterDeHostias</h1>
       <nav>
-        <router-link to="/login">Login</router-link>
-        <router-link to="/register">Registro</router-link>
-        <router-link to="/dashboard">Dashboard</router-link>
+        <router-link v-if="!isLoggedIn" to="/login">Login</router-link>
+        <router-link v-if="!isLoggedIn" to="/register">Registro</router-link>
+        <router-link v-if="isLoggedIn" to="/dashboard">Dashboard</router-link>
+        <button v-if="isLoggedIn" class="logout-btn retro-btn retro-btn-danger" @click="onLogout">
+          Cerrar sesión
+        </button>
       </nav>
     </header>
     <main>
@@ -14,32 +17,60 @@
   </div>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from './store/authStore'
+
+const auth = useAuthStore()
+const router = useRouter()
+const isLoggedIn = computed(() => Boolean(auth.token))
+
+function onLogout() {
+  auth.logout()
+  router.push('/login')
+}
+</script>
 
 <style scoped>
 #app {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: #d1e9ff;
-  background: radial-gradient(circle at 50% 0%, #020617 0%, #060b20 90%);
   min-height: 100vh;
+  color: var(--text);
 }
 .app-header {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   align-items: center;
-  padding: 1rem;
-  border-bottom: 1px solid #1c3a85;
+  justify-content: space-between;
+  margin: 0.8rem;
+  padding: 0.75rem 1rem;
 }
-.app-header h1 {
+.brand {
   margin: 0;
-  font-size: 1.5rem;
-  color: #00d4ff;
+  font-size: 1.35rem;
+  color: var(--primary-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  text-shadow: 0 0 0.8rem rgba(103, 240, 255, 0.5);
 }
 nav > * {
-  margin-right: 0.8rem;
-  color: #a0b9ff;
+  margin-right: 0.9rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.09em;
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid transparent;
+}
+.logout-btn {
+  margin-right: 0;
+}
+nav > .router-link-active {
+  color: var(--primary-strong);
+  border-bottom-color: var(--primary-strong);
 }
 main {
-  padding: 1rem;
+  padding: 0.8rem;
 }
 </style>

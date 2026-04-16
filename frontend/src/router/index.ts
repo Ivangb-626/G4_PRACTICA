@@ -9,6 +9,7 @@ import ColonyView from '../views/ColonyView.vue'
 import TechTree from '../views/TechTree.vue'
 import FleetManager from '../views/FleetManager.vue'
 import CombatResult from '../views/CombatResult.vue'
+import DiplomacyView from '../views/DiplomacyView.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -21,6 +22,7 @@ const routes = [
       { path:'colony/:colId', component: ColonyView, props:true },
       { path:'tech', component: TechTree },
       { path:'fleets', component: FleetManager },
+      { path:'diplomacy', component: DiplomacyView },
       { path:'combat/:combatId', component: CombatResult, props:true }
     ]
   }

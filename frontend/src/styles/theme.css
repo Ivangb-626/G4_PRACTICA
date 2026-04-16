@@ -1,0 +1,99 @@
+:root {
+  --bg-0: #040612;
+  --bg-1: #0a0f26;
+  --bg-2: #111a3b;
+  --panel: rgba(12, 22, 52, 0.82);
+  --panel-border: rgba(89, 170, 255, 0.45);
+  --text: #dff3ff;
+  --text-muted: #8fb3d3;
+  --primary: #4fb4ff;
+  --primary-strong: #67f0ff;
+  --danger: #ff6b8a;
+  --ok: #8df6bf;
+  --shadow-neon: 0 0 0.8rem rgba(79, 180, 255, 0.45);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  font-family: "Orbitron", "Rajdhani", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background:
+    radial-gradient(circle at 20% 20%, #182758 0%, transparent 30%),
+    radial-gradient(circle at 80% 0%, #0c4461 0%, transparent 25%),
+    linear-gradient(145deg, var(--bg-0), var(--bg-1) 40%, var(--bg-2));
+  letter-spacing: 0.02em;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.15;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.09) 0,
+    rgba(255, 255, 255, 0.09) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+}
+
+a {
+  color: var(--primary);
+}
+
+.retro-panel {
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  border-radius: 10px;
+  box-shadow: var(--shadow-neon);
+  backdrop-filter: blur(2px);
+}
+
+.retro-btn {
+  border: 1px solid var(--primary);
+  background: linear-gradient(180deg, rgba(79, 180, 255, 0.2), rgba(79, 180, 255, 0.05));
+  color: var(--text);
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  cursor: pointer;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 0.07em;
+}
+
+.retro-btn:hover {
+  border-color: var(--primary-strong);
+  box-shadow: 0 0 0.65rem rgba(103, 240, 255, 0.45);
+}
+
+.retro-btn-danger {
+  border-color: var(--danger);
+  color: #ffdbe3;
+}
+
+.retro-input {
+  width: 100%;
+  border: 1px solid rgba(112, 166, 214, 0.65);
+  background: rgba(7, 15, 36, 0.8);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.52rem 0.65rem;
+}
+
+.retro-input:focus {
+  outline: none;
+  border-color: var(--primary-strong);
+  box-shadow: 0 0 0.5rem rgba(103, 240, 255, 0.4);
+}

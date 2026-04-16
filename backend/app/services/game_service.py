@@ -1,16 +1,19 @@
 import random
 import math
 import json
+from pathlib import Path
 from datetime import datetime
 from app.data import races, ships, technologies
 from app.services.combat_service import resolve_combat, resolve_ground_combat
 
 # Load static values from json files
-with open('backend/app/data/races.json', 'r', encoding='utf-8') as f:
+DATA_DIR = Path(__file__).resolve().parents[1] / 'data'
+
+with (DATA_DIR / 'races.json').open('r', encoding='utf-8') as f:
     RACES = {r['id']: r for r in json.load(f)}
-with open('backend/app/data/ships.json', 'r', encoding='utf-8') as f:
+with (DATA_DIR / 'ships.json').open('r', encoding='utf-8') as f:
     SHIP_TYPES = {s['type']: s for s in json.load(f)}
-with open('backend/app/data/technologies.json', 'r', encoding='utf-8') as f:
+with (DATA_DIR / 'technologies.json').open('r', encoding='utf-8') as f:
     TECHS = {t['id']: t for t in json.load(f)}
 
 PLANET_TYPES = {

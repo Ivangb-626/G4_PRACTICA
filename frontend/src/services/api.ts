@@ -18,12 +18,20 @@ function handleError(err: any) {
 
 export const api = {
   login: async (username: string, password: string) => {
-    const res = await axios.post(`${API_BASE}/api/auth/login`, { username, password })
-    return res.data
+    try {
+      const res = await axios.post(`${API_BASE}/api/auth/login`, { username, password })
+      return res.data
+    } catch (err) {
+      handleError(err)
+    }
   },
   register: async (username: string, email: string, password: string) => {
-    const res = await axios.post(`${API_BASE}/api/auth/register`, { username, email, password })
-    return res.data
+    try {
+      const res = await axios.post(`${API_BASE}/api/auth/register`, { username, email, password })
+      return res.data
+    } catch (err) {
+      handleError(err)
+    }
   },
   getProfile: async () => {
     const res = await axios.get(`${API_BASE}/api/auth/profile`, { headers: authHeaders() })
@@ -87,6 +95,18 @@ export const api = {
   },
   getScenarios: async () => {
     const res = await axios.get(`${API_BASE}/api/scenarios`)
+    return res.data
+  },
+  getDiplomacy: async (gameId: string) => {
+    const res = await axios.get(`${API_BASE}/api/games/${gameId}/diplomacy`, { headers: authHeaders() })
+    return res.data
+  },
+  proposeTreaty: async (gameId: string, target: string, treaty_type: string) => {
+    const res = await axios.post(`${API_BASE}/api/games/${gameId}/diplomacy/propose`, { target, treaty_type }, { headers: authHeaders() })
+    return res.data
+  },
+  declareWar: async (gameId: string, target: string) => {
+    const res = await axios.post(`${API_BASE}/api/games/${gameId}/diplomacy/war`, { target }, { headers: authHeaders() })
     return res.data
   }
 }

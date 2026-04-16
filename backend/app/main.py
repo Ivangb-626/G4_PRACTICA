@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 import asyncio
+import re
 
 from app.auth.middleware import token_required
 from app.auth.password import hash_password, verify_password
@@ -32,7 +33,7 @@ def register():
     email = data.get('email', '').strip().lower()
     password = data.get('password', '')
 
-    if len(username) < 3 or len(username) > 30 or not username.replace('-', '').isalnum():
+    if not re.fullmatch(r'[A-Za-z0-9_-]{3,30}', username):
         return jsonify({'error': 'Invalid username'}), 400
     if '@' not in email or '.' not in email:
         return jsonify({'error': 'Invalid email format'}), 400
@@ -81,12 +82,14 @@ def profile():
     })
 
 @app.route('/api/games', methods=['GET'])
+@app.route('/api/game', methods=['GET'])
 @token_required
 def games_list():
     games = list_games(g.user_id)
     return jsonify({'games': games})
 
 @app.route('/api/games', methods=['POST'])
+@app.route('/api/game', methods=['POST'])
 @token_required
 def create_game_route():
     data = request.get_json() or {}
@@ -109,6 +112,7 @@ def create_game_route():
     return jsonify({'game_id': game_id, 'game_state': game_state}), 201
 
 @app.route('/api/games/<game_id>', methods=['GET'])
+@app.route('/api/game/<game_id>', methods=['GET'])
 @token_required
 def load_game(game_id):
     entry = get_game(g.user_id, game_id)
@@ -140,6 +144,7 @@ def save_game_route(game_id):
     return jsonify({'success': True, 'last_saved': entry['game_state'].get('last_saved')})
 
 @app.route('/api/games/<game_id>', methods=['DELETE'])
+@app.route('/api/game/<game_id>', methods=['DELETE'])
 @token_required
 def delete_game_route(game_id):
     success = delete_game(g.user_id, game_id)
@@ -228,6 +233,7 @@ def colonize_route(game_id):
         return jsonify({'error': str(err)}), 400
 
 @app.route('/api/games/<game_id>/endTurn', methods=['POST'])
+@app.route('/api/game/<game_id>/endTurn', methods=['POST'])
 @token_required
 def end_turn_route(game_id):
     entry = get_game(g.user_id, game_id)
@@ -313,6 +319,7 @@ def cheat_route(game_id):
         return jsonify({'error': str(err)}), 400
 
 @app.route('/api/games/<game_id>/galaxy', methods=['GET'])
+@app.route('/api/game/<game_id>/galaxy', methods=['GET'])
 @token_required
 def galaxy_route(game_id):
     entry = get_game(g.user_id, game_id)
@@ -324,6 +331,7 @@ def galaxy_route(game_id):
     return jsonify(get_galaxy_view(entry['game_state']))
 
 @app.route('/api/games/<game_id>/tech-tree', methods=['GET'])
+@app.route('/api/game/<game_id>/tech-tree', methods=['GET'])
 @token_required
 def tech_tree_route(game_id):
     entry = get_game(g.user_id, game_id)
@@ -335,6 +343,7 @@ def tech_tree_route(game_id):
     return jsonify(get_tech_tree(entry['game_state']))
 
 @app.route('/api/games/<game_id>/colony/<colony_id>', methods=['GET'])
+@app.route('/api/game/<game_id>/colony/<colony_id>', methods=['GET'])
 @token_required
 def colony_detail_route(game_id, colony_id):
     entry = get_game(g.user_id, game_id)
@@ -349,6 +358,7 @@ def colony_detail_route(game_id, colony_id):
         return jsonify({'error': str(err)}), 404
 
 @app.route('/api/games/<game_id>/diplomacy', methods=['GET'])
+@app.route('/api/game/<game_id>/diplomacy', methods=['GET'])
 @token_required
 def diplomacy_status_route(game_id):
     entry = get_game(g.user_id, game_id)
@@ -362,6 +372,7 @@ def diplomacy_status_route(game_id):
     return jsonify(game_state['diplomacy'])
 
 @app.route('/api/games/<game_id>/diplomacy/propose', methods=['POST'])
+@app.route('/api/game/<game_id>/diplomacy/propose', methods=['POST'])
 @token_required
 def propose_treaty_route(game_id):
     entry = get_game(g.user_id, game_id)
@@ -373,9 +384,38 @@ def propose_treaty_route(game_id):
     data = request.get_json() or {}
     target = data.get('target')
     treaty_type = data.get('treaty_type')
+
+    if not target or not isinstance(target, str):
+        return jsonify({'error': "Missing required field 'target'"}), 400
+    if not treaty_type or not isinstance(treaty_type, str):
+        return jsonify({'error': "Missing required field 'treaty_type'"}), 400
     
     try:
         result = propose_treaty(entry['game_state'], 'player', target, treaty_type)
+        save_game(g.user_id, game_id, entry['game_state'])
+        return jsonify(result)
+    except ValueError as err:
+        return jsonify({'error': str(err)}), 400
+
+
+@app.route('/api/games/<game_id>/diplomacy/war', methods=['POST'])
+@app.route('/api/game/<game_id>/diplomacy/war', methods=['POST'])
+@token_required
+def declare_war_route(game_id):
+    entry = get_game(g.user_id, game_id)
+    if entry == 'forbidden':
+        return jsonify({'error': 'This game does not belong to you'}), 403
+    if not entry:
+        return jsonify({'error': 'Game not found'}), 404
+
+    data = request.get_json() or {}
+    target = data.get('target')
+
+    if not target or not isinstance(target, str):
+        return jsonify({'error': "Missing required field 'target'"}), 400
+
+    try:
+        result = declare_war(entry['game_state'], 'player', target)
         save_game(g.user_id, game_id, entry['game_state'])
         return jsonify(result)
     except ValueError as err:

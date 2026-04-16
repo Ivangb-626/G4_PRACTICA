@@ -1,17 +1,38 @@
 <template>
   <div class="system-view" v-if="system">
     <div class="hud">
-      <h2>System: {{ system.name }}</h2>
+      <div>
+        <h2>System: {{ system.name }}</h2>
+        <p class="subtitle">Haz click en un planeta colonizado para abrir su colonia.</p>
+      </div>
       <button @click="backToGalaxy" class="btn sci-fi">Back to Galaxy</button>
     </div>
-    
-    <div class="solar-system">
-      <div class="sun" :class="system.star_type"></div>
-      
-      <div v-for="(planet, index) in system.planets" :key="index" class="orbit" :style="{ width: `${200 + index * 100}px`, height: `${200 + index * 100}px` }">
-        <div class="planet" :class="planet.type" @click="handlePlanetClick(planet)">
-          <div class="planet-info" v-if="hoverPlanet === index">
-            {{ planet.type }} - Size: {{ planet.size }}
+
+    <div class="legend retro-panel">
+      <span><i class="dot colonized"></i> Colonizado por jugador</span>
+      <span><i class="dot free"></i> No colonizado</span>
+    </div>
+
+    <div class="system-stage">
+      <div class="solar-system">
+        <div class="sun" :class="system.star_type"></div>
+
+        <div
+          v-for="(planet, index) in system.planets"
+          :key="index"
+          class="orbit"
+          :style="{ width: `${220 + index * 110}px`, height: `${220 + index * 110}px` }"
+        >
+          <div
+            class="planet"
+            :class="[planet.type, { colonized: planet.colonized_by === 'player' }]"
+            @mouseenter="hoverPlanet = index"
+            @mouseleave="hoverPlanet = null"
+            @click="handlePlanetClick(planet)"
+          >
+            <div class="planet-info" v-if="hoverPlanet === index">
+              {{ planet.name || `Planeta ${planet.index}` }} · {{ planet.type }} · {{ planet.size }}
+            </div>
           </div>
         </div>
       </div>
@@ -35,9 +56,21 @@ const hoverPlanet = ref<number | null>(null)
 
 const fetchSystem = async () => {
   try {
-    const res = await api.getGalaxy(gameId) // O un endpoint específico
-    const sys = (res.state || res).systems.find((s: any) => s.id === sysId)
-    if (sys) system.value = sys
+    const res = await api.getGalaxy(gameId)
+    const stars = Array.isArray(res?.star_systems) ? res.star_systems : []
+    const sys = stars.find((s: any) => s.id === sysId)
+    if (sys) {
+      system.value = {
+        id: sys.id,
+        name: sys.name,
+        x: sys?.position?.x ?? 0,
+        y: sys?.position?.y ?? 0,
+        star_type: sys.star_type,
+        planets: sys.planets || [],
+        neighbors: sys.connections || [],
+        owner: undefined
+      }
+    }
   } catch (error) {
     console.error(error)
   }
@@ -48,8 +81,9 @@ const backToGalaxy = () => {
 }
 
 const handlePlanetClick = (planet: Planet) => {
-  if (planet.colony) {
-    router.push(`/game/${gameId}/colony/${planet.colony.id}`)
+  const colonyId = `col_${sysId}_${planet.index}`
+  if (planet.colonized_by === 'player') {
+    router.push(`/game/${gameId}/colony/${colonyId}`)
   } else {
     alert('Planet is not colonized. Future: Implement colonization dialog.')
   }
@@ -62,33 +96,74 @@ onMounted(() => {
 
 <style scoped>
 .system-view {
-  width: 100vw;
-  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: clamp(640px, 84vh, 980px);
   background: #0a0a1a;
   color: white;
   position: relative;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
   overflow: hidden;
 }
 .hud {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  padding: 1rem;
+  position: relative;
+  padding: 0.7rem 0.9rem;
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
   background: rgba(0,0,0,0.5);
-  z-index: 10;
+  border-bottom: 1px solid #00d4ff;
+}
+.subtitle {
+  margin: 0.2rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+.legend {
+  margin: 0.45rem 0.7rem 0;
+  width: auto;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.78rem;
+  flex-wrap: wrap;
+}
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 0.35rem;
+}
+.dot.colonized { background: #6ef7b2; box-shadow: 0 0 8px #6ef7b2; }
+.dot.free { background: #67e8f9; box-shadow: 0 0 8px #67e8f9; }
+.system-stage {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 0.55rem 0.7rem 0.7rem;
 }
 .solar-system {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(89, 170, 255, 0.5);
+  border-radius: 10px;
+  background: rgba(4, 10, 24, 0.65);
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 .sun {
-  width: 100px;
-  height: 100px;
+  width: 96px;
+  height: 96px;
   border-radius: 50%;
   background: yellow;
   box-shadow: 0 0 50px yellow;
@@ -101,14 +176,31 @@ onMounted(() => {
   animation: spin 20s linear infinite;
 }
 .planet {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   background: cyan;
   border-radius: 50%;
   position: absolute;
   top: 0; left: 50%;
   transform: translate(-50%, -50%);
   cursor: pointer;
+  box-shadow: 0 0 10px rgba(103, 232, 249, 0.8);
+}
+.planet.colonized {
+  outline: 2px solid #6ef7b2;
+  outline-offset: 2px;
+}
+.planet-info {
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 0.72rem;
+  background: rgba(7, 15, 36, 0.9);
+  border: 1px solid rgba(112, 166, 214, 0.65);
+  border-radius: 6px;
+  padding: 0.2rem 0.45rem;
 }
 .btn.sci-fi {
   background: transparent;

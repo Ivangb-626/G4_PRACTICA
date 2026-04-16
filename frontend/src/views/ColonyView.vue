@@ -80,7 +80,7 @@ const applyChanges = async () => {
   if (!colony.value) return
   try {
     await api.manageColony(gameId, colId, {
-      population_allocation: {
+      population: {
         farmers: colony.value.population_farmers,
         workers: colony.value.population_workers,
         scientists: colony.value.population_scientists
@@ -93,7 +93,6 @@ const applyChanges = async () => {
 }
 
 const addToQueue = async (item: string) => {
-  // Aquí se invocaría el API real para construir. De momento mock local:
   if(colony.value) colony.value.build_queue.push(item)
 }
 

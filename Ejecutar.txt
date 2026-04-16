@@ -1,0 +1,20 @@
+//IA
+cd \ai-service
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8001
+
+//Backend
+cd \backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+copy .env.example .env
+docker compose up -d mongodb
+flask --app app.main run --host 0.0.0.0 --port 8000
+
+//Frontend
+cd \frontend
+npm install
+npm run dev
