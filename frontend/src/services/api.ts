@@ -1,112 +1,136 @@
-import axios from 'axios'
-
-const API_BASE = (import.meta as any).env.VITE_API_URL || 'http://localhost:8000'
-
-function getToken() {
-  return localStorage.getItem('token')
-}
-
-function authHeaders() {
-  const token = getToken()
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
-
-function handleError(err: any) {
-  const message = err?.response?.data?.error || err?.message || 'Error de red'
-  throw new Error(message)
-}
+import httpClient from '../types/httpClient'
 
 export const api = {
   login: async (username: string, password: string) => {
-    try {
-      const res = await axios.post(`${API_BASE}/api/auth/login`, { username, password })
-      return res.data
-    } catch (err) {
-      handleError(err)
-    }
+    const res = await httpClient.post('/api/auth/login', { username, password })
+    return res.data
   },
   register: async (username: string, email: string, password: string) => {
-    try {
-      const res = await axios.post(`${API_BASE}/api/auth/register`, { username, email, password })
-      return res.data
-    } catch (err) {
-      handleError(err)
-    }
+    const res = await httpClient.post('/api/auth/register', { username, email, password })
+    return res.data
   },
   getProfile: async () => {
-    const res = await axios.get(`${API_BASE}/api/auth/profile`, { headers: authHeaders() })
+    const res = await httpClient.get('/api/auth/profile')
     return res.data
   },
   listGames: async () => {
-    const res = await axios.get(`${API_BASE}/api/games`, { headers: authHeaders() })
+    const res = await httpClient.get('/api/games')
     return res.data
   },
-  createGame: async (name: string, scenario_config: any) => {
-    const res = await axios.post(`${API_BASE}/api/games`, { name, scenario_config }, { headers: authHeaders() })
+  createGame: async (name: string, scenarioConfig: Record<string, unknown>) => {
+    const res = await httpClient.post('/api/games', { name, scenario_config: scenarioConfig })
     return res.data
   },
   loadGame: async (gameId: string) => {
-    const res = await axios.get(`${API_BASE}/api/games/${gameId}`, { headers: authHeaders() })
+    const res = await httpClient.get(`/api/games/${gameId}`)
     return res.data
   },
   saveGame: async (gameId: string, name?: string) => {
-    const res = await axios.post(`${API_BASE}/api/games/${gameId}/save`, { name }, { headers: authHeaders() })
+    const res = await httpClient.post(`/api/games/${gameId}/save`, { name })
     return res.data
   },
   deleteGame: async (gameId: string) => {
-    const res = await axios.delete(`${API_BASE}/api/games/${gameId}`, { headers: authHeaders() })
+    const res = await httpClient.delete(`/api/games/${gameId}`)
     return res.data
   },
-  manageColony: async (gameId: string, colonyId: string, data: any) => {
-    const res = await axios.post(`${API_BASE}/api/games/${gameId}/colony/${colonyId}/manage`, data, { headers: authHeaders() })
-    return res.data
-  },
-  selectResearch: async (gameId: string, data: any) => {
-    const res = await axios.post(`${API_BASE}/api/games/${gameId}/research`, data, { headers: authHeaders() })
-    return res.data
-  },
-  moveFleet: async (gameId: string, fleetId: string, destination: string) => {
-    const res = await axios.post(`${API_BASE}/api/games/${gameId}/fleet/${fleetId}/move`, { destination }, { headers: authHeaders() })
-    return res.data
-  },
-  colonize: async (gameId: string, fleetId: string, planetIndex: number) => {
-    const res = await axios.post(`${API_BASE}/api/games/${gameId}/colonize`, { fleet_id: fleetId, planet_index: planetIndex }, { headers: authHeaders() })
-    return res.data
-  },
-  endTurn: async (gameId: string) => {
-    const res = await axios.post(`${API_BASE}/api/games/${gameId}/endTurn`, {}, { headers: authHeaders() })
-    return res.data
-  },
-  applyCheat: async (gameId: string, cheat_code: string, target: any) => {
-    const res = await axios.post(`${API_BASE}/api/games/${gameId}/cheat`, { cheat_code, target }, { headers: authHeaders() })
+  getStatus: async (gameId: string) => {
+    const res = await httpClient.get(`/api/games/${gameId}/status`)
     return res.data
   },
   getGalaxy: async (gameId: string) => {
-    const res = await axios.get(`${API_BASE}/api/games/${gameId}/galaxy`, { headers: authHeaders() })
+    const res = await httpClient.get(`/api/games/${gameId}/galaxy`)
     return res.data
   },
   getTechTree: async (gameId: string) => {
-    const res = await axios.get(`${API_BASE}/api/games/${gameId}/tech-tree`, { headers: authHeaders() })
+    const res = await httpClient.get(`/api/games/${gameId}/tech-tree`)
+    return res.data
+  },
+  selectResearch: async (gameId: string, data: { field: string; level: number; tech_id: string }) => {
+    const res = await httpClient.post(`/api/games/${gameId}/research`, data)
+    return res.data
+  },
+  getFleets: async (gameId: string) => {
+    const res = await httpClient.get(`/api/games/${gameId}/fleets`)
+    return res.data
+  },
+  moveFleet: async (gameId: string, fleetId: string, destination: string) => {
+    const res = await httpClient.post(`/api/games/${gameId}/fleet/${fleetId}/move`, { destination })
+    return res.data
+  },
+  splitFleet: async (
+    gameId: string,
+    fleetId: string,
+    ships: Array<{ type: string; count: number }>,
+  ) => {
+    const res = await httpClient.post(`/api/games/${gameId}/fleet/${fleetId}/split`, { ships })
+    return res.data
+  },
+  colonize: async (gameId: string, fleetId: string, planetIndex: number) => {
+    const res = await httpClient.post(`/api/games/${gameId}/colonize`, {
+      fleet_id: fleetId,
+      planet_index: planetIndex,
+    })
+    return res.data
+  },
+  getColonies: async (gameId: string) => {
+    const res = await httpClient.get(`/api/games/${gameId}/colonies`)
     return res.data
   },
   getColony: async (gameId: string, colonyId: string) => {
-    const res = await axios.get(`${API_BASE}/api/games/${gameId}/colony/${colonyId}`, { headers: authHeaders() })
+    const res = await httpClient.get(`/api/games/${gameId}/colony/${colonyId}`)
+    return res.data
+  },
+  manageColony: async (
+    gameId: string,
+    colonyId: string,
+    data: { population?: { farmers: number; workers: number; scientists: number } },
+  ) => {
+    const res = await httpClient.post(`/api/games/${gameId}/colony/${colonyId}/manage`, data)
+    return res.data
+  },
+  addBuildQueueItem: async (gameId: string, colonyId: string, type: 'building' | 'ship', id: string) => {
+    const res = await httpClient.post(`/api/games/${gameId}/colony/${colonyId}/build-queue/add`, { type, id })
+    return res.data
+  },
+  removeBuildQueueItem: async (gameId: string, colonyId: string, index: number) => {
+    const res = await httpClient.post(`/api/games/${gameId}/colony/${colonyId}/build-queue/remove`, { index })
+    return res.data
+  },
+  reorderBuildQueue: async (gameId: string, colonyId: string, from: number, to: number) => {
+    const res = await httpClient.post(`/api/games/${gameId}/colony/${colonyId}/build-queue/reorder`, {
+      from,
+      to,
+    })
+    return res.data
+  },
+  endTurn: async (gameId: string) => {
+    const res = await httpClient.post(`/api/games/${gameId}/endTurn`, {})
+    return res.data
+  },
+  applyCheat: async (gameId: string, cheatCode: string, target?: Record<string, unknown>) => {
+    const res = await httpClient.post(`/api/games/${gameId}/cheat`, {
+      cheat_code: cheatCode,
+      target,
+    })
     return res.data
   },
   getScenarios: async () => {
-    const res = await axios.get(`${API_BASE}/api/scenarios`)
+    const res = await httpClient.get('/api/scenarios')
     return res.data
   },
   getDiplomacy: async (gameId: string) => {
-    const res = await axios.get(`${API_BASE}/api/games/${gameId}/diplomacy`, { headers: authHeaders() })
+    const res = await httpClient.get(`/api/games/${gameId}/diplomacy`)
     return res.data
   },
-  proposeTreaty: async (gameId: string, target: string, treaty_type: string) => {
-    const res = await axios.post(`${API_BASE}/api/games/${gameId}/diplomacy/propose`, { target, treaty_type }, { headers: authHeaders() })
+  proposeTreaty: async (gameId: string, target: string, treatyType: string) => {
+    const res = await httpClient.post(`/api/games/${gameId}/diplomacy/propose`, {
+      target,
+      treaty_type: treatyType,
+    })
     return res.data
   },
   declareWar: async (gameId: string, target: string) => {
-    const res = await axios.post(`${API_BASE}/api/games/${gameId}/diplomacy/war`, { target }, { headers: authHeaders() })
+    const res = await httpClient.post(`/api/games/${gameId}/diplomacy/war`, { target })
     return res.data
-  }
+  },
 }

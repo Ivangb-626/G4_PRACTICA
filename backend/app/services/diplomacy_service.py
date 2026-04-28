@@ -71,7 +71,8 @@ def check_galactic_council(game_state):
     Called every few turns to determine if Galactic Council meets to elect a supreme leader.
     """
     t = game_state.get('turn', 0)
-    if t > 0 and t % 50 == 0:
+    initialize_diplomacy(game_state)
+    if t > 0 and t % 25 == 0:
         game_state['diplomacy']['council_active'] = True
         return {"type": "council_convened", "message": "The Galactic Council has convened!"}
     return None

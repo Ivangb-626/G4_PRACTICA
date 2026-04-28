@@ -1,323 +1,370 @@
 <template>
-  <div class="galaxy-map-container" @keydown.prevent="handleKeydown" tabindex="0" ref="mapContainer">
-    <div class="hud">
-      <div>
-        <h2>Galaxy Map</h2>
-        <p>Turno: {{ gameData?.turn || '—' }} · Posición actual: {{ currentLocationName }}</p>
-      </div>
-      <div class="actions">
-        <button @click="focusPlayerPosition" class="btn sci-fi">Ir a mi posición</button>
-        <button @click="endTurn" class="btn sci-fi">End Turn (T)</button>
-        <button @click="saveGame" class="btn sci-fi">Save Game (F10)</button>
-      </div>
-    </div>
+  <section class="map-layout">
+    <article class="map-panel retro-panel">
+      <header class="panel-head">
+        <div>
+          <h3>Mapa galactico</h3>
+          <p class="subtitle">
+            Sistemas explorados: {{ exploredSystems.length }}/{{ systems.length }}
+          </p>
+        </div>
+        <button class="retro-btn" type="button" @click="loadGalaxy" :disabled="loading">
+          {{ loading ? 'Cargando...' : 'Actualizar' }}
+        </button>
+      </header>
 
-    <div class="legend retro-panel" v-if="gameData">
-      <span><i class="dot mine"></i> Tu colonia</span>
-      <span><i class="dot fleet"></i> Tu flota</span>
-      <span><i class="dot selected"></i> Sistema seleccionado</span>
-    </div>
+      <p v-if="error" class="error">{{ error }}</p>
 
-    <div class="map-view" v-if="gameData">
-      <div class="map-frame">
-        <svg class="connections" width="100%" height="100%">
-          <g v-for="conn in connections" :key="conn.id">
-            <line :x1="conn.x1+'%'" :y1="conn.y1+'%'" :x2="conn.x2+'%'" :y2="conn.y2+'%'" stroke="rgba(0,212,255,0.2)" stroke-width="1.5" />
-          </g>
+      <div class="map-frame" v-if="systems.length">
+        <svg class="connection-layer" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <line
+            v-for="connection in connections"
+            :key="connection.id"
+            :x1="connection.x1"
+            :y1="connection.y1"
+            :x2="connection.x2"
+            :y2="connection.y2"
+            stroke="rgba(103, 240, 255, 0.28)"
+            stroke-width="0.25"
+          />
         </svg>
 
-        <div v-for="system in gameData.systems" :key="system.id"
-             class="star-system"
-             :class="{ 'is-selected': selectedSystemId === system.id }"
-             :style="{ left: system.x + '%', top: system.y + '%' }"
-             @click="openSystem(system.id)">
-          <div class="star-icon"
-               :class="[system.star_type, { 'is-mine': system.has_player_colony, 'has-fleet': system.has_player_fleet }]"></div>
-          <span class="system-name">{{ system.name }}</span>
-        </div>
+        <button
+          v-for="system in systems"
+          :key="system.id"
+          class="system-node"
+          :class="[
+            `star-${system.star_type || 'unknown'}`,
+            {
+              unexplored: !system.explored,
+              selected: selectedSystem?.id === system.id,
+              colony: system.has_player_colony,
+              fleet: system.has_player_fleet,
+            },
+          ]"
+          :style="{ left: `${system.position.x}%`, top: `${system.position.y}%` }"
+          type="button"
+          @click="selectedSystemId = system.id"
+        >
+          <span class="sr-only">{{ system.name }}</span>
+          <span class="system-label">{{ system.name }}</span>
+        </button>
       </div>
-    </div>
-  </div>
+    </article>
+
+    <aside class="side-panel retro-panel">
+      <template v-if="selectedSystem">
+        <header class="panel-head">
+          <div>
+            <h3>{{ selectedSystem.name }}</h3>
+            <p class="subtitle">
+              {{ selectedSystem.explored ? selectedSystem.star_type : 'Sin explorar' }}
+            </p>
+          </div>
+          <button class="retro-btn" type="button" @click="openSystem(selectedSystem.id)">
+            Abrir sistema
+          </button>
+        </header>
+
+        <div class="detail-grid">
+          <article class="detail-card">
+            <span>Planetas</span>
+            <strong>{{ selectedSystem.planets.length }}</strong>
+          </article>
+          <article class="detail-card">
+            <span>Conexiones</span>
+            <strong>{{ selectedSystem.connections.length }}</strong>
+          </article>
+          <article class="detail-card">
+            <span>Colonia propia</span>
+            <strong>{{ selectedSystem.has_player_colony ? 'Si' : 'No' }}</strong>
+          </article>
+          <article class="detail-card">
+            <span>Flota propia</span>
+            <strong>{{ selectedSystem.has_player_fleet ? 'Si' : 'No' }}</strong>
+          </article>
+        </div>
+
+        <ul v-if="selectedSystem.explored && selectedSystem.planets.length" class="planet-list">
+          <li v-for="planet in selectedSystem.planets" :key="planet.index">
+            <strong>{{ planet.name }}</strong>
+            <span>{{ planet.type }} · {{ planet.size }}</span>
+            <span>{{ planet.colonized_by ? `Colonizado por ${planet.colonized_by}` : 'Libre' }}</span>
+          </li>
+        </ul>
+        <p v-else class="empty">No hay informacion detallada disponible hasta explorar el sistema.</p>
+      </template>
+
+      <p v-else class="empty">Selecciona una estrella para ver sus detalles.</p>
+    </aside>
+  </section>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../services/api'
-import type { GameState } from '../types/game'
+import type { GalaxySystem } from '../types/game'
 
 const route = useRoute()
 const router = useRouter()
-const gameId = route.params.id as string
+const gameId = String(route.params.id || '')
 
-const gameData = ref<GameState | null>(null)
-const mapContainer = ref<HTMLElement | null>(null)
+const systems = ref<GalaxySystem[]>([])
+const selectedSystemId = ref('')
+const loading = ref(false)
+const error = ref('')
 
-type GalaxySystem = {
-  id: string
-  name: string
-  x: number
-  y: number
-  star_type: string
-  neighbors: string[]
-  has_player_colony?: boolean
-  has_player_fleet?: boolean
-}
-
-function normalizeGalaxy(raw: any): GameState {
-  const stars = Array.isArray(raw?.star_systems) ? raw.star_systems : []
-  const systems: GalaxySystem[] = stars.map((s: any) => ({
-    id: s.id,
-    name: s.name,
-    x: Math.min(98, Math.max(2, s?.position?.x ?? 0)),
-    y: Math.min(96, Math.max(4, s?.position?.y ?? 0)),
-    star_type: s.star_type || 'yellow',
-    neighbors: Array.isArray(s.connections) ? s.connections : [],
-    has_player_colony: Boolean(s.has_player_colony),
-    has_player_fleet: Boolean(s.has_player_fleet)
-  }))
-  return {
-    id: gameId,
-    name: 'Galaxy',
-    turn: 0,
-    systems,
-    fleets: [],
-    players: []
-  }
-}
+const exploredSystems = computed(() => systems.value.filter((system) => system.explored))
+const selectedSystem = computed(() => systems.value.find((system) => system.id === selectedSystemId.value) || null)
 
 const connections = computed(() => {
-  if (!gameData.value) return []
-  const conns = []
-  const systemsMap = new Map(gameData.value.systems.map(s => [s.id, s]))
-  
-  for (const system of gameData.value.systems) {
-    if (system.neighbors) {
-      for (const neighborId of system.neighbors) {
-        const neighbor = systemsMap.get(neighborId)
-        if (neighbor) {
-          conns.push({
-            id: `${system.id}-${neighbor.id}`,
-            x1: system.x, y1: system.y,
-            x2: neighbor.x, y2: neighbor.y
-          })
-        }
-      }
+  const items: Array<{ id: string; x1: number; y1: number; x2: number; y2: number }> = []
+  const seen = new Set<string>()
+  const map = new Map(systems.value.map((system) => [system.id, system]))
+
+  for (const system of systems.value) {
+    for (const targetId of system.connections) {
+      const target = map.get(targetId)
+      if (!target) continue
+      const id = [system.id, targetId].sort().join(':')
+      if (seen.has(id)) continue
+      seen.add(id)
+      items.push({
+        id,
+        x1: system.position.x,
+        y1: system.position.y,
+        x2: target.position.x,
+        y2: target.position.y,
+      })
     }
   }
-  return conns
+
+  return items
 })
 
-const selectedSystemId = ref<string>('')
-const playerSystems = computed(() =>
-  (gameData.value?.systems || []).filter((s: any) => s.has_player_colony || s.has_player_fleet)
-)
-const currentLocationName = computed(() => {
-  const selected = gameData.value?.systems.find((s) => s.id === selectedSystemId.value)
-  if (selected) return selected.name
-  return playerSystems.value[0]?.name || 'Sin datos'
-})
-
-const fetchGalaxy = async () => {
+async function loadGalaxy() {
+  loading.value = true
+  error.value = ''
   try {
-    const res = await api.getGalaxy(gameId)
-    gameData.value = normalizeGalaxy(res?.state || res)
-    if (!selectedSystemId.value) {
-      selectedSystemId.value = playerSystems.value[0]?.id || gameData.value.systems[0]?.id || ''
+    const response = await api.getGalaxy(gameId)
+    systems.value = Array.isArray(response?.star_systems) ? response.star_systems : []
+    if (!selectedSystemId.value && systems.value.length) {
+      selectedSystemId.value =
+        systems.value.find((system) => system.has_player_colony || system.has_player_fleet)?.id ||
+        systems.value[0].id
     }
-  } catch (error) {
-    console.error('Failed to load galaxy', error)
+  } catch (err) {
+    systems.value = []
+    error.value = (err as Error).message || 'No se pudo cargar el mapa galactico.'
+  } finally {
+    loading.value = false
   }
 }
 
-const selectSystem = (sysId: string) => {
-  selectedSystemId.value = sysId
+function openSystem(systemId: string) {
+  router.push(`/game/${gameId}/system/${systemId}`)
 }
 
-const openSystem = (sysId: string) => {
-  selectSystem(sysId)
-  goToSystem(sysId)
-}
-
-const goToSystem = (sysId: string) => {
-  router.push(`/game/${gameId}/system/${sysId}`)
-}
-
-const focusPlayerPosition = () => {
-  if (playerSystems.value[0]?.id) {
-    selectedSystemId.value = playerSystems.value[0].id
-  }
-}
-
-const endTurn = async () => {
-  try {
-    await api.endTurn(gameId)
-    await fetchGalaxy()
-  } catch(error) {
-    console.error(error)
-  }
-}
-
-const saveGame = async () => {
-  try {
-    await api.saveGame(gameId)
-    alert('Game saved!')
-  } catch (error) {
-    console.error(error)
-  }
-}
-
-const handleKeydown = (e: KeyboardEvent) => {
-  const t = e.target as HTMLElement
-  if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') return
-
-  switch (e.key.toLowerCase()) {
-    case 't':
-      endTurn()
-      break
-    case 'enter':
-      if (selectedSystemId.value) goToSystem(selectedSystemId.value)
-      break
-    case 'f10':
-      saveGame()
-      break
-    // Añadir atajos extra C, F, P...
-  }
-}
-
-onMounted(() => {
-  fetchGalaxy()
-  mapContainer.value?.focus()
-})
+onMounted(loadGalaxy)
 </script>
 
 <style scoped>
-.galaxy-map-container {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: clamp(640px, 84vh, 980px);
-  background: #0a0a1a url('/assets/stars-bg.png') repeat;
-  color: #fff;
-  outline: none;
-  border: 1px solid var(--panel-border);
-  border-radius: 10px;
-  overflow: hidden;
+.map-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  gap: 1rem;
 }
-.hud {
-  position: relative;
-  width: 100%;
-  padding: 0.7rem 0.9rem;
+
+.map-panel,
+.side-panel {
+  padding: 0.9rem;
+}
+
+.panel-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  background: rgba(0,0,0,0.7);
-  border-bottom: 1px solid #00d4ff;
-  z-index: 10;
-}
-.btn.sci-fi {
-  background: #1a1a3e;
-  border: 1px solid #00d4ff;
-  color: #00d4ff;
-  padding: 0.5rem 1rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  margin-left: 0.5rem;
-}
-.btn.sci-fi:hover {
-  background: #00d4ff;
-  color: #0a0a1a;
-  box-shadow: 0 0 10px #00d4ff;
-}
-.legend {
-  margin: 0.45rem 0.7rem 0;
-  width: auto;
-  display: flex;
+  align-items: flex-start;
   gap: 1rem;
-  align-items: center;
-  padding: 0.4rem 0.7rem;
-  font-size: 0.78rem;
-  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
 }
-.dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  margin-right: 0.35rem;
+
+.subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
 }
-.dot.mine { background: #6ef7b2; box-shadow: 0 0 8px #6ef7b2; }
-.dot.fleet { background: #67e8f9; box-shadow: 0 0 8px #67e8f9; }
-.dot.selected { background: #ffd700; box-shadow: 0 0 8px #ffd700; }
-.map-view {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  flex: 1;
-  min-height: 0;
-  padding: 0.55rem 0.7rem 0.7rem;
-}
+
 .map-frame {
   position: relative;
-  width: 100%;
-  height: 100%;
-  border: 1px solid rgba(89, 170, 255, 0.5);
-  border-radius: 10px;
-  background: rgba(4, 10, 24, 0.65);
+  min-height: 720px;
+  border-radius: 12px;
+  border: 1px solid rgba(89, 170, 255, 0.22);
+  background:
+    radial-gradient(circle at 30% 20%, rgba(27, 83, 149, 0.25), transparent 20%),
+    radial-gradient(circle at 80% 10%, rgba(0, 212, 255, 0.15), transparent 16%),
+    linear-gradient(180deg, rgba(3, 9, 24, 0.96), rgba(4, 11, 29, 0.88));
   overflow: hidden;
 }
-.connections {
+
+.map-frame::before {
+  content: '';
   position: absolute;
-  top: 0; left: 0;
-  pointer-events: none;
+  inset: 0;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.9) 0 0.08rem, transparent 0.08rem),
+    radial-gradient(circle, rgba(103, 240, 255, 0.8) 0 0.05rem, transparent 0.05rem);
+  background-position: 0 0, 1.4rem 1.1rem;
+  background-size: 2.2rem 2.2rem, 2.8rem 2.8rem;
+  opacity: 0.25;
 }
-.star-system {
+
+.connection-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.system-node {
   position: absolute;
   transform: translate(-50%, -50%);
-  cursor: pointer;
-  text-align: center;
-  z-index: 5;
-}
-.star-system.is-selected .system-name {
-  color: #ffe082;
-}
-.star-icon {
-  position: relative;
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: white;
-  margin: 0 auto;
-  box-shadow: 0 0 12px white;
-  transition: transform 0.2s;
+  border: 0;
+  cursor: pointer;
+  box-shadow: 0 0 0.9rem rgba(255, 255, 255, 0.35);
+  z-index: 1;
 }
-.star-system:hover .star-icon {
-  transform: scale(1.35);
+
+.system-node.unexplored {
+  background: #51637c;
+  box-shadow: none;
 }
-.star-icon.is-mine {
-  outline: 2px solid #6ef7b2;
-  outline-offset: 2px;
+
+.system-node.selected {
+  outline: 2px solid #ffe082;
+  outline-offset: 5px;
 }
-.star-icon.has-fleet::after {
+
+.system-node.colony {
+  box-shadow: 0 0 1rem rgba(141, 246, 191, 0.8);
+}
+
+.system-node.fleet::after {
   content: '';
   position: absolute;
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #67e8f9;
-  transform: translate(13px, -2px);
-  box-shadow: 0 0 8px #67e8f9;
+  right: -5px;
+  top: -3px;
+  background: var(--primary-strong);
+  box-shadow: 0 0 0.5rem rgba(103, 240, 255, 0.9);
 }
-.system-name {
-  font-family: monospace;
-  font-size: 0.72rem;
-  text-shadow: 0 0 5px black;
+
+.system-label {
+  position: absolute;
+  left: 50%;
+  top: 120%;
+  transform: translateX(-50%);
+  min-width: max-content;
+  color: var(--text);
+  font-size: 0.74rem;
+  text-shadow: 0 0 0.35rem rgba(0, 0, 0, 0.8);
 }
-/* Tipos de estrellas */
-.red { background: #ff3366; box-shadow: 0 0 15px #ff3366; }
-.blue { background: #00d4ff; box-shadow: 0 0 15px #00d4ff; }
-.yellow { background: #ffd700; box-shadow: 0 0 15px #ffd700; }
+
+.star-red {
+  background: #ff5d6c;
+}
+
+.star-orange {
+  background: #ff9d3a;
+}
+
+.star-yellow {
+  background: #ffd447;
+}
+
+.star-white {
+  background: #d5ecff;
+}
+
+.star-blue {
+  background: #4bb7ff;
+}
+
+.star-unknown {
+  background: #6881a1;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0.9rem 0 1rem;
+}
+
+.detail-card {
+  padding: 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(89, 170, 255, 0.18);
+  background: rgba(8, 15, 38, 0.72);
+}
+
+.detail-card span {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.planet-list {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.planet-list li {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem;
+  border: 1px solid rgba(112, 166, 214, 0.18);
+  border-radius: 8px;
+  background: rgba(7, 15, 36, 0.72);
+}
+
+.empty {
+  color: var(--text-muted);
+}
+
+.error {
+  color: var(--danger);
+  margin-bottom: 0.75rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+@media (max-width: 1080px) {
+  .map-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .map-frame {
+    min-height: 580px;
+  }
+}
 </style>

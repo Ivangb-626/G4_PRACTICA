@@ -54,12 +54,14 @@ def get_game(user_id: str, game_id: str):
 
 def save_game(user_id: str, game_id: str, game_state: dict, name: str = None, autosave: bool = False):
     now = datetime.utcnow().isoformat()
+    game_state['last_saved'] = now
+    game_state['is_autosave'] = autosave
     query = {'_id': ObjectId(game_id), 'user_id': ObjectId(user_id)}
     update = {'$set': {'game_state': game_state, 'last_saved': now, 'is_autosave': autosave}}
     if name:
         update['$set']['name'] = name
     res = games.update_one(query, update)
-    return res.modified_count > 0
+    return res.matched_count > 0
 
 
 def delete_game(user_id: str, game_id: str):

@@ -1,0 +1,178 @@
+[
+  {
+    "id": "marine_barracks",
+    "name": "Cuartel de Marines",
+    "description": "Entrena marines y defensores terrestres",
+    "cost": 30,
+    "maintenance": 1,
+    "effects": {
+      "production_bonus": 0,
+      "research_bonus": 0,
+      "food_bonus": 0,
+      "bc_bonus": 0,
+      "command_points": 0,
+      "ground_defense": 10,
+      "orbital_defense": 0,
+      "ship_production_bonus": 0,
+      "morale_bonus": 0
+    },
+    "prerequisites": {
+      "tech": [],
+      "buildings": []
+    }
+  },
+  {
+    "id": "automated_factory",
+    "name": "Fábrica Automatizada",
+    "description": "Aumenta la producción industrial de la colonia",
+    "cost": 60,
+    "maintenance": 2,
+    "effects": {
+      "production_bonus": 5,
+      "research_bonus": 0,
+      "food_bonus": 0,
+      "bc_bonus": 0,
+      "command_points": 0,
+      "ground_defense": 0,
+      "orbital_defense": 0,
+      "ship_production_bonus": 0,
+      "morale_bonus": 0
+    },
+    "prerequisites": {
+      "tech": ["construction_1"],
+      "buildings": []
+    }
+  },
+  {
+    "id": "research_lab",
+    "name": "Laboratorio de Investigación",
+    "description": "Incrementa la velocidad de investigación tecnológica",
+    "cost": 60,
+    "maintenance": 2,
+    "effects": {
+      "production_bonus": 0,
+      "research_bonus": 5,
+      "food_bonus": 0,
+      "bc_bonus": 0,
+      "command_points": 0,
+      "ground_defense": 0,
+      "orbital_defense": 0,
+      "ship_production_bonus": 0,
+      "morale_bonus": 0
+    },
+    "prerequisites": {
+      "tech": ["computers_1"],
+      "buildings": []
+    }
+  },
+  {
+    "id": "hydroponic_farm",
+    "name": "Granja Hidropónica",
+    "description": "Produce alimentos adicionales para la colonia",
+    "cost": 40,
+    "maintenance": 1,
+    "effects": {
+      "production_bonus": 0,
+      "research_bonus": 0,
+      "food_bonus": 2,
+      "bc_bonus": 0,
+      "command_points": 0,
+      "ground_defense": 0,
+      "orbital_defense": 0,
+      "ship_production_bonus": 0,
+      "morale_bonus": 0
+    },
+    "prerequisites": {
+      "tech": ["biology_1"],
+      "buildings": []
+    }
+  },
+  {
+    "id": "star_base",
+    "name": "Base Estelar",
+    "description": "Centro de control orbital que permite construcción de naves mayores",
+    "cost": 200,
+    "maintenance": 4,
+    "effects": {
+      "production_bonus": 0,
+      "research_bonus": 0,
+      "food_bonus": 0,
+      "bc_bonus": 0,
+      "command_points": 2,
+      "ground_defense": 0,
+      "orbital_defense": 0,
+      "ship_production_bonus": 0,
+      "morale_bonus": 0
+    },
+    "prerequisites": {
+      "tech": ["construction_2"],
+      "buildings": []
+    }
+  },
+  {
+    "id": "missile_base",
+    "name": "Base de Misiles",
+    "description": "Defensa orbital contra ataques espaciales",
+    "cost": 80,
+    "maintenance": 2,
+    "effects": {
+      "production_bonus": 0,
+      "research_bonus": 0,
+      "food_bonus": 0,
+      "bc_bonus": 0,
+      "command_points": 0,
+      "ground_defense": 0,
+      "orbital_defense": 20,
+      "ship_production_bonus": 0,
+      "morale_bonus": 0
+    },
+    "prerequisites": {
+      "tech": ["chemistry_1"],
+      "buildings": []
+    }
+  },
+  {
+    "id": "spaceport",
+    "name": "Puerto Espacial",
+    "description": "Acelera la construcción de naves en esta colonia",
+    "cost": 100,
+    "maintenance": 3,
+    "effects": {
+      "production_bonus": 0,
+      "research_bonus": 0,
+      "food_bonus": 0,
+      "bc_bonus": 0,
+      "command_points": 0,
+      "ground_defense": 0,
+      "orbital_defense": 0,
+      "ship_production_bonus": 50,
+      "morale_bonus": 0
+    },
+    "prerequisites": {
+      "tech": ["construction_1"],
+      "buildings": []
+    }
+  },
+  {
+    "id": "trade_center",
+    "name": "Centro de Comercio",
+    "description": "Genera ingresos en Créditos de Batalla adicionales",
+    "cost": 60,
+    "maintenance": 1,
+    "effects": {
+      "production_bonus": 0,
+      "research_bonus": 0,
+      "food_bonus": 0,
+      "bc_bonus": 3,
+      "command_points": 0,
+      "ground_defense": 0,
+      "orbital_defense": 0,
+      "ship_production_bonus": 0,
+      "morale_bonus": 0
+    },
+    "prerequisites": {
+      "tech": ["sociology_1"],
+      "buildings": []
+    }
+  }
+]
