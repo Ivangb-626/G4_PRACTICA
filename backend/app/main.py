@@ -66,6 +66,8 @@ def _player_fleet(game_state, fleet_id):
     return find_fleet(game_state, "player", fleet_id)
 
 
+
+
 def _build_basic_ai_actions(game_state, ai_player):
     available_actions = {
         "can_colonize": [],
