@@ -112,14 +112,14 @@ const games = ref<GameSummary[]>([])
 const scenarios = ref<Scenario[]>([])
 
 const races = [
-  { id: 'humans', name: 'Humanos' },
-  { id: 'bulrathi', name: 'Bulrathi' },
-  { id: 'mrrshan', name: 'Mrrshan' },
+  { id: 'alkari', name: 'Alkari' },
+  { id: 'meklar', name: 'Meklar' },
+  { id: 'trilarian', name: 'Trilarian' },
 ]
 
 const form = ref({
   name: 'Partida nueva',
-  player_race: 'humans',
+  player_race: 'alkari',
   galaxy_size: 'small',
   difficulty: 'normal',
   num_opponents: 1,
