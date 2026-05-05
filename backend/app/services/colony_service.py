@@ -245,6 +245,17 @@ def calculate_colony_production(game_state, colony):
     race = empire["race"]
     food_mod = PLANET_TYPES.get(planet["type"], {}).get("food_mod", 0)
     mineral_mod = MINERAL_MOD.get(planet["minerals"], 1.0)
+    
+    # Gravity Penalty modifier (from SPECS.md)
+    gravity = planet.get("gravity", "normal")
+    gravity_mod = 0.75 if gravity in ["low", "high"] else 1.0
+    
+    # Government Modifiers (from SPECS.md)
+    gov = race.get("government", "dictatorship")
+    gov_food_bonus = 1 if gov == "unification" else 0
+    gov_industry_bonus = 1 if gov == "unification" else 0
+    gov_research_mod = 0.5 if gov == "democracy" else (-0.5 if gov == "feudalism" else 0.0)
+    gov_bc_per_capita = 0.5 if gov == "democracy" else 0.0
 
     farmers = int(colony["population"].get("farmers", 1))
     workers = int(colony["population"].get("workers", 0))
@@ -276,28 +287,33 @@ def calculate_colony_production(game_state, colony):
         for building in colony.get("buildings", [])
     )
 
-    food_output = max(0, farmers * (1 + food_mod + race["traits"].get("food_bonus", 0)) + building_food_bonus)
+    # Calculate base per-pop yields
+    base_food_per_farmer = max(0, 1 + food_mod + race["traits"].get("food_bonus", 0) + gov_food_bonus) * gravity_mod
+    base_industry_per_worker = max(0, 2 + race["traits"].get("industry_bonus", 0) + gov_industry_bonus) * gravity_mod
+    base_research_per_scientist = max(0, 2) * gravity_mod
+
+    food_output = max(0, (farmers * base_food_per_farmer) + building_food_bonus)
     food_consumption = total
     food_surplus = food_output - food_consumption
 
-    industry_output = max(
-        0,
-        (workers * 2 + race["traits"].get("industry_bonus", 0) * workers + building_prod_bonus) * mineral_mod,
-    )
-    research_output = max(
-        0,
-        scientists * 2 + race["traits"].get("research_bonus", 0) + building_research_bonus,
-    )
-    bc_output = max(
-        0,
-        race["traits"].get("trade_bonus", 0) * total + building_bc_bonus,
-    )
+    industry_output = max(0, ((workers * base_industry_per_worker) + building_prod_bonus) * mineral_mod)
+    
+    # Research has percentage multipliers
+    base_research_output = (scientists * base_research_per_scientist) + building_research_bonus
+    research_multiplier = 1.0 + (race["traits"].get("research_bonus", 0) / 100.0) + gov_research_mod
+    research_output = max(0, base_research_output * research_multiplier)
+    
+    # Wealth has BC per capita and trade bonus
+    tax_rate = 1.0  # Base tax per citizen
+    bc_per_pop = tax_rate + race["traits"].get("trade_bonus", 0) + race["traits"].get("bc_per_capita", 0) + gov_bc_per_capita
+    bc_output = max(0, (total * bc_per_pop) + building_bc_bonus)
+
     if not colony.get("build_queue"):
         bc_output += round(industry_output * 0.5, 2)
 
-    colony["food_output"] = food_output
+    colony["food_output"] = round(food_output, 2)
     colony["food_consumption"] = food_consumption
-    colony["food_surplus"] = food_surplus
+    colony["food_surplus"] = round(food_surplus, 2)
     colony["industry_output"] = round(industry_output, 2)
     colony["research_output"] = round(research_output, 2)
     colony["bc_output"] = round(bc_output, 2)
