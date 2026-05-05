@@ -101,7 +101,7 @@ Este documento detalla las modificaciones y adiciones necesarias en el backend (
 
 * **Backend (`ai_service.py` / `services/`):**
   * Crear tabla `technologies` con campos: `id`, `name`, `research_area` (1-8), `level`, `research_cost`, `prerequisites`, `effects`.
-  * **8 Áreas de Investigación**: (definidas según MOO2 estándar: Biology, Physics, Sociology, Ecology, Metallurgy, Computers, Force Fields, Astronomy).
+  * **8 Áreas de Investigación**: Engineering, Power, Chemistry, Biology, Physics, Sociology, Computers, Force Fields. Son completamente independientes entre sí (sin interdependencias entre áreas).
   * Cada área tiene múltiples niveles; cada nivel contiene 1-4 tecnologías.
   * Antes de investigar un tech de nivel N+1, debe completarse nivel N.
   * Adquisición alternativa de tecnologías: Intercambio diplomático, espionaje, contratación de líderes con conocimiento, conquista de planetas (reverse engineering), eventos aleatorios, derelicts orbiting newly discovered planets.
@@ -197,10 +197,15 @@ Este documento detalla las modificaciones y adiciones necesarias en el backend (
   * Resultado depende de: números, tech de combate terrestre, bonificadores raciales, líderes con skill Commando.
   * Colonias conquistas por telepaths son instamente loyal. No-telepaths: colonias disconformes, baja producción, riesgo de rebelión.
   * **Destrucción Planetaria:** Alternativa a invasión: destruir colonia directamente por varios medios.
+* **Armas y Tácticas (`combat_service.py`):**
+  * **Torpedos:** No pueden ser interceptados por Point Defense. La única contramedida válida es equipar ECM Jammers o sistemas especiales como el Lightning Field.
+  * **Misiles:** Sí pueden ser derribados por Point Defense. Con buena defensa se puede esperar interceptar el 100% antes de impacto. Maximizar efectividad de misiles: actualizarlos con modificadores ECCM/MIRV/Armor/Fast, disparar desde flotas masivas con Fast Missile Racks.
+  * **Point Defense:** Arma defensiva que intercepta misiles entrantes; su eficacia depende del nivel de tech de Computers (targeting accuracy).
+  * **ECM/ECCM:** Los jammers ECM reducen la precisión de misiles enemigos; ECCM en los propios misiles contrarresta el ECM del defensor.
 * **Frontend (`CombatResult.vue` / `GalaxyMap.vue`):**
   * Animaciones de combate (si tactical combat habilitado).
   * Botones post-combate: Mind Control (si aplica), Invade, Bombard, Retreat.
-  * Reportes detallados de resultado y daños.
+  * Reportes detallados de resultado y daños con distinción torpedo vs misil vs beam.
 
 ## 16. Reportes de Turno y Sistema de Turnos
 **Objetivo:** Resumen automático de eventos y cambios cada turno.
@@ -234,3 +239,51 @@ Este documento detalla las modificaciones y adiciones necesarias en el backend (
   * Indicador de votos para elección.
   * Alerta cuando Dimensional Portal se descubre.
   * Pantalla de fin de juego con razón de victoria.
+
+## 18. Monstruos Espaciales (Space Monsters)
+**Objetivo:** Poblar la galaxia con entidades peligrosas que custodian sistemas valiosos y suponen un reto táctico diferenciado.
+
+* **Backend (`combat_service.py` / generación de galaxia):**
+  * Tres tipos de monstruo con comportamiento de combate propio:
+    * **Space Crystal:** Usa un único rayo de daño alto. Versión itinerante puede capturar naves telepáticamente. Táctica recomendada: "run and fire" (kiting a distancia).
+    * **Space Amoeba:** Dispara un arma de rango medio similar al Plasma Web. Versión itinerante tiene 2 ataques de slime. Táctica recomendada: kiting.
+    * **Space Eel:** Equivalente a Lightning Shield + shockwave de corto alcance. Versión itinerante tiene 2 shockwaves. Táctica recomendada: carga y disparo a quemarropa.
+  * Las versiones itinerantes ("travelling") tienen hasta 4× más hit points y armas adicionales respecto a la versión estacionaria.
+  * Monstruos estacionarios custodian sistemas concretos; los itinerantes atraviesan la galaxia y pueden atacar colonias sin previo aviso.
+  * Parámetros de monstruo en BD: `monster_type`, `is_travelling`, `hp`, `weapons[]`, `location_system_id`.
+* **Frontend (`GalaxyMap.vue` / `CombatResult.vue`):**
+  * Icono de advertencia "Space Monster" en sistemas guarnecidos con tooltip de tipo.
+  * Reporte de combate diferenciado al enfrentarse a un monstruo (sin loot de tech, sin invasión posible).
+  * Alerta de "Monstruo Itinerante Detectado" cuando un monstruo se aproxima a territorio propio.
+
+## 19. El Sistema Orion y el Guardian
+**Objetivo:** Añadir el objetivo opcional de mayor recompensa del juego: derrotar al Guardian y colonizar Orion.
+
+* **Backend (`combat_service.py` / `game_service.py`):**
+  * El Guardian es un warship automatizado extremadamente potente que siempre reside en el sistema Orion. Su potencia debe escalar por encima de cualquier nave estándar investigable.
+  * Solo puede encontrarse en combate, nunca se mueve del sistema Orion.
+  * Al derrotar al Guardian:
+    1. Desbloquear **Tecnologías Exóticas** que no son investigables por ninguna raza (tabla `exotic_technologies`, adquiribles solo así o en ciertos eventos).
+    2. Otorgar la lealtad del **Último Orión**: una nave de batalla (Avenger) extremadamente poderosa comandada por un personaje único que se une al imperio victorioso.
+    3. Habilitar la colonización del **Homeworld Orión**: el mejor planeta posible en el juego (máximo tamaño, máxima riqueza de recursos).
+  * Registrar en el estado del juego: `orion_guardian_defeated: bool`, `avenger_fleet_id`, `orion_colonized: bool`.
+* **Frontend (`GalaxyMap.vue` / `SystemView.vue`):**
+  * Sistema Orion visible desde el inicio con indicador especial "Sistema Guardado — GUARDIAN".
+  * Pantalla de recompensa especial tras derrotar al Guardian: lista de techs exóticas obtenidas y aparición del Avenger.
+
+## 20. Los Antaranos y el Portal Dimensional
+**Objetivo:** Presión constante de un enemigo externo indestructible y ruta de victoria alternativa mediante ataque a su dimensión.
+
+* **Backend (`game_service.py` / motor de turnos):**
+  * Pasado un número configurable de turnos desde el inicio (ej. turno 50), los Antaranos escapan de su dimensión de bolsillo y empiezan a enviar flotas pequeñas contra colonias aleatorias.
+  * **Comportamiento Antarano:** Solo destruyen, NUNCA invaden ni colonozan. Sus flotas aumentan de tamaño con el paso de los turnos.
+  * Las flotas antaranas son más poderosas que las naves estándar de las razas jugables; requieren flotas especializadas o tecnologías del Guardian para derrotarlas eficientemente.
+  * **Portal Dimensional:** Tecnología avanzada (investigable o conseguida por otros medios) que permite abrir un portal al homeworld Antarano.
+    * Solo una flota puede atravesarlo por turno.
+    * Conquistar el homeworld Antarano activa la **Victoria Antaran**: todas las demás facciones, tan impresionadas, rinden de inmediato.
+  * Estado en BD: `antarans_active: bool`, `antaran_attack_level: int`, `dimensional_portal_built: bool`.
+* **Frontend (`GalaxyMap.vue` / `Dashboard.vue`):**
+  * Notificación de turno "¡Los Antaranos han escapado!" con descripción de la amenaza.
+  * Indicador en el mapa de los sistemas bajo ataque antarano (icono de invasión roja especial).
+  * Alerta cuando el Portal Dimensional está construido y listo para ser usado.
+  * Pantalla de victoria especial "Conquista Antaran" con cinemática de las facciones rindiendo.

@@ -200,6 +200,23 @@ def generate_galaxy(size, num_opponents, player_race_id):
         },
     }
 
+    # PLAN sec 18 — Space Monsters guard a few non-Orion, non-starting systems
+    candidate_indices = list(range(2, len(systems)))
+    random.shuffle(candidate_indices)
+    monster_count = max(1, len(systems) // 10)
+    monster_kinds = ["space_crystal", "space_amoeba", "space_eel"]
+    for idx in candidate_indices[:monster_count]:
+        sys = systems[idx]
+        if sys.get("guardian", {}).get("active"):
+            continue
+        kind = random.choice(monster_kinds)
+        is_travelling = random.random() < 0.25
+        sys["space_monster"] = {
+            "type": kind,
+            "is_travelling": is_travelling,
+            "defeated": False,
+        }
+
     return {
         "size": size,
         "num_systems": len(systems),
@@ -305,6 +322,14 @@ def generate_game_state(name, scenario):
         "is_autosave": False,
         "cheats_used": [],
         "antaran_next_attack_turn": 15 + random.randint(0, 5),
+        "antarans_active": False,
+        "antaran_attack_level": 1,
+        "dimensional_portal_built": False,
+        "antaran_homeworld_conquered": False,
+        "orion_guardian_defeated": False,
+        "orion_colonized": False,
+        "avenger_fleet_id": None,
+        "exotic_technologies": [],
         "victory_condition": None,
         "player": _initial_empire("player", scenario["player_race"], player_system),
         "ai_players": ai_players,
@@ -691,6 +716,16 @@ def check_victory(game_state):
     player_fleets = len([fleet for fleet in game_state["player"].get("fleets", []) if fleet.get("ships")])
     ai_colonies = sum(len(ai.get("colonies", [])) for ai in game_state.get("ai_players", []))
     ai_fleets = sum(len([fleet for fleet in ai.get("fleets", []) if fleet.get("ships")]) for ai in game_state.get("ai_players", []))
+
+    # PLAN sec 20 — Antaran homeworld conquest victory
+    if game_state.get("antaran_homeworld_conquered"):
+        game_state["victory_condition"] = "Antaran"
+        return "victory"
+
+    # Diplomatic victory (set by check_galactic_council)
+    if game_state.get("victory_condition") == "Diplomatic":
+        return "victory"
+
     if ai_colonies == 0 and ai_fleets == 0:
         game_state["victory_condition"] = "Conquest"
         return "victory"
@@ -698,6 +733,100 @@ def check_victory(game_state):
         game_state["victory_condition"] = "Defeat"
         return "defeat"
     return None
+
+
+# PLAN sec 19 — Reward for defeating the Guardian
+EXOTIC_TECHS = [
+    "phasing_cloak",
+    "stellar_converter",
+    "death_ray",
+    "doom_star_hull",
+    "antaran_xeno_psychology",
+]
+
+
+def defeat_orion_guardian(game_state, owner_id="player"):
+    """PLAN sec 19 — Apply rewards when the Orion Guardian is defeated."""
+    if game_state.get("orion_guardian_defeated"):
+        return {"success": False, "reason": "Guardian already defeated"}
+
+    orion = next((s for s in game_state["galaxy"]["star_systems"] if s.get("name", "").lower() == "orion"), None)
+    if not orion:
+        return {"success": False, "reason": "Orion system not found"}
+
+    game_state["orion_guardian_defeated"] = True
+    orion["guardian"]["active"] = False
+    orion["guardian"]["fleet"] = None
+
+    # Grant exotic techs
+    granted = random.sample(EXOTIC_TECHS, k=min(3, len(EXOTIC_TECHS)))
+    game_state["exotic_technologies"] = granted
+
+    empire = get_empire(game_state, owner_id)
+    if empire:
+        empire["technologies"] = list(set(empire.get("technologies", []) + granted))
+        # Avenger fleet — gift the last Orion's powerful battleship
+        avenger_id = f"avenger_{owner_id}"
+        avenger_fleet = {
+            "id": avenger_id,
+            "name": "Avenger",
+            "owner": owner_id,
+            "star_system_id": orion["id"],
+            "ships": [{"type": "battleship", "count": 1}],
+            "destination": None,
+            "eta_turns": None,
+            "is_avenger": True,
+        }
+        empire.setdefault("fleets", []).append(avenger_fleet)
+        game_state["avenger_fleet_id"] = avenger_id
+
+    return {"success": True, "exotic_techs": granted, "avenger_fleet_id": game_state.get("avenger_fleet_id")}
+
+
+def build_dimensional_portal(game_state, owner_id="player", colony_id=None):
+    """PLAN sec 20 — Build the Dimensional Portal needed to assault Antares."""
+    cost = 1000
+    empire = get_empire(game_state, owner_id)
+    if not empire:
+        return {"success": False, "reason": "Empire not found"}
+    if game_state.get("dimensional_portal_built"):
+        return {"success": False, "reason": "Portal already built"}
+    if empire["resources"].get("bc", 0) < cost:
+        return {"success": False, "reason": f"Not enough BC ({cost} required)"}
+    # Require certain tech as gate
+    techs = empire.get("technologies", [])
+    if "physics_lvl3" not in techs and "antaran_xeno_psychology" not in techs:
+        return {"success": False, "reason": "Requires advanced physics or exotic Antaran tech"}
+
+    empire["resources"]["bc"] -= cost
+    game_state["dimensional_portal_built"] = True
+    return {"success": True, "message": "Dimensional Portal constructed. You may now assault the Antaran homeworld."}
+
+
+def attack_antaran_homeworld(game_state, owner_id="player", fleet_id=None):
+    """PLAN sec 20 — Final assault. Conquering the homeworld triggers Antaran victory."""
+    if not game_state.get("dimensional_portal_built"):
+        return {"success": False, "reason": "Dimensional Portal not built"}
+    empire = get_empire(game_state, owner_id)
+    if not empire:
+        return {"success": False, "reason": "Empire not found"}
+    fleet = next((f for f in empire.get("fleets", []) if f["id"] == fleet_id), None) if fleet_id else None
+    if not fleet:
+        return {"success": False, "reason": "Fleet required for the assault"}
+
+    # Resolve combat against an Antaran homeworld defense (very strong)
+    antaran_defense = {
+        "ships": [
+            {"type": "battleship", "count": 3},
+            {"type": "cruiser", "count": 5},
+        ],
+    }
+    result = resolve_combat(fleet, antaran_defense, defender_orbital_defense=200, ship_types_data=SHIP_TYPES)
+    if result["winner"] == "attacker":
+        game_state["antaran_homeworld_conquered"] = True
+        game_state["victory_condition"] = "Antaran"
+        return {"success": True, "result": result, "victory": "Antaran"}
+    return {"success": False, "result": result}
 
 
 def end_turn(game_state):
@@ -749,13 +878,35 @@ def end_turn(game_state):
             }
         )
 
+    # DIPLOMACY sec 4 & 7 — per-turn diplomacy bookkeeping (tributes, treaty income, patience)
+    from app.services.diplomacy_service import process_turn_diplomacy
+    events.extend(process_turn_diplomacy(game_state))
+
+    # DIPLOMACY sec 9 — per-turn espionage (mission ticks, salaries, results)
+    from app.services.espionage_service import process_turn_espionage
+    events.extend(process_turn_espionage(game_state))
+
     council_event = check_galactic_council(game_state)
     if council_event:
         events.append(council_event)
+        if council_event.get("winner") and council_event["winner"] == "player":
+            game_state["victory_condition"] = "Diplomatic"
+
+    # PLAN sec 20 — Antaran activation and escalation
+    if game_state["turn"] >= 50 and not game_state.get("antarans_active"):
+        game_state["antarans_active"] = True
+        events.append({"type": "antarans_escaped", "message": "The Antarans have escaped their pocket dimension!"})
 
     if game_state.get("antaran_next_attack_turn") is not None and game_state["turn"] >= game_state["antaran_next_attack_turn"]:
-        game_state["antaran_next_attack_turn"] = game_state["turn"] + 10
-        events.append({"type": "antaran_attack", "target": "random"})
+        game_state["antaran_next_attack_turn"] = game_state["turn"] + max(5, 10 - game_state.get("antaran_attack_level", 1))
+        # Escalate
+        if game_state["turn"] % 20 == 0:
+            game_state["antaran_attack_level"] = min(10, game_state.get("antaran_attack_level", 1) + 1)
+        events.append({
+            "type": "antaran_attack",
+            "target": "random",
+            "level": game_state.get("antaran_attack_level", 1),
+        })
 
     victory = check_victory(game_state)
     if victory:

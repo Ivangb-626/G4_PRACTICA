@@ -21,11 +21,24 @@ from app.services.colony_service import (
     has_technology,
     reorder_build_queue as reorder_queue,
 )
-from app.services.diplomacy_service import declare_war, initialize_diplomacy, propose_treaty
+from app.services.diplomacy_service import (
+    declare_war,
+    get_intelligence,
+    initialize_diplomacy,
+    list_relations,
+    make_demand,
+    make_gift,
+    open_dialogue,
+    propose_treaty,
+    trade_tech,
+)
 from app.services.game_service import (
     SHIP_TYPES,
     apply_cheat,
+    attack_antaran_homeworld,
+    build_dimensional_portal,
     colonize_planet,
+    defeat_orion_guardian,
     end_turn,
     find_fleet,
     generate_game_state,
@@ -36,7 +49,19 @@ from app.services.game_service import (
     move_fleet,
     set_research,
 )
-from app.services.espionage_service import list_spies, recruit_spy, assign_mission
+from app.services.combat_service import (
+    SPACE_MONSTERS,
+    mind_control_colony,
+    resolve_combat_against_monster,
+)
+from app.services.espionage_service import (
+    SPY_LEVELS,
+    MISSION_TYPES,
+    assign_defense,
+    assign_mission,
+    list_spies,
+    recruit_spy,
+)
 from app.services.leader_service import (
     get_hired_leaders, get_available_leaders, hire_leader, assign_leader, unassign_leader
 )
@@ -650,6 +675,238 @@ def declare_war_route(game_id):
         return jsonify({"error": str(err)}), 400
 
 
+# ─── Diplomacy: Tech trade (DIPLOMACY sec 3) ─────────────────────────
+@app.route("/api/games/<game_id>/diplomacy/trade-tech", methods=["POST"])
+@app.route("/api/game/<game_id>/diplomacy/trade-tech", methods=["POST"])
+@token_required
+def trade_tech_route(game_id):
+    entry, error = _game_entry_or_error(game_id)
+    if error:
+        return error
+    data = request.get_json() or {}
+    target = data.get("target")
+    offered = data.get("offered_tech")
+    requested = data.get("requested_tech")
+    if not all([target, offered, requested]):
+        return jsonify({"error": "Missing target, offered_tech or requested_tech"}), 400
+    result = trade_tech(entry["game_state"], "player", target, offered, requested)
+    save_game(g.user_id, game_id, entry["game_state"])
+    return jsonify(result)
+
+
+# ─── Diplomacy: Gifts (DIPLOMACY sec 8) ──────────────────────────────
+@app.route("/api/games/<game_id>/diplomacy/gift", methods=["POST"])
+@app.route("/api/game/<game_id>/diplomacy/gift", methods=["POST"])
+@token_required
+def gift_route(game_id):
+    entry, error = _game_entry_or_error(game_id)
+    if error:
+        return error
+    data = request.get_json() or {}
+    target = data.get("target")
+    gift_type = data.get("gift_type")
+    if not target or not gift_type:
+        return jsonify({"error": "Missing target or gift_type"}), 400
+    result = make_gift(
+        entry["game_state"], "player", target, gift_type,
+        amount=data.get("amount"), tech_id=data.get("tech_id"),
+    )
+    save_game(g.user_id, game_id, entry["game_state"])
+    return jsonify(result)
+
+
+# ─── Diplomacy: Demands (DIPLOMACY sec 7 & 12) ────────────────────────
+@app.route("/api/games/<game_id>/diplomacy/demand", methods=["POST"])
+@app.route("/api/game/<game_id>/diplomacy/demand", methods=["POST"])
+@token_required
+def demand_route(game_id):
+    entry, error = _game_entry_or_error(game_id)
+    if error:
+        return error
+    data = request.get_json() or {}
+    target = data.get("target")
+    demand_type = data.get("demand_type")
+    if not target or not demand_type:
+        return jsonify({"error": "Missing target or demand_type"}), 400
+    result = make_demand(
+        entry["game_state"], "player", target, demand_type,
+        payload=data.get("payload"),
+    )
+    save_game(g.user_id, game_id, entry["game_state"])
+    return jsonify(result)
+
+
+# ─── Diplomacy: Scouting / Intelligence (DIPLOMACY sec 14) ────────────
+@app.route("/api/games/<game_id>/diplomacy/intelligence/<target>", methods=["GET"])
+@app.route("/api/game/<game_id>/diplomacy/intelligence/<target>", methods=["GET"])
+@token_required
+def intelligence_route(game_id, target):
+    entry, error = _game_entry_or_error(game_id)
+    if error:
+        return error
+    result = get_intelligence(entry["game_state"], "player", target)
+    save_game(g.user_id, game_id, entry["game_state"])
+    return jsonify(result)
+
+
+@app.route("/api/games/<game_id>/diplomacy/dialogue/<target>", methods=["POST"])
+@app.route("/api/game/<game_id>/diplomacy/dialogue/<target>", methods=["POST"])
+@token_required
+def open_dialogue_route(game_id, target):
+    entry, error = _game_entry_or_error(game_id)
+    if error:
+        return error
+    result = open_dialogue(entry["game_state"], "player", target)
+    save_game(g.user_id, game_id, entry["game_state"])
+    return jsonify(result)
+
+
+@app.route("/api/games/<game_id>/diplomacy/relations", methods=["GET"])
+@app.route("/api/game/<game_id>/diplomacy/relations", methods=["GET"])
+@token_required
+def relations_list_route(game_id):
+    entry, error = _game_entry_or_error(game_id)
+    if error:
+        return error
+    return jsonify({"relations": list_relations(entry["game_state"], "player")})
+
+
+# ─── Combat: Mind Control (PLAN sec 4) ────────────────────────────────
+@app.route("/api/games/<game_id>/combat/mind-control", methods=["POST"])
+@app.route("/api/game/<game_id>/combat/mind-control", methods=["POST"])
+@token_required
+def mind_control_route(game_id):
+    entry, error = _game_entry_or_error(game_id)
+    if error:
+        return error
+    data = request.get_json() or {}
+    colony_id = data.get("colony_id")
+    if not colony_id:
+        return jsonify({"error": "Missing colony_id"}), 400
+    result = mind_control_colony(entry["game_state"], "player", colony_id)
+    save_game(g.user_id, game_id, entry["game_state"])
+    return jsonify(result)
+
+
+# ─── Combat: Space Monsters (PLAN sec 18) ─────────────────────────────
+@app.route("/api/games/<game_id>/combat/monster", methods=["POST"])
+@app.route("/api/game/<game_id>/combat/monster", methods=["POST"])
+@token_required
+def fight_monster_route(game_id):
+    entry, error = _game_entry_or_error(game_id)
+    if error:
+        return error
+    data = request.get_json() or {}
+    fleet_id = data.get("fleet_id")
+    system_id = data.get("system_id")
+    if not fleet_id or not system_id:
+        return jsonify({"error": "Missing fleet_id or system_id"}), 400
+
+    state = entry["game_state"]
+    fleet = _player_fleet(state, fleet_id)
+    if not fleet:
+        return jsonify({"error": "Fleet not found"}), 404
+
+    system = next((s for s in state["galaxy"]["star_systems"] if s["id"] == system_id), None)
+    if not system or not system.get("space_monster") or system["space_monster"].get("defeated"):
+        return jsonify({"error": "No space monster at that system"}), 400
+
+    monster = system["space_monster"]
+    result = resolve_combat_against_monster(fleet, monster["type"], monster.get("is_travelling", False), SHIP_TYPES)
+    if result.get("winner") == "attacker":
+        monster["defeated"] = True
+    save_game(g.user_id, game_id, entry["game_state"])
+    return jsonify(result)
+
+
+@app.route("/api/games/<game_id>/space-monsters", methods=["GET"])
+@app.route("/api/game/<game_id>/space-monsters", methods=["GET"])
+@token_required
+def list_monsters_route(game_id):
+    entry, error = _game_entry_or_error(game_id)
+    if error:
+        return error
+    state = entry["game_state"]
+    monsters = []
+    for system in state["galaxy"]["star_systems"]:
+        m = system.get("space_monster")
+        if m and not m.get("defeated"):
+            monsters.append({
+                "system_id": system["id"],
+                "system_name": system.get("name"),
+                "monster_type": m["type"],
+                "is_travelling": m.get("is_travelling", False),
+                "tactic_hint": SPACE_MONSTERS[m["type"]]["tactic_hint"],
+            })
+    return jsonify({"monsters": monsters, "catalog": SPACE_MONSTERS})
+
+
+# ─── Antarans & Orion (PLAN sec 19 & 20) ──────────────────────────────
+@app.route("/api/games/<game_id>/orion/defeat-guardian", methods=["POST"])
+@app.route("/api/game/<game_id>/orion/defeat-guardian", methods=["POST"])
+@token_required
+def defeat_guardian_route(game_id):
+    entry, error = _game_entry_or_error(game_id)
+    if error:
+        return error
+    result = defeat_orion_guardian(entry["game_state"], "player")
+    save_game(g.user_id, game_id, entry["game_state"])
+    return jsonify(result)
+
+
+@app.route("/api/games/<game_id>/antaran/build-portal", methods=["POST"])
+@app.route("/api/game/<game_id>/antaran/build-portal", methods=["POST"])
+@token_required
+def build_portal_route(game_id):
+    entry, error = _game_entry_or_error(game_id)
+    if error:
+        return error
+    data = request.get_json() or {}
+    result = build_dimensional_portal(entry["game_state"], "player", colony_id=data.get("colony_id"))
+    save_game(g.user_id, game_id, entry["game_state"])
+    return jsonify(result)
+
+
+@app.route("/api/games/<game_id>/antaran/assault", methods=["POST"])
+@app.route("/api/game/<game_id>/antaran/assault", methods=["POST"])
+@token_required
+def antaran_assault_route(game_id):
+    entry, error = _game_entry_or_error(game_id)
+    if error:
+        return error
+    data = request.get_json() or {}
+    fleet_id = data.get("fleet_id")
+    if not fleet_id:
+        return jsonify({"error": "Missing fleet_id"}), 400
+    result = attack_antaran_homeworld(entry["game_state"], "player", fleet_id)
+    save_game(g.user_id, game_id, entry["game_state"])
+    return jsonify(result)
+
+
+# ─── Espionage: Spy levels & defense (DIPLOMACY sec 9) ────────────────
+@app.route("/api/games/<game_id>/espionage/levels", methods=["GET"])
+@app.route("/api/game/<game_id>/espionage/levels", methods=["GET"])
+@token_required
+def espionage_levels_route(game_id):
+    return jsonify({"levels": SPY_LEVELS, "missions": MISSION_TYPES})
+
+
+@app.route("/api/games/<game_id>/espionage/defense", methods=["POST"])
+@app.route("/api/game/<game_id>/espionage/defense", methods=["POST"])
+@token_required
+def espionage_defense_route(game_id):
+    entry, error = _game_entry_or_error(game_id)
+    if error:
+        return error
+    data = request.get_json() or {}
+    spy_id = data.get("spy_id")
+    if not spy_id:
+        return jsonify({"error": "Missing spy_id"}), 400
+    result, code = assign_defense(entry["game_state"], "player", spy_id)
+    save_game(g.user_id, game_id, entry["game_state"])
+    return jsonify(result), code
+
+
 @app.route("/api/scenarios", methods=["GET"])
 def scenarios_route():
     return jsonify({"scenarios": list_scenarios()})
@@ -762,8 +1019,11 @@ def recruit_espionage(game_id):
     entry, err = _game_entry_or_error(game_id)
     if err: return err
     game_state = entry["game_state"]
-    
-    result, status = recruit_spy(game_state, "player")
+
+    data = request.get_json() or {}
+    level = int(data.get("level", 1))
+
+    result, status = recruit_spy(game_state, "player", level=level)
     if status == 200:
         save_game(g.user_id, game_id, game_state)
     return jsonify(result), status

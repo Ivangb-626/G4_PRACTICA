@@ -133,4 +133,126 @@ export const api = {
     const res = await httpClient.post(`/api/games/${gameId}/diplomacy/war`, { target })
     return res.data
   },
+
+  // Diplomacy: Tech trade (DIPLOMACY sec 3)
+  tradeTech: async (gameId: string, target: string, offered: string, requested: string) => {
+    const res = await httpClient.post(`/api/games/${gameId}/diplomacy/trade-tech`, {
+      target,
+      offered_tech: offered,
+      requested_tech: requested,
+    })
+    return res.data
+  },
+
+  // Diplomacy: Gifts (DIPLOMACY sec 8)
+  giveGift: async (
+    gameId: string,
+    target: string,
+    giftType: 'gift_money' | 'gift_tech',
+    options: { amount?: number; tech_id?: string } = {},
+  ) => {
+    const res = await httpClient.post(`/api/games/${gameId}/diplomacy/gift`, {
+      target,
+      gift_type: giftType,
+      ...options,
+    })
+    return res.data
+  },
+
+  // Diplomacy: Demands (DIPLOMACY sec 7 & 12)
+  makeDemand: async (
+    gameId: string,
+    target: string,
+    demandType: string,
+    payload: Record<string, unknown> = {},
+  ) => {
+    const res = await httpClient.post(`/api/games/${gameId}/diplomacy/demand`, {
+      target,
+      demand_type: demandType,
+      payload,
+    })
+    return res.data
+  },
+
+  // Diplomacy: Scouting / Intelligence (DIPLOMACY sec 14)
+  getIntelligence: async (gameId: string, target: string) => {
+    const res = await httpClient.get(`/api/games/${gameId}/diplomacy/intelligence/${target}`)
+    return res.data
+  },
+  openDialogue: async (gameId: string, target: string) => {
+    const res = await httpClient.post(`/api/games/${gameId}/diplomacy/dialogue/${target}`)
+    return res.data
+  },
+  getRelations: async (gameId: string) => {
+    const res = await httpClient.get(`/api/games/${gameId}/diplomacy/relations`)
+    return res.data
+  },
+
+  // Espionage: levels & defense (DIPLOMACY sec 9)
+  getEspionage: async (gameId: string) => {
+    const res = await httpClient.get(`/api/game/${gameId}/espionage`)
+    return res.data
+  },
+  getSpyLevels: async (gameId: string) => {
+    const res = await httpClient.get(`/api/games/${gameId}/espionage/levels`)
+    return res.data
+  },
+  recruitSpy: async (gameId: string, level: 1 | 2 | 3 | 4 = 1) => {
+    const res = await httpClient.post(`/api/game/${gameId}/espionage/recruit`, { level })
+    return res.data
+  },
+  assignSpyMission: async (
+    gameId: string,
+    spyId: string,
+    targetId: string,
+    missionType: string,
+  ) => {
+    const res = await httpClient.post(`/api/game/${gameId}/espionage/mission`, {
+      spy_id: spyId,
+      target_id: targetId,
+      mission_type: missionType,
+    })
+    return res.data
+  },
+  assignSpyDefense: async (gameId: string, spyId: string) => {
+    const res = await httpClient.post(`/api/games/${gameId}/espionage/defense`, { spy_id: spyId })
+    return res.data
+  },
+
+  // Combat: Mind Control (PLAN sec 4)
+  mindControl: async (gameId: string, colonyId: string) => {
+    const res = await httpClient.post(`/api/games/${gameId}/combat/mind-control`, {
+      colony_id: colonyId,
+    })
+    return res.data
+  },
+
+  // Combat: Space Monsters (PLAN sec 18)
+  listSpaceMonsters: async (gameId: string) => {
+    const res = await httpClient.get(`/api/games/${gameId}/space-monsters`)
+    return res.data
+  },
+  fightSpaceMonster: async (gameId: string, fleetId: string, systemId: string) => {
+    const res = await httpClient.post(`/api/games/${gameId}/combat/monster`, {
+      fleet_id: fleetId,
+      system_id: systemId,
+    })
+    return res.data
+  },
+
+  // Orion & Antarans (PLAN sec 19 & 20)
+  defeatGuardian: async (gameId: string) => {
+    const res = await httpClient.post(`/api/games/${gameId}/orion/defeat-guardian`, {})
+    return res.data
+  },
+  buildDimensionalPortal: async (gameId: string, colonyId?: string) => {
+    const res = await httpClient.post(`/api/games/${gameId}/antaran/build-portal`, {
+      colony_id: colonyId,
+    })
+    return res.data
+  },
+  assaultAntaranHomeworld: async (gameId: string, fleetId: string) => {
+    const res = await httpClient.post(`/api/games/${gameId}/antaran/assault`, { fleet_id: fleetId })
+    return res.data
+  },
 }
