@@ -10,7 +10,7 @@ You are the **Backend** developer agent for MyMasterOfHostias, a MOO2-faithful 4
 
 ## TECH STACK
 
-- **Framework**: Flask 3.x + Gunicorn (4 workers)
+- **Framework**: Flask
 - **Language**: Python 3.11+
 - **Database**: MongoDB 7 (pymongo, synchronous)
 - **Auth**: JWT (PyJWT) + bcrypt password hashing
@@ -157,6 +157,8 @@ backend/
 | POST | `/combat/tactical/<sid>/auto` | Auto-resolve tactical |
 | GET | `/combat/tactical/<sid>/state` | Get tactical state |
 | GET | `/combat/log` | Get combat logs |
+| POST | `/combat/attack-antares` | Attack Antares via Dimensional Portal. Returns 400 if `antares_defeated` already true. On win: sets `game.status="victory"`, computes score, inserts into `hall_of_fame`, returns `{status,score,player_power,antaran_power}` |
+| GET | `/combat/hall-of-fame` | Top-10 entries from `hall_of_fame` collection sorted by score desc |
 
 ### Espionage (`/api/game/<id>/espionage`)
 | Method | Route | Handler |
@@ -227,13 +229,34 @@ Response: {actions: [...]}
 
 1. **All API paths use `/api/game/` (singular)** — not `/api/games/`
 2. **Auth**: `@require_auth` decorator sets `g.user_id` from JWT
-3. **ObjectId handling**: Always convert to `str()` before returning JSON
+3. **ObjectId handling**: Always convert to `str()` before returning JSON. Always `from bson import ObjectId` at the module top — never inside a function body (causes `UnboundLocalError` due to Python scoping).
 4. **Fog of war**: `_prepare_ai_state()` and galaxy routes filter by `explored_by` list
 5. **MOO2-accurate formulas**: All in `colony_service.py` with GOV_EFFECTS dict for 8 government types
 6. **Tech tree**: 148+ regular techs + 8 exotic, field-dependent future tech costs
 7. **Events**: Every sub-phase appends typed event dicts to the `events` list
 8. **CORS**: Configured in `__init__.py` via flask-cors
 9. **Secrets**: JWT_SECRET, MONGO_URI from env vars — never hardcoded
+10. **Colonize sets star owner**: `fleet.py` colonize route must set `star["owner"] = "player"` and call `GalaxyModel.update_star()` so the galaxy map reflects the change immediately.
+11. **Hall of Fame collection**: `hall_of_fame` in MongoDB — documents contain `{game_id, username, race, score, colonies, population, techs, bc, turns, date}`. Score formula: `colonies×500 + pop×10 + techs×100 + BC×0.1 − turns×2`.
+
+---
+
+## DEPLOYMENT RULE — ALWAYS REBUILD
+
+> **`docker compose restart` reuses the OLD container image.** Code changes are NOT applied.
+
+```bash
+# Python route changed — hot-copy + restart (fastest)
+docker cp backend/app/routes/<file>.py mmoh-backend:/app/app/routes/<file>.py
+docker compose restart backend
+
+# Verify the container actually has new code before restarting:
+docker exec mmoh-backend grep -n 'keyword' /app/app/routes/<file>.py
+
+# requirements.txt or Dockerfile changed — full rebuild:
+docker compose build --no-cache backend
+docker compose up -d --no-deps --force-recreate backend
+```
 
 ---
 
@@ -265,3 +288,8 @@ Response: {actions: [...]}
 - [x] Fleet split endpoint (POST /fleet/{id}/split)
 - [x] Planet max_pop enrichment in galaxy route (derived from size)
 - [x] Ships auto-assigned to fleet on build completion
+- [x] Antares attack guard (HTTP 400 if already defeated — one-shot only)
+- [x] Victory state on Antares win (`game.status="victory"`, `game.victory_type="antares"`)
+- [x] Score formula: `colonies×500 + pop×10 + techs×100 + BC×0.1 − turns×2`
+- [x] Hall of Fame collection (`hall_of_fame`) + GET endpoint (top-10)
+- [x] Colonize route sets `star.owner = "player"` and persists via `GalaxyModel.update_star()`

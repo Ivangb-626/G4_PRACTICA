@@ -70,3 +70,13 @@ def delete_game(user_id: str, game_id: str):
         return res.deleted_count > 0
     except Exception:
         return False
+
+from app.db.database import hall_of_fame
+
+def add_to_hall_of_fame(entry: dict):
+    # entry follows: {game_id, username, race, score, colonies, population, techs, bc, turns, date}
+    hall_of_fame.insert_one(entry)
+    
+def get_top_hall_of_fame(limit: int = 10):
+    cursor = hall_of_fame.find({}, {'_id': 0}).sort('score', -1).limit(limit)
+    return list(cursor)

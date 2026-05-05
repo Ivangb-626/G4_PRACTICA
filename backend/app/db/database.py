@@ -13,9 +13,11 @@ if db is None:
 
 users = db.users
 games = db.games
+hall_of_fame = db.hall_of_fame
 
 # indexes ensure unique constraints
 users.create_index('username', unique=True)
 users.create_index('email', unique=True)
 games.create_index('user_id')
 games.create_index([('user_id', 1), ('last_saved', -1)])
+hall_of_fame.create_index([('score', -1)])

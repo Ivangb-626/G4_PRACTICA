@@ -242,6 +242,18 @@ mmoh-ai-service:
     - GITHUB_TOKEN=${GITHUB_TOKEN}
 ```
 
+### Deployment Rule — Always Rebuild
+
+> **`docker compose restart` reuses the OLD container image.** Code changes are NOT applied.
+
+```bash
+# After any ai-service Python change:
+docker compose build --no-cache ai-service
+docker compose up -d --no-deps --force-recreate ai-service
+```
+
+Do NOT use `docker compose restart ai-service` alone after source changes.
+
 ### Environment Variables
 | Variable | Required | Description |
 |----------|----------|-------------|

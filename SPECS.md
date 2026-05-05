@@ -559,20 +559,40 @@ Para `AIPlayerState`, agregar:
 ```json
 {
   "id": "string",
-  "type": "string (colony | fleet)",
   "name": "string",
-  "skill": "string (production | research | food | morale | attack | speed | defense)",
-  "bonus": "number",
+  "title": "string",
+  "type": "string (colony | fleet)",
+  "bonuses": {
+    "production_bonus_pct": "number (optional, % boost to colony production)",
+    "research_bonus_pct": "number (optional, % boost to colony research)",
+    "food_bonus_pct": "number (optional, % boost to colony food)",
+    "income_bonus_pct": "number (optional, % boost to colony BC income)",
+    "morale_bonus": "number (optional, flat morale boost)",
+    "pop_growth_bonus_pct": "number (optional, % boost to pop growth)",
+    "attack_bonus_pct": "number (optional, % boost to fleet attack power)",
+    "defense_bonus_pct": "number (optional, % boost to fleet defense)",
+    "speed_bonus": "number (optional, flat speed bonus for fleet)",
+    "initiative_bonus": "number (optional, combat initiative bonus)"
+  },
+  "description": "string",
   "hire_cost": "number (BC)",
-  "upkeep": "number (BC/turno)"
+  "upkeep": "number (BC/turno)",
+  "assigned_to": "string|null (colony_id or fleet_id)"
 }
 ```
 
-**Líderes de colonia** (4): Ingeniero (+5 producción), Científico (+5 investigación), Agrónomo (+3 comida), Gobernador (+2 moral).
+El juego incluye 19 líderes estilo MOO2, divididos en:
+- **Líderes de colonia**: mejoran producción, investigación, comida, ingresos, moral o crecimiento de la colonia asignada.
+- **Líderes de flota**: mejoran potencia de ataque, defensa, velocidad o iniciativa de la flota asignada.
 
-**Líderes de flota** (3): Capitán (+15 ataque), Navegante (+1 velocidad), Táctico (+15 defensa).
-
-Se contratan pagando `hire_cost` BC y consumen `upkeep` BC por turno de mantenimiento. Un líder puede asignarse a una colonia o flota específica.
+**Mecánica:**
+- Solo aparecen en el mercado de líderes disponibles (GET `/leaders/available`).
+- Se contratan pagando `hire_cost` BC; el coste se descuenta inmediatamente.
+- Consumen `upkeep` BC/turno (descontado en `turn_engine`).
+- Se asignan a una colonia o flota específica vía PUT `/leaders/{id}/assign`.
+- Los bonuses de colonia se aplican durante el cálculo de producción/investigación/comida/BC en `turn_engine`.
+- Los bonuses de flota se aplican al combate automático (multiplican la potencia de combate de la flota).
+- Solo un líder puede estar asignado a cada colonia/flota al mismo tiempo.
 
 ---
 
@@ -1061,21 +1081,22 @@ Aplica un código de cheat.
 
 **Códigos de cheat válidos:**
 
-| code | requires_target | effect |
-|------|----------------|--------|
-| `recursos_infinitos` | No | BC = 99999, comida máxima en todas las colonias |
-| `revelar_galaxia` | No | Toda la galaxia visible (elimina fog of war) |
-| `tecnologia_total` | No | Investiga todas las tecnologías |
-| `flota_invencible` | star_system | Añade 10 acorazados al sistema |
-| `victoria_inmediata` | No | Gana la partida |
-| `derrota_inmediata` | No | Pierde la partida |
-| `colonizar_todo` | star_system | Coloniza todos los planetas del sistema |
-| `poblacion_maxima` | colony | Maximiza población de la colonia |
-| `naves_gratis` | No | Coste 0 para naves este turno |
-| `guardian_eliminado` | No | Elimina Guardián de Orion |
-| `antaranos_desactivados` | No | Desactiva ataques de los Antaranos |
-| `RUSHBUY` | No | Completa inmediatamente el primer elemento de la cola de construcción de todas las colonias del jugador |
-| `CRUNCH` | No | Completa inmediatamente TODA la cola de construcción de todas las colonias del jugador |
+Los códigos son **MOO2 clásicos** (en mayúsculas), enviados en el campo `code`:
+
+| code | target | effect |
+|------|--------|--------|
+| `MOOLA` | — | +1000 BC. Devuelve `new_bc` en la respuesta |
+| `MENLO` | — | Completa la investigación actual al instante |
+| `EINSTEIN` | — | Desbloquea todas las tecnologías del árbol |
+| `OMEGA` | — | Alias de EINSTEIN |
+| `CRUNCH` | — | Completa TODA la cola de construcción de TODAS las colonias del jugador |
+| `RUSHBUY` | `colony_id` | Completa TODA la cola de una colonia específica |
+| `ISEEALL` | — | Revela el mapa completo de la galaxia (desactiva fog of war) |
+| `GALAXY` | — | Muestra todas las estrellas (alias de ISEEALL) |
+| `EVENTS` | — | Alterna eventos aleatorios activos/desactivados |
+| `ANTARANS` | — | Alterna ataques Antaranos (`antaran_disabled` flag) |
+| `COUNCIL` | — | Fuerza votación del consejo galáctico en el siguiente turno |
+| `SCORE` | — | Muestra estadísticas de puntuación sin modificar el estado |
 
 **Criterios de aceptación:**
 - [ ] Cada cheat produce el efecto descrito
@@ -1360,26 +1381,43 @@ eta_turns = ceil(distance / fleet_speed)
 
 ### 3.6. Combate Automático (Core)
 
-```
-attacker_strength = sum(ship.attack × ship.count for each ship type)
-defender_strength = sum(ship.attack × ship.count for each ship type) + orbital_defense
+El combate automático usa una **potencia de combate basada en clase de casco** (hull-weighted power), inspirada en el escalado real de MOO2:
 
-rounds = 5
-for each round:
-    attacker_damage = attacker_strength × random(0.8, 1.2) - defender.total_shields
-    defender_damage = defender_strength × random(0.8, 1.2) - attacker.total_shields
-    
-    // Remove destroyed ships (weakest first)
-    remove_ships(defender, attacker_damage)
-    remove_ships(attacker, defender_damage)
-    
-    // Recalculate strengths
-    recalculate_strengths()
-
-if attacker has ships remaining and defender doesn't: attacker wins
-elif defender has ships remaining and attacker doesn't: defender wins
-elif both have ships: stalemate (attacker retreats)
 ```
+// Potencia base por clase de casco (MOO2-inspired)
+HULL_POWER = {
+    frigate:    50,
+    destroyer:  150,
+    cruiser:    400,
+    battleship: 1000,
+    titan:      2500,
+    doom_star:  6000,
+    // Non-combat hulls:
+    colony_ship: 5,
+    transport:   5,
+}
+
+// Potencia total de una flota
+fleet_power(fleet) = sum(
+    HULL_POWER.get(ship.hull, 50) * ship.count
+    for each ship in fleet
+) × fleet_leader_multiplier
+
+// fleet_leader_multiplier = 1.0 + (attack_bonus_pct or defense_bonus_pct) / 100
+//   if a fleet leader is assigned
+
+// Resolución: ambos bandos lanzan un dado de combate
+attacker_roll = attacker_power × random(0.75, 1.25)
+defender_roll = defender_power × random(0.75, 1.25)
+
+if attacker_roll > defender_roll: attacker wins
+elif defender_roll > attacker_roll: defender wins
+else: defender wins (tie goes to defender)
+```
+
+**Rationale:** En MOO2 un Doom Star equivale aproximadamente a 120× una Fragata en valor de combate efectivo (HP × DPS). Los valores de HULL_POWER capturan esta escala sin necesidad de simular armas individuales.
+
+**Para combate con criaturas espaciales**, se realiza una simulación de 5 rondas con potencias parciales (ver § 3.11). Para el ataque a Antares, se usa la potencia total de la flota directamente.
 
 ### 3.7. Invasión Terrestre
 
@@ -1411,7 +1449,27 @@ Un sistema es visible para un jugador si:
 
 - **Conquista**: `count(enemy_colonies) == 0 AND count(enemy_fleets) == 0` para todos los oponentes
 - **Consejo Galáctico**: Cada 25 turnos, se celebra votación. `player_population / total_population >= 2/3` → victoria
+- **Derrota de Antares**: El jugador ataca el hogar Antarano a través del Portal Dimensional y gana (`antares_defeated = true`). Esta es la condición de victoria "canónica" de MOO2. El juego termina inmediatamente: se calcula una puntuación final, se guarda en la Hall of Fame y se muestra la pantalla de victoria (`VictoryScreen`).
 - **Derrota**: `count(player_colonies) == 0 AND count(player_fleets) == 0`
+
+### 3.9b. Comprar Producción (Rush Buy)
+
+El jugador puede pagar BC para completar el **primer elemento de la cola** de una colonia al final del siguiente turno.
+
+```
+cost_to_buy = (item.cost - item.progress) × 2  // BC
+
+if player.bc >= cost_to_buy:
+    player.bc -= cost_to_buy
+    item.progress = item.cost               // se completará en el próximo end-of-turn
+else:
+    error: insufficient BC
+```
+
+**Endpoint:** `POST /api/game/{gameId}/colony/{colonyId}/buy`  
+**Requiere:** Al menos 1 elemento en la cola de construcción.
+
+El botón "💰 X BC" aparece en el primer elemento de la cola en `ColonyManagement`. Se desactiva si el jugador no tiene suficientes BC.
 
 ### 3.10. Moral y Gobierno
 
@@ -1504,7 +1562,62 @@ tech_reward = random.choice(unresearched_techs)  // 1 tech aleatoria no investig
 if no unresearched_techs: reward = 500 BC
 ```
 
-**Cheat:** `antaranos_desactivados` establece `antaran_next_attack_turn = null` e impide futuros ataques.
+**Cheat:** El código `ANTARANS` alterna `antaran_disabled` en el estado de partida, impidiendo o re-habilitando futuros ataques.
+
+#### Ataque a Antares (Hogar Antarano)
+
+Condición: el jugador tiene una flota estacionada en un sistema con una colonia que posee el edificio `dimensional_portal`.
+
+**Guardia: ataque único.** Una vez que `game.antares_defeated == true`, el endpoint devuelve HTTP 400. No se puede atacar Antares dos veces.
+
+**Defenders de Antares (fijos):**
+
+| Clase | Potencia unitaria | Cantidad | Potencia total |
+|-------|-----------------|----------|----------------|
+| Battleship | 1000 | 3 | 3000 |
+| Cruiser | 400 | 4 | 1600 |
+| Destroyer | 150 | 5 | 750 |
+| **Total** | | **12** | **5350** |
+
+**Resolución:**
+```
+player_power = fleet_power(fleet)   // hull-weighted (§ 3.6)
+player_roll  = player_power × random(0.75, 1.25)
+antares_roll = 5350 × random(0.75, 1.25)
+
+if player_roll > antares_roll:
+    // VICTORIA DE FIN DE JUEGO:
+    //   game.status = "victory"
+    //   game.victory_type = "antares"
+    //   game.antares_defeated = true
+    //   3 techs aleatorias + 5000 BC
+    //   score calculado e insertado en hall_of_fame
+    //   response incluye status="victory" y score breakdown
+else:
+    // DERROTA: flota destruida
+```
+
+**Fórmula de puntuación:**
+```
+score = colonies × 500
+      + population × 10
+      + technologies × 100
+      + BC × 0.1
+      − turns × 2
+```
+Donde `colonies` = número de colonias del jugador, `population` = población total, `technologies` = techs investigadas, `BC` = créditos actuales, `turns` = turno actual.
+
+**Recompensa por victoria:**
+- 3 tecnologías aleatorias no investigadas
+- 5000 BC
+- Flag `antares_defeated = true` → condición de victoria (ver § 3.9)
+- Puntuación guardada en colección `hall_of_fame` (MongoDB)
+- Respuesta incluye `{ status: "victory", score: { colonies, population, techs, bc, turns, total }, player_power, antaran_power }`
+
+**Endpoint:** `POST /api/game/{gameId}/combat/attack-antares`  
+**Consulta Hall of Fame:** `GET /api/game/{gameId}/combat/hall-of-fame` → devuelve top-10 entradas por score desc.
+
+**Ejemplo:** 14 Doom Stars = 14 × 6000 = 84 000 potencia vs 5350 → victoria garantizada.
 
 #### Tecnologías Exóticas (MOO2 Wiki-accurate)
 
@@ -1531,19 +1644,25 @@ Las exóticas **nunca se miniaturizan** — su tamaño es fijo.
 
 Los sistemas estelares más valiosos están custodiados por criaturas espaciales. Deben ser derrotadas antes de colonizar.
 
-| Criatura | HP | Ataque | Escudo | Sistemas | Recompensa |
-|----------|-----|--------|--------|----------|------------|
-| **Space Crystal** | 50 | 30 | 5 | Planets buenos (Rich+) | 1 random tech |
-| **Space Dragon** | 100 | 60 | 15 | Planets excelentes (Ultra Rich, Gaia) | 1 random tech |
-| **Space Amoeba** | 200 | 40 | 0 | Planets raros (Artifacts) | 1 random tech |
-| **Orion Guardian** | 300 | 100 | 30 | Solo Orión | Death Ray + 3 exóticas + líder + Titan |
+Las criaturas tienen una **potencia de combate equivalente** expresada en la misma escala que las flotas (§ 3.6):
+
+| Criatura | Potencia | Equivalente aprox. | Sistemas | Recompensa |
+|----------|---------|---------------------|----------|------------|
+| **Space Crystal** | 250 | ~5 Fragatas | Planetas buenos (Rich+) | 1 tech aleatoria |
+| **Space Amoeba** | 600 | ~4 Destructores | Planetas raros (Artifacts) | 1 tech aleatoria |
+| **Space Dragon** | 1500 | ~1 Acorazado | Planetas excelentes (Ultra Rich, Gaia) | 1 tech aleatoria |
+| **Orion Guardian** | 8000 | ~1.3 Doom Stars | Solo Orión | Death Ray + 3 exóticas + líder + Titan |
+
+**Referencia MOO2:** La Space Crystal aparece en la partida temprana y debe ser asequible para un crucero solo, pero no para fragatas. El Space Dragon requiere varios cruceros o un acorazado. El Guardián de Orión requiere una flota de endgame.
 
 **Generación:** Durante la creación de la galaxia, se colocan criaturas en ~5-10% de los sistemas no-home y no-Orión. Las criaturas más fuertes custodian sistemas más valiosos.
 
 **Combate:** Cuando una flota llega a un sistema con criatura:
-1. Auto-resolve combate (fórmulas de § 3.6)
+1. Auto-resolve combate usando potencia hull-weighted (§ 3.6) con roll de dados
 2. Si jugador gana: criatura eliminada, sistema accesible, recompensa otorgada
 3. Si jugador pierde: flota destruida, criatura permanece
+
+**Simulación de 5 rondas:** Se simula ronda a ronda reduciendo HP de ambos lados para mostrar progreso en el log de eventos, aunque el resultado final ya está determinado por el roll inicial de potencias.
 
 **Estado en galaxia:**
 ```json
@@ -1588,6 +1707,7 @@ Campo `creature` en cada star system — `null` si no hay criatura.
 - Click en estrella → navegar a SystemView
 - Click en flota → panel de flota con opciones de movimiento
 - Ctrl+Tab → abrir consola de cheats
+- **Color de etiqueta por propietario:** el nombre de cada estrella explorada se colorea según `star.owner` o si existe una colonia del jugador (`hasPlayerColony`): verde `#44ee44` = jugador, rojo `#ee4444` = IA/enemigo, gris `#aaaacc` = neutro. La colonización actualiza inmediatamente el color en el siguiente render.
 - **Spiral Galaxy Background**: Textura procedural de galaxia espiral Milky-Way (4 brazos, 900 partículas/brazo, núcleo brillante warmish, nebulosas) dibujada en offscreen canvas (2048px) y cacheada. Se mueve con zoom/pan alineada al campo de estrellas. Colores cálidos (amarillo→azul) a lo largo de los brazos.
 - **Smooth Zoom**: Zoom suave con `requestAnimationFrame` + lerp (factor 0.18) hacia el punto del cursor. Zoom multiplicativo (×0.9/×1.1) en lugar de lineal. Rango 0.3×–6×.
 
@@ -1634,6 +1754,13 @@ Campo `creature` en cada star system — `null` si no hay criatura.
 - Naves de cada bando antes y después
 - Indicador de victoria/derrota
 - Botón continuar
+
+#### VictoryScreen
+- Pantalla de fin de juego mostrada cuando `game.status === "victory"` (victoria al derrotar Antares)
+- Muestra trofeo 🏆 y mensaje de victoria con tipo (`antares`)
+- Tabla de desglose de puntuación: colonias × 500, población × 10, tecnologías × 100, BC × 0.1, turnos × −2, total
+- Tabla Hall of Fame: top-10 entradas de la colección `hall_of_fame` (nombre, raza, puntuación, fecha)
+- Botón "Menú Principal" que navega de vuelta al menú
 
 #### AITurnViewer
 - Dos modos: pantalla completa o pantalla dividida
@@ -2477,8 +2604,26 @@ def generate_galaxy(size: str) -> GalaxyState:
     7. Generate planets per system based on star type
     8. Place Orion system near center
     9. Place home systems for players at maximum distance from each other
+    10. Add Antares hidden star (is_antares=true, x=-999, y=-999, owner="antaran")
+        - Solo accesible via Dimensional Portal; NO aparece en el mapa galáctico
+        - Filtrado en galaxyRenderer.ts: excluido de bounds, render, hit-test y wormholes
     """
 ```
+
+**Estrella especial: Antares**
+
+```json
+{
+  "name": "Antares",
+  "x": -999, "y": -999,
+  "color": "red",
+  "owner": "antaran",
+  "is_antares": true,
+  "index": <last_index>
+}
+```
+
+Esta estrella existe en la base de datos pero **nunca se renderiza** en el cliente. El `galaxyRenderer.ts` la filtra en los 4 bucles (bounds, wormholes, estrellas, hit-test) comprobando `is_antares || x < 0 || y < 0`.
 
 **Multi-IA:**
 ```python
@@ -2602,6 +2747,32 @@ GITHUB_MODEL_FALLBACK=gpt-4o-mini
 - [ ] Variables de entorno correctamente propagadas
 - [ ] Healthcheck funcional en cada servicio
 
+### 7.4. Regla de Deployment — Siempre Rebuild
+
+> **CRÍTICO:** `docker compose restart` reutiliza la imagen antigua del contenedor. Los cambios de código NO se aplican.
+
+Para que los cambios lleguen a los contenedores en ejecución, **siempre** seguir este procedimiento:
+
+```bash
+# Opción A — rebuild completo (recomendado tras cambios en Dockerfile o dependencias)
+docker compose build --no-cache <servicio>
+docker compose up -d --no-deps --force-recreate <servicio>
+
+# Opción B — rebuild incremental (solo fuente Python/backend)
+docker cp backend/app/routes/combat.py mmoh-backend:/app/app/routes/combat.py
+docker compose restart backend   # válido solo si el .py ya está en el contenedor
+
+# Verificar que el código correcto está en el contenedor ANTES de reiniciar:
+docker exec mmoh-backend grep -n "from bson" /app/app/routes/combat.py
+```
+
+| ¿Qué cambió? | Comando |
+|---|---|
+| Código Python (ruta) | `docker cp <archivo> mmoh-backend:/app/... && docker compose restart backend` |
+| Dependencias Python (`requirements.txt`) | `docker compose build --no-cache backend && docker compose up -d --no-deps --force-recreate backend` |
+| Código TypeScript/React | `docker compose build --no-cache frontend && docker compose up -d --no-deps --force-recreate frontend` |
+| Dockerfile modificado | `docker compose build --no-cache <servicio> && docker compose up -d --no-deps --force-recreate <servicio>` |
+
 ---
 
 ## 8. CRITERIOS DE ACEPTACIÓN GLOBALES
@@ -2682,6 +2853,13 @@ GITHUB_MODEL_FALLBACK=gpt-4o-mini
 | **Planet max_pop** | La ruta `/galaxy` ahora incluye `max_pop` en cada planeta (derivado del tamaño: tiny=8, small=12, medium=16, large=22, huge=28), visible en SystemView |
 | **RUSHBUY Cheat** | Completa inmediatamente el primer elemento de la cola de todas las colonias |
 | **CRUNCH Cheat** | Completa inmediatamente TODA la cola de construcción de todas las colonias |
+| **Antares guard** | `POST /combat/attack-antares` devuelve HTTP 400 si `game.antares_defeated == true`. Imposible atacar Antares dos veces |
+| **Victoria al derrotar Antares** | Derrotar Antares termina la partida: `game.status="victory"`, `game.victory_type="antares"`, puntuación calculada e insertada en `hall_of_fame`, respuesta incluye `status="victory"` y `score` breakdown |
+| **Fórmula de puntuación** | `colonias×500 + pop×10 + techs×100 + BC×0.1 − turnos×2` |
+| **Hall of Fame** | Nueva colección MongoDB `hall_of_fame`. `GET /game/{id}/combat/hall-of-fame` devuelve top-10 por score desc |
+| **VictoryScreen** | Nuevo componente `VictoryScreen.tsx`. Muestra desglose de puntuación + tabla Hall of Fame. Activado con `uiStore.screen === "victory"` |
+| **Star label color** | La etiqueta del nombre de estrella se colorea en verde cuando el jugador coloniza ese sistema. `galaxyRenderer.ts` comprueba `star.owner === "player" \|\| hasPlayerColony` |
+| **Star owner on colonize** | `fleet.py` colonize route ahora establece `star["owner"] = "player"` y llama `GalaxyModel.update_star` para persistir el cambio |
 
 ### 9.3. Cambios en Modelo de Datos
 
@@ -2689,3 +2867,7 @@ GITHUB_MODEL_FALLBACK=gpt-4o-mini
 - `POST /api/game/new` acepta parámetro `speed` opcional
 - `NewGameOptions` tipo frontend: campo `speed` opcional
 - `Colony` tipo frontend: `max_pop` renombrado a `max_population`
+- `games` collection: campos `status` ("active"|"victory"|"defeat"), `victory_type` ("antares"|null), `antares_defeated` (bool, default false)
+- Nueva colección `hall_of_fame`: `{ game_id, username, race, score, colonies, population, techs, bc, turns, date }`
+- `Screen` type en `uiStore.ts`: añadido `"victory"`
+- `GameStore.attackAntares()`: si response contiene `status === "victory"`, establece `game.status = "victory"` y navega a pantalla `"victory"`

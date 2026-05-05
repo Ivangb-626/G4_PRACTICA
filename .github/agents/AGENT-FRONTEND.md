@@ -10,7 +10,7 @@ You are the **Frontend** developer agent for MyMasterOfHostias, a MOO2-faithful 
 
 ## TECH STACK
 
-- **Framework**: React 18 + TypeScript + Vite
+- **Framework**: Vue
 - **State Management**: Zustand (2 stores)
 - **Rendering**: Canvas 2D API (galaxy map, tactical combat)
 - **Styling**: Inline CSS-in-JS objects (no CSS files, no Tailwind)
@@ -46,6 +46,7 @@ frontend/
 │   │   ├── TurnSummary.tsx       # End-of-turn summary (events, victory/defeat)
 │   │   ├── CouncilScreen.tsx     # Galactic Council voting
 │   │   ├── InventoryScreen.tsx   # Ship inventory
+│   │   ├── VictoryScreen.tsx     # Game-end victory screen: score breakdown + Hall of Fame table
 │   │   ├── TopBar.tsx            # Game info bar (turn, race, BC, nav buttons, end turn)
 │   │   ├── EventLogModal.tsx     # Blocking modal: events + AI actions after each turn
 │   │   └── common/
@@ -100,7 +101,8 @@ type ScreenName =
   | 'combat'        // Tactical combat
   | 'turn_summary'  // Turn summary
   | 'council'       // Galactic Council
-  | 'inventory';    // Ship inventory
+  | 'inventory'     // Ship inventory
+  | 'victory';      // Game-end victory screen (Antares defeated)
 ```
 
 **App.tsx screen switch:**
@@ -271,7 +273,7 @@ Renders in layers:
 1. Deep-space background (gradient)
 2. **Spiral galaxy texture** (procedural Milky Way: 4 arms, 900 particles/arm, warm core, nebulae, dust stars — 2048px offscreen canvas, cached)
 3. Stars (colored circles sized by type) — FOW: only explored stars shown
-4. Star names (below stars)
+4. **Star name labels** — color by ownership: `#44ee44` green = player (`star.owner === "player"` OR `hasPlayerColony`), `#ee4444` red = AI/enemy, `#aaaacc` grey = neutral. `hasPlayerColony` is computed per-star from `colonies.some(c => c.star_index === star.index && c.owner === "player")`.
 5. Fleet indicators (ship icon next to owned stars)
 6. Selection ring (around selected star)
 7. Fleet range circle (dashed circle around selected fleet origin)
@@ -325,7 +327,12 @@ endTurn(token, gameId): Promise<{turn, events, combat_results, ai_actions}>
 getGalaxy(token, gameId): Promise<Galaxy>
 getStarDetail(token, gameId, starIdx): Promise<StarDetail>
 
-// Colony, Fleet, Research, Diplomacy, Ship Design, Leaders, Espionage, Combat, Cheat...
+// Combat
+attackAntares(token, gameId, fleetId): Promise<{status?, score?, player_power, antaran_power, ...}>
+hallOfFame(token, gameId): Promise<HallOfFameEntry[]>
+autoCombat / tactical...
+
+// Cheat...
 ```
 
 Base URL: resolved at runtime from `window.location.origin` (nginx proxies `/api/` to backend).
@@ -351,6 +358,21 @@ Base URL: resolved at runtime from `window.location.origin` (nginx proxies `/api
 5. **Auto-refresh** — After `endTurn()`, `loadGame()` and `fetchGalaxy()` are called automatically
 6. **Event-driven modals** — `EventLogModal` auto-opens when turn events exist
 7. **Inline styles only** — No external CSS, no CSS modules, no Tailwind
+8. **Victory flow**: When `attackAntares` response contains `status === "victory"`, `gameStore` sets `game.status = "victory"` and calls `uiStore.setScreen("victory")`. `App.tsx` renders `<VictoryScreen />` for that screen.
+
+---
+
+## DEPLOYMENT RULE — ALWAYS REBUILD
+
+> **`docker compose restart` reuses the OLD container image.** TypeScript changes require a full rebuild.
+
+```bash
+# After any frontend source change:
+docker compose build --no-cache frontend
+docker compose up -d --no-deps --force-recreate frontend
+```
+
+Do NOT use `docker compose restart frontend` alone — it will serve stale JS.
 
 ---
 
@@ -386,3 +408,5 @@ Base URL: resolved at runtime from `window.location.origin` (nginx proxies `/api
 - [x] Spiral galaxy background (procedural 4-arm Milky Way, 2048px cached texture)
 - [x] Planet max_pop display in SystemView (from backend enrichment)
 - [x] Colony List screen (C key, sortable table)
+- [x] Victory screen (`VictoryScreen.tsx`): score breakdown table + Hall of Fame top-10, triggered by `game.status === "victory"`
+- [x] Star label color by ownership: green=player (via `star.owner` or `hasPlayerColony`), red=enemy, grey=neutral

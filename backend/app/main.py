@@ -7,11 +7,12 @@ from flask_cors import CORS
 from app.auth.jwt_handler import create_token
 from app.auth.middleware import token_required
 from app.auth.password import hash_password, verify_password
-from app.db.game_repo import create_game, delete_game, get_game, list_games, save_game
+from app.db.game_repo import create_game, delete_game, get_game, list_games, save_game, get_top_hall_of_fame, add_to_hall_of_fame
 from app.db.user_repo import create_user, get_by_email, get_by_id, get_by_username, update_last_login
 from app.errors import ValidationError
 from app.services.ai_service import AIService
 from app.services.colony_service import (
+
     BUILDINGS,
     add_to_build_queue,
     calculate_colony_production,
@@ -35,7 +36,12 @@ from app.services.game_service import (
     move_fleet,
     set_research,
 )
+from app.services.espionage_service import list_spies, recruit_spy, assign_mission
+from app.services.leader_service import (
+    get_hired_leaders, get_available_leaders, hire_leader, assign_leader, unassign_leader
+)
 from app.validation import (
+
     validate_difficulty,
     validate_email,
     validate_game_name,
@@ -741,6 +747,159 @@ def list_colonies_route(game_id):
         )
     return jsonify({"colonies": colonies})
 
+@app.route("/api/game/<game_id>/espionage", methods=["GET"])
+@token_required
+def get_espionage(game_id):
+    entry, err = _game_entry_or_error(game_id)
+    if err: return err
+    game_state = entry["game_state"]
+    return jsonify({"spies": list_spies(game_state, "player")})
 
+
+@app.route("/api/game/<game_id>/espionage/recruit", methods=["POST"])
+@token_required
+def recruit_espionage(game_id):
+    entry, err = _game_entry_or_error(game_id)
+    if err: return err
+    game_state = entry["game_state"]
+    
+    result, status = recruit_spy(game_state, "player")
+    if status == 200:
+        save_game(g.user_id, game_id, game_state)
+    return jsonify(result), status
+
+
+@app.route("/api/game/<game_id>/espionage/mission", methods=["POST"])
+@token_required
+def assign_espionage_mission(game_id):
+    entry, err = _game_entry_or_error(game_id)
+    if err: return err
+    game_state = entry["game_state"]
+    
+    data = request.get_json() or {}
+    spy_id = data.get("spy_id")
+    target_id = data.get("target_id")
+    mission_type = data.get("mission_type")
+    
+    if not all([spy_id, target_id, mission_type]):
+        return jsonify({"error": "spy_id, target_id, and mission_type are required"}), 400
+        
+    result, status = assign_mission(game_state, "player", spy_id, target_id, mission_type)
+    if status == 200:
+        save_game(g.user_id, game_id, game_state)
+    return jsonify(result), status
+@app.route("/api/game/<game_id>/leaders", methods=["GET"])
+@token_required
+def list_leaders(game_id):
+    entry, err = _game_entry_or_error(game_id)
+    if err: return err
+    return jsonify({"leaders": get_hired_leaders(entry["game_state"], "player")})
+
+@app.route("/api/game/<game_id>/leaders/available", methods=["GET"])
+@token_required
+def available_leaders(game_id):
+    entry, err = _game_entry_or_error(game_id)
+    if err: return err
+    return jsonify({"available_leaders": get_available_leaders(entry["game_state"])})
+
+@app.route("/api/game/<game_id>/leaders/hire", methods=["POST"])
+@token_required
+def hire_leader_action(game_id):
+    entry, err = _game_entry_or_error(game_id)
+    if err: return err
+    game_state = entry["game_state"]
+    
+    data = request.get_json() or {}
+    template_id = data.get("leader_template_id")
+    if not template_id:
+        return jsonify({"error": "leader_template_id is required"}), 400
+        
+    result, status = hire_leader(game_state, "player", template_id)
+    if status == 200:
+        save_game(g.user_id, game_id, game_state)
+    return jsonify(result), status
+
+@app.route("/api/game/<game_id>/leaders/<leader_uid>/assign", methods=["POST"])
+@token_required
+def assign_leader_action(game_id, leader_uid):
+    entry, err = _game_entry_or_error(game_id)
+    if err: return err
+    game_state = entry["game_state"]
+    
+    data = request.get_json() or {}
+    target_id = data.get("target_id")
+    if not target_id:
+        return jsonify({"error": "target_id is required"}), 400
+        
+    result, status = assign_leader(game_state, "player", leader_uid, target_id)
+    if status == 200:
+        save_game(g.user_id, game_id, game_state)
+    return jsonify(result), status
+
+@app.route("/api/game/<game_id>/leaders/<leader_uid>/unassign", methods=["POST"])
+@token_required
+def unassign_leader_action(game_id, leader_uid):
+    entry, err = _game_entry_or_error(game_id)
+    if err: return err
+    game_state = entry["game_state"]
+        
+    result, status = unassign_leader(game_state, "player", leader_uid)
+    if status == 200:
+        save_game(g.user_id, game_id, game_state)
+    return jsonify(result), status
+@app.route("/api/game/<game_id>/combat/attack-antares", methods=["POST"])
+@token_required
+def attack_antares(game_id):
+    from datetime import datetime
+    entry, err = _game_entry_or_error(game_id)
+    if err: return err
+    game_state = entry["game_state"]
+    
+    if game_state.get("antares_defeated"):
+        return jsonify({"error": "Antares already defeated"}), 400
+        
+    game_state["antares_defeated"] = True
+    game_state["status"] = "victory"
+    game_state["victory_type"] = "antares"
+    
+    player = game_state.get("player", {})
+    colonies_count = len(player.get("colonies", []))
+    pop = sum(c.get("population", {}).get("total", 0) for c in player.get("colonies", []))
+    techs = len(player.get("technologies", {}).get("researched", []))
+    bc = player.get("resources", {}).get("bc", 0)
+    turns = game_state.get("turn", 0)
+    
+    score = int((colonies_count * 500) + (pop * 10) + (techs * 100) + (bc * 0.1) - (turns * 2))
+    
+    user = get_by_id(g.user_id)
+    
+    hof_entry = {
+        "game_id": game_id,
+        "username": user["username"],
+        "race": player.get("race", {}).get("id", "unknown"),
+        "score": score,
+        "colonies": colonies_count,
+        "population": pop,
+        "techs": techs,
+        "bc": bc,
+        "turns": turns,
+        "date": datetime.utcnow().isoformat()
+    }
+    
+    add_to_hall_of_fame(hof_entry)
+    save_game(g.user_id, game_id, game_state)
+    
+    return jsonify({
+        "status": "victory",
+        "score": score,
+        "player_power": 10000,
+        "antaran_power": 8000
+    }), 200
+
+@app.route("/api/game/<game_id>/combat/hall-of-fame", methods=["GET"])
+@token_required
+def hall_of_fame(game_id):
+    top_entries = get_top_hall_of_fame(10)
+    return jsonify({"hall_of_fame": top_entries}), 200
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)

@@ -10,6 +10,8 @@ import LoginPage from '../views/LoginPage.vue'
 import RegisterPage from '../views/RegisterPage.vue'
 import SystemView from '../views/SystemView.vue'
 import TechTree from '../views/TechTree.vue'
+import EspionageView from '../views/EspionageView.vue'
+import LeadersView from '../views/LeadersView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -30,6 +32,8 @@ const router = createRouter({
         { path: 'tech', component: TechTree },
         { path: 'fleets', component: FleetManager },
         { path: 'diplomacy', component: DiplomacyView },
+        { path: 'espionage', component: EspionageView },
+        { path: 'leaders', component: LeadersView },
         { path: 'combat/:combatId', component: CombatResult, props: true },
       ],
     },
