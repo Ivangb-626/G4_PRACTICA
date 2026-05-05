@@ -136,21 +136,59 @@ def _normalize_population(colony):
     colony["population"]["scientists"] = values["scientists"]
 
 
+def generate_random_system_name():
+    prefixes = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Theta", "Iota", "Kappa", "Sigma", "Omega", "Tau", "Omicron", "Rho", "Rigel", "Sirius", "Vega", "Altair", "Antares", "Polaris", "Arcturus", "Betelgeuse", "Aldebaran", "Spica", "Pollux", "Deneb", "Eridani", "Cygni", "Centauri", "Draconis", "Lyrae", "Ursae", "Cassiopeiae", "Andromedae"]
+    suffixes = ["Major", "Minor", "Prime", "Proxima", "Secundus", "Tertius", "Ceti", "Borealis", "Australis", "Australis", "Centauri", "V", "X", "IX", "IV", "III", "II", "VI", "VII", "VIII"]
+    return f"{random.choice(prefixes)} {random.choice(suffixes)}"
+
 def generate_galaxy(size, num_opponents, player_race_id):
     counts = {"small": 20, "medium": 30, "large": 40}
     systems = []
+    
+    used_names = set()
+    used_positions = []
+    min_dist = 5.0  # Minimum distance percentage between stars
+
     for index in range(counts[size]):
         star_type = random_star_type()
+        
+        system_name = generate_random_system_name()
+        while system_name in used_names:
+            system_name = generate_random_system_name()
+        used_names.add(system_name)
+        
+        # Valid positioning
+        x, y = 0, 0
+        valid_pos = False
+        attempts = 0
+        while not valid_pos and attempts < 100:
+            x = random.random() * 100
+            y = random.random() * 100
+            valid_pos = True
+            for px, py in used_positions:
+                dist = math.sqrt((x - px) ** 2 + (y - py) ** 2)
+                if dist < min_dist:
+                    valid_pos = False
+                    break
+            attempts += 1
+            
+        used_positions.append((x, y))
+
         planets = []
         for planet_index in range(random.randint(1, STAR_TYPES[star_type]["max_planets"])):
             planet = random_planet(star_type)
             planet["index"] = planet_index
+            
+            numerals = ["I", "II", "III", "IV", "V", "VI", "VII"]
+            numeral = numerals[planet_index] if planet_index < len(numerals) else str(planet_index + 1)
+            planet["name"] = f"{system_name} {numeral}"
+            
             planets.append(planet)
         systems.append(
             {
                 "id": f"sys_{index}",
-                "name": f"System {index}",
-                "position": {"x": random.random() * 100, "y": random.random() * 100},
+                "name": system_name,
+                "position": {"x": x, "y": y},
                 "star_type": star_type,
                 "planets": planets,
                 "connections": [],
@@ -287,6 +325,14 @@ def _initial_empire(owner_id, race_id, system, include_id=False, personality=Non
 def generate_game_state(name, scenario):
     galaxy = generate_galaxy(scenario["galaxy_size"], scenario["num_opponents"], scenario["player_race"])
     player_system = galaxy["star_systems"][1]
+    
+    if scenario.get("home_system_name"):
+        player_system["name"] = scenario["home_system_name"]
+        for i, planet in enumerate(player_system["planets"]):
+            numerals = ["Prime", "II", "III", "IV", "V", "VI", "VII"]
+            num_str = numerals[i] if i < len(numerals) else str(i + 1)
+            planet["name"] = f"{player_system['name']} {num_str}"
+        
     player_system["explored_by"].append("player")
     player_system["planets"][0]["colonized_by"] = "player"
     galaxy["fog_of_war"]["player"] = [player_system["id"], *player_system["connections"]]

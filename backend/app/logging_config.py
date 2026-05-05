@@ -61,6 +61,10 @@ def setup_logging(app_name: str = 'masterofhostias', log_dir: str = 'logs') -> l
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
     
+    # Silence PyMongo/Motor verbose logging
+    logging.getLogger('pymongo').setLevel(logging.WARNING)
+    logging.getLogger('pymongo.command').setLevel(logging.WARNING)
+    
     return logger
 
 

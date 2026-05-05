@@ -60,6 +60,11 @@
         </label>
 
         <label>
+          <span>Estrella (capital)</span>
+          <input v-model.trim="form.home_system_name" class="retro-input" maxlength="20" required />
+        </label>
+
+        <label>
           <span>Raza del jugador</span>
           <select v-model="form.player_race" class="retro-input">
             <option v-for="race in races" :key="race.id" :value="race.id">{{ race.name }}</option>
@@ -119,6 +124,7 @@ const races = [
 
 const form = ref({
   name: 'Partida nueva',
+  home_system_name: 'Sol',
   player_race: 'alkari',
   galaxy_size: 'small',
   difficulty: 'normal',
@@ -178,6 +184,7 @@ async function createNewGame() {
       difficulty: form.value.difficulty,
       num_opponents: form.value.num_opponents,
       player_race: form.value.player_race,
+      home_system_name: form.value.home_system_name,
     })
     router.push(`/game/${response.game_id}/galaxy`)
   } catch (err) {

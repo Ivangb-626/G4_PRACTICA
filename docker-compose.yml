@@ -2,6 +2,7 @@ services:
   mongodb:
     image: mongo:6.0
     container_name: mdh_mongo
+    command: ["--quiet"]
     ports:
       - "27017:27017"
     volumes:
@@ -9,7 +10,7 @@ services:
     networks:
       - mdh_net
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5

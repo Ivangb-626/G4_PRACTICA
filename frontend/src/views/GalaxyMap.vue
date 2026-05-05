@@ -16,87 +16,26 @@
       <p v-if="error" class="error">{{ error }}</p>
 
       <div class="map-frame" v-if="systems.length">
-        <svg class="connection-layer" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <line
-            v-for="connection in connections"
-            :key="connection.id"
-            :x1="connection.x1"
-            :y1="connection.y1"
-            :x2="connection.x2"
-            :y2="connection.y2"
-            stroke="rgba(103, 240, 255, 0.28)"
-            stroke-width="0.25"
-          />
-        </svg>
-
         <button
           v-for="system in systems"
           :key="system.id"
           class="system-node"
           :class="[
-            `star-${system.star_type || 'unknown'}`,
+            `star-${system.star_type}`,
             {
-              unexplored: !system.explored,
-              selected: selectedSystem?.id === system.id,
               colony: system.has_player_colony,
               fleet: system.has_player_fleet,
             },
           ]"
-          :style="{ left: `${system.position.x}%`, top: `${system.position.y}%` }"
+          :style="{ left: `calc(5% + ${system.position.x * 0.9}%)`, top: `calc(5% + ${system.position.y * 0.9}%)` }"
           type="button"
-          @click="selectedSystemId = system.id"
+          @click="openSystem(system.id)"
         >
           <span class="sr-only">{{ system.name }}</span>
           <span class="system-label">{{ system.name }}</span>
         </button>
       </div>
     </article>
-
-    <aside class="side-panel retro-panel">
-      <template v-if="selectedSystem">
-        <header class="panel-head">
-          <div>
-            <h3>{{ selectedSystem.name }}</h3>
-            <p class="subtitle">
-              {{ selectedSystem.explored ? selectedSystem.star_type : 'Sin explorar' }}
-            </p>
-          </div>
-          <button class="retro-btn" type="button" @click="openSystem(selectedSystem.id)">
-            Abrir sistema
-          </button>
-        </header>
-
-        <div class="detail-grid">
-          <article class="detail-card">
-            <span>Planetas</span>
-            <strong>{{ selectedSystem.planets.length }}</strong>
-          </article>
-          <article class="detail-card">
-            <span>Conexiones</span>
-            <strong>{{ selectedSystem.connections.length }}</strong>
-          </article>
-          <article class="detail-card">
-            <span>Colonia propia</span>
-            <strong>{{ selectedSystem.has_player_colony ? 'Si' : 'No' }}</strong>
-          </article>
-          <article class="detail-card">
-            <span>Flota propia</span>
-            <strong>{{ selectedSystem.has_player_fleet ? 'Si' : 'No' }}</strong>
-          </article>
-        </div>
-
-        <ul v-if="selectedSystem.explored && selectedSystem.planets.length" class="planet-list">
-          <li v-for="planet in selectedSystem.planets" :key="planet.index">
-            <strong>{{ planet.name }}</strong>
-            <span>{{ planet.type }} · {{ planet.size }}</span>
-            <span>{{ planet.colonized_by ? `Colonizado por ${planet.colonized_by}` : 'Libre' }}</span>
-          </li>
-        </ul>
-        <p v-else class="empty">No hay informacion detallada disponible hasta explorar el sistema.</p>
-      </template>
-
-      <p v-else class="empty">Selecciona una estrella para ver sus detalles.</p>
-    </aside>
   </section>
 </template>
 
@@ -111,37 +50,10 @@ const router = useRouter()
 const gameId = String(route.params.id || '')
 
 const systems = ref<GalaxySystem[]>([])
-const selectedSystemId = ref('')
 const loading = ref(false)
 const error = ref('')
 
 const exploredSystems = computed(() => systems.value.filter((system) => system.explored))
-const selectedSystem = computed(() => systems.value.find((system) => system.id === selectedSystemId.value) || null)
-
-const connections = computed(() => {
-  const items: Array<{ id: string; x1: number; y1: number; x2: number; y2: number }> = []
-  const seen = new Set<string>()
-  const map = new Map(systems.value.map((system) => [system.id, system]))
-
-  for (const system of systems.value) {
-    for (const targetId of system.connections) {
-      const target = map.get(targetId)
-      if (!target) continue
-      const id = [system.id, targetId].sort().join(':')
-      if (seen.has(id)) continue
-      seen.add(id)
-      items.push({
-        id,
-        x1: system.position.x,
-        y1: system.position.y,
-        x2: target.position.x,
-        y2: target.position.y,
-      })
-    }
-  }
-
-  return items
-})
 
 async function loadGalaxy() {
   loading.value = true
@@ -149,11 +61,13 @@ async function loadGalaxy() {
   try {
     const response = await api.getGalaxy(gameId)
     systems.value = Array.isArray(response?.star_systems) ? response.star_systems : []
-    if (!selectedSystemId.value && systems.value.length) {
-      selectedSystemId.value =
-        systems.value.find((system) => system.has_player_colony || system.has_player_fleet)?.id ||
-        systems.value[0].id
-    }
+    // Ensure all have a type even if unexplored
+    systems.value.forEach(sys => {
+      if (!sys.star_type || sys.star_type === 'unknown') {
+        const types = ['red', 'orange', 'yellow', 'white', 'blue']
+        sys.star_type = types[sys.id.length % types.length] // pseudo-random stable
+      }
+    })
   } catch (err) {
     systems.value = []
     error.value = (err as Error).message || 'No se pudo cargar el mapa galactico.'
@@ -171,9 +85,7 @@ onMounted(loadGalaxy)
 
 <style scoped>
 .map-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
-  gap: 1rem;
+  display: block;
 }
 
 .map-panel,
@@ -228,27 +140,97 @@ onMounted(loadGalaxy)
 .system-node {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  border-radius: 0;
   border: 0;
   cursor: pointer;
-  box-shadow: 0 0 0.9rem rgba(255, 255, 255, 0.35);
+  background: transparent;
   z-index: 1;
 }
 
-.system-node.unexplored {
-  background: #51637c;
-  box-shadow: none;
+.system-node::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 2px;
+  background: var(--star-core, #ffffff);
+  animation: glow-pulse 3s infinite alternate;
+  box-shadow:
+    /* Inner Cross */
+    -2px 0 0 var(--star-core),
+    2px 0 0 var(--star-core),
+    0 -2px 0 var(--star-core),
+    0 2px 0 var(--star-core),
+    /* Main Color Cross */
+    -4px 0 0 var(--star-color),
+    4px 0 0 var(--star-color),
+    0 -4px 0 var(--star-color),
+    0 4px 0 var(--star-color),
+    -2px -2px 0 var(--star-color),
+    -2px 2px 0 var(--star-color),
+    2px -2px 0 var(--star-color),
+    2px 2px 0 var(--star-color),
+    /* Outer Dim Cross */
+    -6px 0 0 var(--star-dim),
+    6px 0 0 var(--star-dim),
+    0 -6px 0 var(--star-dim),
+    0 6px 0 var(--star-dim),
+    -4px -2px 0 var(--star-dim),
+    -4px 2px 0 var(--star-dim),
+    4px -2px 0 var(--star-dim),
+    4px 2px 0 var(--star-dim),
+    -2px -4px 0 var(--star-dim),
+    2px -4px 0 var(--star-dim),
+    -2px 4px 0 var(--star-dim),
+    2px 4px 0 var(--star-dim),
+    /* Deep Glow Effect */
+    0 0 10px 2px var(--star-color);
 }
 
-.system-node.selected {
-  outline: 2px solid #ffe082;
-  outline-offset: 5px;
+@keyframes glow-pulse {
+  0% { filter: brightness(0.8) drop-shadow(0 0 2px var(--star-color)); transform: translate(-50%, -50%) scale(0.9); }
+  100% { filter: brightness(1.2) drop-shadow(0 0 6px var(--star-color)); transform: translate(-50%, -50%) scale(1.1); }
 }
 
-.system-node.colony {
-  box-shadow: 0 0 1rem rgba(141, 246, 191, 0.8);
+.system-node.selected::before {
+  box-shadow:
+    -4px 0 0 var(--star-core), 4px 0 0 var(--star-core),
+    0 -4px 0 var(--star-core), 0 4px 0 var(--star-core),
+    -8px 0 0 var(--star-color), 8px 0 0 var(--star-color),
+    0 -8px 0 var(--star-color), 0 8px 0 var(--star-color),
+    -4px -4px 0 var(--star-color), -4px 4px 0 var(--star-color),
+    4px -4px 0 var(--star-color), 4px 4px 0 var(--star-color),
+    -12px 0 0 var(--star-dim), 12px 0 0 var(--star-dim),
+    0 -12px 0 var(--star-dim), 0 12px 0 var(--star-dim),
+    -8px -4px 0 var(--star-dim), -8px 4px 0 var(--star-dim),
+    8px -4px 0 var(--star-dim), 8px 4px 0 var(--star-dim),
+    -4px -8px 0 var(--star-dim), 4px -8px 0 var(--star-dim),
+    -4px 8px 0 var(--star-dim), 4px 8px 0 var(--star-dim),
+    0 0 0 4px #ffe082,
+    0 0 15px 4px #ffe082,
+    0 0 20px 4px var(--star-color);
+}
+
+.system-node.colony::before {
+  box-shadow:
+    -4px 0 0 var(--star-core), 4px 0 0 var(--star-core),
+    0 -4px 0 var(--star-core), 0 4px 0 var(--star-core),
+    -8px 0 0 var(--star-color), 8px 0 0 var(--star-color),
+    0 -8px 0 var(--star-color), 0 8px 0 var(--star-color),
+    -4px -4px 0 var(--star-color), -4px 4px 0 var(--star-color),
+    4px -4px 0 var(--star-color), 4px 4px 0 var(--star-color),
+    -12px 0 0 var(--star-dim), 12px 0 0 var(--star-dim),
+    0 -12px 0 var(--star-dim), 0 12px 0 var(--star-dim),
+    -8px -4px 0 var(--star-dim), -8px 4px 0 var(--star-dim),
+    8px -4px 0 var(--star-dim), 8px 4px 0 var(--star-dim),
+    -4px -8px 0 var(--star-dim), 4px -8px 0 var(--star-dim),
+    -4px 8px 0 var(--star-dim), 4px 8px 0 var(--star-dim),
+    0 0 10px rgba(141, 246, 191, 0.9),
+    0 0 15px 4px var(--star-color);
 }
 
 .system-node.fleet::after {
@@ -256,46 +238,60 @@ onMounted(loadGalaxy)
   position: absolute;
   width: 6px;
   height: 6px;
-  border-radius: 50%;
   right: -5px;
   top: -3px;
   background: var(--primary-strong);
   box-shadow: 0 0 0.5rem rgba(103, 240, 255, 0.9);
+  /* Make fleet pixel-ish too */
+  border-radius: 0;
 }
 
 .system-label {
   position: absolute;
   left: 50%;
-  top: 120%;
+  top: 130%;
   transform: translateX(-50%);
   min-width: max-content;
   color: var(--text);
   font-size: 0.74rem;
   text-shadow: 0 0 0.35rem rgba(0, 0, 0, 0.8);
+  font-family: monospace; /* Retro pixel font feel */
 }
 
 .star-red {
-  background: #ff5d6c;
+  --star-core: #ffb8bf;
+  --star-color: #ff5d6c;
+  --star-dim: rgba(255, 93, 108, 0.4);
 }
 
 .star-orange {
-  background: #ff9d3a;
+  --star-core: #ffdcba;
+  --star-color: #ff9d3a;
+  --star-dim: rgba(255, 157, 58, 0.4);
 }
 
 .star-yellow {
-  background: #ffd447;
+  --star-core: #fff1bb;
+  --star-color: #ffd447;
+  --star-dim: rgba(255, 212, 71, 0.4);
 }
 
 .star-white {
-  background: #d5ecff;
+  --star-core: #ffffff;
+  --star-color: #d5ecff;
+  --star-dim: rgba(213, 236, 255, 0.4);
 }
 
 .star-blue {
-  background: #4bb7ff;
+  --star-core: #bce3ff;
+  --star-color: #4bb7ff;
+  --star-dim: rgba(75, 183, 255, 0.4);
 }
 
 .star-unknown {
-  background: #6881a1;
+  --star-core: #cbd3de;
+  --star-color: #6881a1;
+  --star-dim: rgba(104, 129, 161, 0.4);
 }
 
 .detail-grid {

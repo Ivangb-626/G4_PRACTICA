@@ -1,89 +1,93 @@
 <template>
-  <section class="game-shell retro-panel">
-    <header class="hud">
-      <div>
-        <p class="eyebrow">Partida activa</p>
-        <h2>{{ gameState?.name || `Partida ${gameId}` }}</h2>
-        <p class="subtitle">
-          Turno {{ status?.turn || gameState?.turn || '-' }} · {{ gameState?.player.race.name || '-' }} ·
-          {{ gameState?.galaxy.size || '-' }}
-        </p>
-      </div>
+  <section class="game-shell retro-panel game-layout-wrapper">
+    <div class="main-column">
+      <header class="hud">
+        <div>
+          <p class="eyebrow">Partida activa</p>
+          <h2>{{ gameState?.name || `Partida ${gameId}` }}</h2>
+          <p class="subtitle">
+            Turno {{ status?.turn || gameState?.turn || '-' }} · {{ gameState?.player.race.name || '-' }} ·
+            {{ gameState?.galaxy.size || '-' }}
+          </p>
+        </div>
 
-      <div class="hud-actions">
-        <button class="retro-btn" type="button" @click="reloadGame" :disabled="loading">
-          {{ loading ? 'Cargando...' : 'Recargar' }}
-        </button>
-        <button class="retro-btn" type="button" @click="saveCurrentGame" :disabled="saving">
-          {{ saving ? 'Guardando...' : 'Guardar' }}
-        </button>
-        <button class="retro-btn" type="button" @click="runEndTurn" :disabled="endingTurn">
-          {{ endingTurn ? 'Procesando...' : 'Fin de turno' }}
-        </button>
-      </div>
-    </header>
-
-    <p v-if="error" class="error">{{ error }}</p>
-
-    <section class="summary-grid">
-      <article class="summary-card">
-        <span class="summary-label">BC</span>
-        <strong>{{ formatNumber(status?.resources?.bc) }}</strong>
-      </article>
-      <article class="summary-card">
-        <span class="summary-label">Colonias</span>
-        <strong>{{ status?.colonies_count ?? gameState?.player.colonies.length ?? '-' }}</strong>
-      </article>
-      <article class="summary-card">
-        <span class="summary-label">Flotas</span>
-        <strong>{{ status?.fleets_count ?? gameState?.player.fleets.length ?? '-' }}</strong>
-      </article>
-      <article class="summary-card">
-        <span class="summary-label">Poblacion</span>
-        <strong>{{ status?.total_population ?? '-' }}</strong>
-      </article>
-      <article class="summary-card">
-        <span class="summary-label">Investigacion</span>
-        <strong>{{ status?.current_research?.tech_id || 'Sin proyecto' }}</strong>
-      </article>
-      <article class="summary-card">
-        <span class="summary-label">Condicion</span>
-        <strong>{{ status?.victory_condition || 'En curso' }}</strong>
-      </article>
-    </section>
-
-    <nav class="tabs">
-      <router-link :to="`/game/${gameId}/galaxy`">Mapa</router-link>
-      <router-link :to="`/game/${gameId}/tech`">Tecnologia</router-link>
-      <router-link :to="`/game/${gameId}/fleets`">Flotas</router-link>
-      <router-link :to="`/game/${gameId}/diplomacy`">Diplomacia</router-link>
-    </nav>
-
-    <section v-if="turnEvents.length || aiActions.length" class="turn-report">
-      <header class="turn-report-head">
-        <h3>Ultimo turno resuelto</h3>
-        <button class="retro-btn" type="button" @click="clearTurnReport">Ocultar</button>
+        <div class="hud-actions">
+          <button class="retro-btn" type="button" @click="reloadGame" :disabled="loading">
+            {{ loading ? 'Cargando...' : 'Recargar' }}
+          </button>
+          <button class="retro-btn" type="button" @click="saveCurrentGame" :disabled="saving">
+            {{ saving ? 'Guardando...' : 'Guardar' }}
+          </button>
+          <button class="retro-btn" type="button" @click="runEndTurn" :disabled="endingTurn">
+            {{ endingTurn ? 'Procesando...' : 'Fin de turno' }}
+          </button>
+        </div>
       </header>
 
-      <div v-if="turnEvents.length" class="event-list">
-        <article v-for="(event, index) in turnEvents" :key="`${String(event.type)}-${index}`" class="event-card">
-          <strong>{{ prettyEventType(event.type) }}</strong>
-          <pre>{{ stringifyEvent(event) }}</pre>
-        </article>
-      </div>
+      <p v-if="error" class="error">{{ error }}</p>
 
-      <div v-if="aiActions.length" class="ai-actions">
-        <article v-for="report in aiActions" :key="report.ai_id" class="ai-card">
-          <strong>{{ report.ai_id }} · {{ report.personality }}</strong>
-          <p class="reasoning">{{ report.reasoning || 'Sin detalle' }}</p>
-          <ul>
-            <li v-for="(action, index) in report.actions" :key="index">{{ stringifyEvent(action) }}</li>
-          </ul>
-        </article>
-      </div>
-    </section>
+      <nav class="tabs">
+        <router-link :to="`/game/${gameId}/galaxy`">Mapa</router-link>
+        <router-link :to="`/game/${gameId}/tech`">Tecnologia</router-link>
+        <router-link :to="`/game/${gameId}/fleets`">Flotas</router-link>
+        <router-link :to="`/game/${gameId}/diplomacy`">Diplomacia</router-link>
+      </nav>
 
-    <router-view :key="refreshKey" />
+      <section v-if="turnEvents.length || aiActions.length" class="turn-report">
+        <header class="turn-report-head">
+          <h3>Ultimo turno resuelto</h3>
+          <button class="retro-btn" type="button" @click="clearTurnReport">Ocultar</button>
+        </header>
+
+        <div v-if="turnEvents.length" class="event-list">
+          <article v-for="(event, index) in turnEvents" :key="`${String(event.type)}-${index}`" class="event-card">
+            <strong>{{ prettyEventType(event.type) }}</strong>
+            <pre>{{ stringifyEvent(event) }}</pre>
+          </article>
+        </div>
+
+        <div v-if="aiActions.length" class="ai-actions">
+          <article v-for="report in aiActions" :key="report.ai_id" class="ai-card">
+            <strong>{{ report.ai_id }} · {{ report.personality }}</strong>
+            <p class="reasoning">{{ report.reasoning || 'Sin detalle' }}</p>
+            <ul>
+              <li v-for="(action, index) in report.actions" :key="index">{{ stringifyEvent(action) }}</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <router-view :key="refreshKey" />
+    </div>
+
+    <aside class="sidebar-column">
+      <section class="summary-grid">
+        <article class="summary-card">
+          <span class="summary-label">BC</span>
+          <strong>{{ formatNumber(status?.resources?.bc) }}</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">Colonias</span>
+          <strong>{{ status?.colonies_count ?? gameState?.player.colonies.length ?? '-' }}</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">Flotas</span>
+          <strong>{{ status?.fleets_count ?? gameState?.player.fleets.length ?? '-' }}</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">Poblacion</span>
+          <strong>{{ status?.total_population ?? '-' }}</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">Investigacion</span>
+          <strong>{{ status?.current_research?.tech_id || 'Sin proyecto' }}</strong>
+        </article>
+        <article class="summary-card">
+          <span class="summary-label">Condicion</span>
+          <strong>{{ status?.victory_condition || 'En curso' }}</strong>
+        </article>
+      </section>
+    </aside>
   </section>
 </template>
 
