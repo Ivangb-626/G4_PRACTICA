@@ -94,6 +94,32 @@ class AIService:
             valid.append({"type": "endTurn"})
         return valid
 
+    def heuristic_reasoning(self, request, actions):
+        ai_player = request.get("game_state", {}).get("ai_player", {})
+        personality = ai_player.get("personality") or request.get("personality", "balanced")
+
+        action_types = {action.get("type") for action in actions}
+        narrative = []
+        if "colonizePlanet" in action_types:
+            narrative.append("envia colonos a un nuevo mundo")
+        if "addBuildQueue" in action_types:
+            narrative.append("ordena nueva produccion en sus colonias")
+        if "selectResearch" in action_types:
+            narrative.append("dirige sus laboratorios hacia un nuevo proyecto")
+        if "moveFleet" in action_types:
+            narrative.append("reposiciona su flota")
+        if not narrative:
+            narrative.append("conserva el statu quo")
+
+        intro = {
+            "aggressive": "Su almirante consolida poder militar",
+            "defensive": "Su consejo afianza las defensas",
+            "expansionist": "Sus exploradores trazan rutas hacia nuevas estrellas",
+            "researcher": "Sus cientificos planifican el avance tecnologico",
+        }.get(personality, "El imperio mantiene un curso equilibrado")
+
+        return f"{intro}: {', '.join(narrative)}."
+
     def heuristic_actions(self, request):
         available = request.get("available_actions", {})
         actions = []
@@ -170,8 +196,8 @@ class AIService:
         actions.append({"type": "endTurn"})
         return {
             "actions": actions,
-            "reasoning": "Heuristic fallback acting due to missing LLM API.",
-            "analysis": "No provider configured or model failed.",
+            "reasoning": self.heuristic_reasoning(request, actions),
+            "analysis": "",
         }
 
     async def get_ai_turn(self, request):

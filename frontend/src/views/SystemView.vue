@@ -10,6 +10,17 @@
       </header>
 
       <div class="system-graphic">
+        <div class="space-bg" aria-hidden="true">
+          <div class="nebula nebula-1"></div>
+          <div class="nebula nebula-2"></div>
+          <div class="nebula nebula-3"></div>
+          <div class="stars stars-far"></div>
+          <div class="stars stars-mid"></div>
+          <div class="stars stars-near"></div>
+          <div class="twinkle"></div>
+          <div class="grid-overlay"></div>
+        </div>
+        <div class="star-corona" :class="`star-${system.star_type}`" aria-hidden="true"></div>
         <div class="star-graphic pixel-star" :class="`star-${system.star_type}`" :title="system.star_type"></div>
         <div 
           v-for="(planet, idx) in system.planets" 
@@ -236,39 +247,230 @@ onMounted(loadSystem)
   justify-content: center;
   padding: 4rem;
   margin: 2rem 0;
-  background: rgba(4, 9, 23, 0.4);
+  background: #02030a;
   border-radius: 12px;
-  border: 1px dashed rgba(89, 170, 255, 0.15);
+  border: 1px solid rgba(89, 170, 255, 0.35);
   overflow: hidden;
   height: 500px;
+  box-shadow:
+    0 0 1.5rem rgba(79, 180, 255, 0.18) inset,
+    0 0 0.8rem rgba(103, 240, 255, 0.25);
+}
+
+/* === ANIMATED SPACE BACKGROUND (shared with GalaxyMap) === */
+.space-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse at 20% 30%, rgba(48, 22, 92, 0.55), transparent 55%),
+    radial-gradient(ellipse at 80% 70%, rgba(13, 64, 110, 0.55), transparent 55%),
+    radial-gradient(ellipse at 50% 50%, rgba(6, 12, 40, 0.6), transparent 70%),
+    linear-gradient(180deg, #02030a 0%, #050920 50%, #02030a 100%);
+}
+
+.nebula {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.45;
+  mix-blend-mode: screen;
+  animation: nebula-drift 60s ease-in-out infinite alternate;
+}
+
+.nebula-1 {
+  width: 50%; height: 50%;
+  top: -10%; left: -10%;
+  background: radial-gradient(circle, rgba(140, 60, 200, 0.6), transparent 70%);
+  animation-duration: 70s;
+}
+
+.nebula-2 {
+  width: 60%; height: 60%;
+  bottom: -20%; right: -15%;
+  background: radial-gradient(circle, rgba(40, 130, 220, 0.55), transparent 70%);
+  animation-duration: 90s;
+  animation-direction: alternate-reverse;
+}
+
+.nebula-3 {
+  width: 40%; height: 40%;
+  top: 30%; left: 40%;
+  background: radial-gradient(circle, rgba(220, 80, 130, 0.35), transparent 70%);
+  animation-duration: 110s;
+}
+
+@keyframes nebula-drift {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(4%, -3%) scale(1.08); }
+  100% { transform: translate(-3%, 4%) scale(0.95); }
+}
+
+.stars {
+  position: absolute;
+  inset: -100% -100%;
+  width: 300%; height: 300%;
+  background-repeat: repeat;
+  image-rendering: pixelated;
+}
+
+.stars-far {
+  background-image:
+    radial-gradient(1px 1px at 20px 30px, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1px 1px at 60px 80px, rgba(200, 220, 255, 0.55), transparent),
+    radial-gradient(1px 1px at 110px 50px, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 170px 120px, rgba(180, 200, 255, 0.45), transparent),
+    radial-gradient(1px 1px at 220px 30px, rgba(255, 255, 255, 0.55), transparent),
+    radial-gradient(1px 1px at 280px 90px, rgba(255, 240, 220, 0.5), transparent);
+  background-size: 320px 160px;
+  animation: stars-drift 240s linear infinite;
+  opacity: 0.55;
+}
+
+.stars-mid {
+  background-image:
+    radial-gradient(1.5px 1.5px at 40px 60px, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1.5px 1.5px at 130px 110px, rgba(180, 220, 255, 0.8), transparent),
+    radial-gradient(1.5px 1.5px at 220px 40px, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1.5px 1.5px at 300px 150px, rgba(255, 220, 200, 0.7), transparent);
+  background-size: 360px 200px;
+  animation: stars-drift 160s linear infinite;
+  opacity: 0.75;
+}
+
+.stars-near {
+  background-image:
+    radial-gradient(2px 2px at 50px 80px, rgba(255, 255, 255, 1), transparent),
+    radial-gradient(2px 2px at 180px 30px, rgba(170, 220, 255, 0.95), transparent),
+    radial-gradient(2px 2px at 310px 120px, rgba(255, 240, 200, 0.9), transparent);
+  background-size: 400px 220px;
+  animation: stars-drift 90s linear infinite;
+  opacity: 0.9;
+}
+
+@keyframes stars-drift {
+  from { transform: translate(0, 0); }
+  to { transform: translate(-300px, -200px); }
+}
+
+.twinkle {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 15% 25%, #ffffff, transparent),
+    radial-gradient(1px 1px at 35% 75%, #aee3ff, transparent),
+    radial-gradient(1px 1px at 55% 15%, #ffffff, transparent),
+    radial-gradient(1px 1px at 78% 55%, #ffd9a8, transparent),
+    radial-gradient(1px 1px at 88% 85%, #ffffff, transparent),
+    radial-gradient(1px 1px at 25% 60%, #ffffff, transparent);
+  animation: twinkle 3.6s ease-in-out infinite alternate;
+}
+
+@keyframes twinkle {
+  0% { opacity: 0.25; }
+  50% { opacity: 0.9; }
+  100% { opacity: 0.4; }
+}
+
+.grid-overlay {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(89, 170, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(89, 170, 255, 0.05) 1px, transparent 1px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 3px);
+  background-size: 60px 60px, 60px 60px, 100% 3px;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* === RETRO PIXEL STAR === */
+.star-corona {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--star-color) 0%, transparent 60%);
+  filter: blur(8px);
+  opacity: 0.65;
+  z-index: 1;
+  animation: corona-pulse 4s ease-in-out infinite alternate;
+}
+
+@keyframes corona-pulse {
+  0% { transform: scale(0.85); opacity: 0.5; }
+  100% { transform: scale(1.15); opacity: 0.85; }
 }
 
 .star-graphic.pixel-star {
   position: absolute;
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   background: var(--star-core, #fff);
-  /* Pixel art hard edges for circle */
+  image-rendering: pixelated;
+  /* Chunky pixel polygon (8-bit style) */
   clip-path: polygon(
-    30% 0%, 70% 0%,
-    85% 15%, 100% 30%,
-    100% 70%, 85% 85%,
-    70% 100%, 30% 100%,
-    15% 85%, 0% 70%,
-    0% 30%, 15% 15%
+    25% 0%, 75% 0%,
+    87.5% 12.5%, 100% 25%,
+    100% 75%, 87.5% 87.5%,
+    75% 100%, 25% 100%,
+    12.5% 87.5%, 0% 75%,
+    0% 25%, 12.5% 12.5%
   );
   box-shadow:
-    inset -8px -8px 0 var(--star-color),
-    inset 4px 4px 0 rgba(255, 255, 255, 0.4);
-  /* The glow filter applies nicely over the clip path */
-  filter: drop-shadow(0 0 15px var(--star-color)) drop-shadow(0 0 5px var(--star-color));
+    inset -10px -10px 0 var(--star-color),
+    inset -16px -16px 0 var(--star-dim),
+    inset 6px 6px 0 rgba(255, 255, 255, 0.55);
+  filter:
+    drop-shadow(0 0 6px var(--star-core))
+    drop-shadow(0 0 14px var(--star-color))
+    drop-shadow(0 0 24px var(--star-color));
   z-index: 2;
-  animation: spin 30s steps(12) infinite;
+  animation: spin 30s steps(12) infinite, star-pulse 2.6s ease-in-out infinite alternate;
+}
+
+/* Pixel sun rays */
+.star-graphic.pixel-star::before,
+.star-graphic.pixel-star::after {
+  content: '';
+  position: absolute;
+  background: var(--star-color);
+  box-shadow: 0 0 6px var(--star-color);
+  z-index: -1;
+}
+
+.star-graphic.pixel-star::before {
+  top: -14px; left: 50%;
+  width: 4px; height: 12px;
+  transform: translateX(-50%);
+  box-shadow:
+    0 80px 0 var(--star-color),
+    -36px 40px 0 var(--star-color),
+    36px 40px 0 var(--star-color),
+    0 0 6px var(--star-color);
+}
+
+.star-graphic.pixel-star::after {
+  top: 50%; left: -14px;
+  width: 12px; height: 4px;
+  transform: translateY(-50%);
+  box-shadow:
+    80px 0 0 var(--star-color),
+    40px -36px 0 var(--star-color),
+    40px 36px 0 var(--star-color),
+    0 0 6px var(--star-color);
 }
 
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+@keyframes star-pulse {
+  0% { filter: drop-shadow(0 0 4px var(--star-core)) drop-shadow(0 0 10px var(--star-color)) drop-shadow(0 0 18px var(--star-color)); }
+  100% { filter: drop-shadow(0 0 8px var(--star-core)) drop-shadow(0 0 18px var(--star-color)) drop-shadow(0 0 32px var(--star-color)); }
 }
 
 /* Star color CSS variables */
@@ -282,7 +484,8 @@ onMounted(loadSystem)
 .planet-orbit {
   position: absolute;
   border-radius: 50%;
-  border: 1px dashed rgba(89, 170, 255, 0.25);
+  border: 1px dashed rgba(103, 240, 255, 0.32);
+  box-shadow: 0 0 0.4rem rgba(103, 240, 255, 0.08) inset;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -312,15 +515,34 @@ onMounted(loadSystem)
   aspect-ratio: 1 / 1;
   transform-origin: center;
   animation: spin var(--duration, 15s) linear infinite;
-  
-  /* Smooth shape */
-  border-radius: 50% !important;
-  
-  /* Hard shading without blur */
+  image-rendering: pixelated;
+
+  /* Chunky pixel polygon — retro 8-bit ball */
+  border-radius: 0 !important;
+  clip-path: polygon(
+    25% 0%, 75% 0%,
+    87.5% 12.5%, 100% 25%,
+    100% 75%, 87.5% 87.5%,
+    75% 100%, 25% 100%,
+    12.5% 87.5%, 0% 75%,
+    0% 25%, 12.5% 12.5%
+  );
+
+  /* Hard banded shading — no blur for that pixel feel */
   box-shadow:
-    inset -6px -6px 0 var(--p-color),
-    inset -12px -12px 0 var(--p-dim),
-    inset 4px 4px 0 rgba(255,255,255,0.3);
+    inset -3px -3px 0 var(--p-color),
+    inset -7px -7px 0 var(--p-color),
+    inset -11px -11px 0 var(--p-dim),
+    inset 3px 3px 0 rgba(255, 255, 255, 0.55),
+    inset 6px 6px 0 rgba(255, 255, 255, 0.18),
+    0 0 0.5rem var(--p-color),
+    0 0 1rem var(--p-dim);
+  filter: drop-shadow(0 0 4px var(--p-dim));
+  transition: transform 0.2s ease;
+}
+
+.planet-graphic.pixel-planet:hover {
+  filter: drop-shadow(0 0 8px var(--p-color)) drop-shadow(0 0 14px var(--p-color));
 }
 
 /* Base removed to use real width/height and pixelated borders instead of pseudo boxes */
@@ -329,19 +551,26 @@ onMounted(loadSystem)
 }
 
 .planet-graphic.selected.pixel-planet {
-  /* Go back to outline/box shadow for round elements */
-  outline: 2px dashed #67f0ff;
-  outline-offset: 6px;
   box-shadow:
-    0 0 15px 4px #67f0ff,
-    inset -6px -6px 0 var(--p-color),
-    inset -12px -12px 0 var(--p-dim),
-    inset 4px 4px 0 rgba(255,255,255,0.3);
+    inset -3px -3px 0 var(--p-color),
+    inset -7px -7px 0 var(--p-color),
+    inset -11px -11px 0 var(--p-dim),
+    inset 3px 3px 0 rgba(255, 255, 255, 0.55),
+    inset 6px 6px 0 rgba(255, 255, 255, 0.18),
+    0 0 0 3px #67f0ff,
+    0 0 14px 4px #67f0ff;
+  filter: drop-shadow(0 0 8px #67f0ff);
 }
 
 .planet-graphic.owned.pixel-planet {
-  outline: 2px dashed #8df6bf;
-  outline-offset: 4px;
+  box-shadow:
+    inset -3px -3px 0 var(--p-color),
+    inset -7px -7px 0 var(--p-color),
+    inset -11px -11px 0 var(--p-dim),
+    inset 3px 3px 0 rgba(255, 255, 255, 0.55),
+    inset 6px 6px 0 rgba(255, 255, 255, 0.18),
+    0 0 0 2px #8df6bf,
+    0 0 12px 3px rgba(141, 246, 191, 0.7);
 }
 
 .planet-type-terran, .planet-type-ocean { --p-core: #8bf9b0; --p-color: #3b9e59; --p-dim: #1e5a5f; }
@@ -353,15 +582,20 @@ onMounted(loadSystem)
 .planet-name-label {
   display: block;
   position: absolute;
-  top: calc(50% + 30px); /* Just below planet */
+  top: calc(50% + 30px);
   left: 50%;
   transform: translateX(-50%);
-  font-size: 0.75rem;
+  font-size: 0.74rem;
+  font-family: monospace;
+  letter-spacing: 0.04em;
   color: var(--text);
   font-weight: bold;
   pointer-events: none;
   white-space: nowrap;
-  text-shadow: 0 0 5px #000;
+  text-shadow:
+    0 0 4px #000,
+    0 0 8px rgba(0, 0, 0, 0.9),
+    0 0 0.4rem rgba(103, 240, 255, 0.4);
   z-index: 4;
 }
 

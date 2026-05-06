@@ -136,10 +136,70 @@ def _normalize_population(colony):
     colony["population"]["scientists"] = values["scientists"]
 
 
+GREEK_LETTERS = [
+    "Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Theta",
+    "Iota", "Kappa", "Lambda", "Sigma", "Omega", "Tau", "Omicron", "Rho",
+    "Phi", "Chi", "Psi", "Pi", "Mu", "Nu", "Xi",
+]
+
+CLASSICAL_STARS = [
+    "Centauri", "Eridani", "Cygni", "Draconis", "Lyrae", "Ursae", "Cassiopeiae",
+    "Andromedae", "Persei", "Aurigae", "Pegasi", "Orionis", "Tauri", "Aquilae",
+    "Carinae", "Velorum", "Hydrae", "Leonis", "Virginis", "Bootis",
+]
+
+PROPER_STARS = [
+    "Rigel", "Sirius", "Vega", "Altair", "Antares", "Polaris", "Arcturus",
+    "Betelgeuse", "Aldebaran", "Spica", "Pollux", "Deneb", "Capella", "Procyon",
+    "Mintaka", "Alnilam", "Bellatrix", "Mizar", "Alcor", "Fomalhaut", "Achernar",
+    "Canopus", "Regulus", "Hadar", "Alphard", "Atria", "Mira", "Kepler", "Tycho",
+]
+
+CATALOG_PREFIXES = ["HD", "NGC", "HIP", "PSR", "GJ", "WR", "K", "M", "IC", "Wolf"]
+
+ADJECTIVES = [
+    "Crimson", "Azure", "Silent", "Hollow", "Ember", "Frozen", "Drifting",
+    "Forgotten", "Eternal", "Veiled", "Serene", "Wandering", "Burning",
+    "Shattered", "Lone", "Twilight", "Shrouded", "Blazing", "Iron", "Obsidian",
+]
+
+NOUNS = [
+    "Helix", "Veil", "Spire", "Beacon", "Cradle", "Reach", "Expanse", "Forge",
+    "Maw", "Gate", "Drift", "Halo", "Crown", "Abyss", "Mantle", "Echo", "Shroud",
+    "Vault", "Pulse", "Throne",
+]
+
+SUFFIXES = [
+    "Prime", "Proxima", "Major", "Minor", "Borealis", "Australis", "Magna",
+    "Nova", "Ultima",
+]
+
+
 def generate_random_system_name():
-    prefixes = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta", "Eta", "Theta", "Iota", "Kappa", "Sigma", "Omega", "Tau", "Omicron", "Rho", "Rigel", "Sirius", "Vega", "Altair", "Antares", "Polaris", "Arcturus", "Betelgeuse", "Aldebaran", "Spica", "Pollux", "Deneb", "Eridani", "Cygni", "Centauri", "Draconis", "Lyrae", "Ursae", "Cassiopeiae", "Andromedae"]
-    suffixes = ["Major", "Minor", "Prime", "Proxima", "Secundus", "Tertius", "Ceti", "Borealis", "Australis", "Australis", "Centauri", "V", "X", "IX", "IV", "III", "II", "VI", "VII", "VIII"]
-    return f"{random.choice(prefixes)} {random.choice(suffixes)}"
+    """Procedural sci-fi star-system name. Avoids trailing roman numerals so
+    planets can append I/II/III without colliding."""
+    pattern = random.choices(
+        ["greek_classical", "greek_proper", "proper", "catalog", "adj_noun", "noun_suffix"],
+        weights=[28, 18, 14, 18, 14, 8],
+        k=1,
+    )[0]
+
+    if pattern == "greek_classical":
+        return f"{random.choice(GREEK_LETTERS)} {random.choice(CLASSICAL_STARS)}"
+    if pattern == "greek_proper":
+        return f"{random.choice(GREEK_LETTERS)} {random.choice(PROPER_STARS)}"
+    if pattern == "proper":
+        base = random.choice(PROPER_STARS)
+        if random.random() < 0.35:
+            return f"{base} {random.choice(SUFFIXES)}"
+        return base
+    if pattern == "catalog":
+        prefix = random.choice(CATALOG_PREFIXES)
+        number = random.randint(101, 9999)
+        return f"{prefix}-{number}"
+    if pattern == "adj_noun":
+        return f"{random.choice(ADJECTIVES)} {random.choice(NOUNS)}"
+    return f"{random.choice(NOUNS)} {random.choice(SUFFIXES)}"
 
 def generate_galaxy(size, num_opponents, player_race_id):
     counts = {"small": 20, "medium": 30, "large": 40}
@@ -214,7 +274,7 @@ def generate_galaxy(size, num_opponents, player_race_id):
     orion["planets"] = [
         {
             "index": 0,
-            "name": "Gaia",
+            "name": f"{orion['name']} I",
             "type": "gaia",
             "size": "huge",
             "minerals": "ultra_rich",

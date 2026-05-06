@@ -26,13 +26,6 @@
 
       <p v-if="error" class="error">{{ error }}</p>
 
-      <nav class="tabs">
-        <router-link :to="`/game/${gameId}/galaxy`">Mapa</router-link>
-        <router-link :to="`/game/${gameId}/tech`">Tecnologia</router-link>
-        <router-link :to="`/game/${gameId}/fleets`">Flotas</router-link>
-        <router-link :to="`/game/${gameId}/diplomacy`">Diplomacia</router-link>
-      </nav>
-
       <section v-if="turnEvents.length || aiActions.length" class="turn-report">
         <header class="turn-report-head">
           <h3>Ultimo turno resuelto</h3>
@@ -41,23 +34,35 @@
 
         <div v-if="turnEvents.length" class="event-list">
           <article v-for="(event, index) in turnEvents" :key="`${String(event.type)}-${index}`" class="event-card">
-            <strong>{{ prettyEventType(event.type) }}</strong>
-            <pre>{{ stringifyEvent(event) }}</pre>
+            <span class="event-icon">{{ eventIcon(event.type) }}</span>
+            <p class="event-text">{{ describeEvent(event) }}</p>
           </article>
         </div>
 
         <div v-if="aiActions.length" class="ai-actions">
           <article v-for="report in aiActions" :key="report.ai_id" class="ai-card">
-            <strong>{{ report.ai_id }} · {{ report.personality }}</strong>
-            <p class="reasoning">{{ report.reasoning || 'Sin detalle' }}</p>
-            <ul>
-              <li v-for="(action, index) in report.actions" :key="index">{{ stringifyEvent(action) }}</li>
+            <header class="ai-card-head">
+              <strong>{{ aiName(report.ai_id) }}</strong>
+              <span class="ai-personality">{{ personalityLabel(report.personality) }}</span>
+            </header>
+            <p class="reasoning">{{ report.reasoning || 'Sin novedades.' }}</p>
+            <ul v-if="report.actions?.length" class="ai-action-list">
+              <li v-for="(action, index) in report.actions" :key="index">
+                {{ describeAiAction(action) }}
+              </li>
             </ul>
           </article>
         </div>
       </section>
 
       <router-view :key="refreshKey" />
+
+      <nav class="tabs">
+        <router-link :to="`/game/${gameId}/galaxy`" class="tab-btn">Mapa</router-link>
+        <router-link :to="`/game/${gameId}/tech`" class="tab-btn">Tecnologia</router-link>
+        <router-link :to="`/game/${gameId}/fleets`" class="tab-btn">Flotas</router-link>
+        <router-link :to="`/game/${gameId}/diplomacy`" class="tab-btn">Diplomacia</router-link>
+      </nav>
     </div>
 
     <aside class="sidebar-column">
@@ -115,13 +120,115 @@ function formatNumber(value?: number) {
   return Number(value).toLocaleString()
 }
 
-function prettyEventType(type: unknown) {
-  if (typeof type !== 'string') return 'Evento'
-  return type.replaceAll('_', ' ')
+function ownerLabel(owner: unknown) {
+  if (typeof owner !== 'string' || !owner) return 'Desconocido'
+  if (owner === 'player') return 'Tu imperio'
+  if (owner.startsWith('ai_')) return `IA ${owner.slice(3)}`
+  return owner.charAt(0).toUpperCase() + owner.slice(1)
 }
 
-function stringifyEvent(value: unknown) {
-  return JSON.stringify(value, null, 2)
+function aiName(id: unknown) {
+  if (typeof id !== 'string' || !id) return 'Imperio rival'
+  if (id.startsWith('ai_')) return `Imperio rival ${id.slice(3)}`
+  return id
+}
+
+function personalityLabel(personality: unknown) {
+  return ({
+    aggressive: 'Agresivo',
+    defensive: 'Defensivo',
+    expansionist: 'Expansionista',
+    researcher: 'Investigador',
+    balanced: 'Equilibrado',
+  } as Record<string, string>)[String(personality || '')] || 'Equilibrado'
+}
+
+function eventIcon(type: unknown) {
+  return ({
+    building_complete: '[C]',
+    ship_complete: '[N]',
+    research_complete: '[I]',
+    fleet_arrival: '[F]',
+    combat_resolved: '[X]',
+    ai_research_selected: '[i]',
+    ai_colonized: '[c]',
+    ai_fleet_moved: '[f]',
+    ai_build_order: '[p]',
+    tribute_paid: '[$]',
+    peace_expired: '[!]',
+    council_convened: '[*]',
+    antarans_escaped: '[!]',
+    antaran_attack: '[!]',
+  } as Record<string, string>)[String(type || '')] || '[*]'
+}
+
+function describeEvent(event: any) {
+  const type = String(event?.type || '')
+  switch (type) {
+    case 'building_complete':
+      return `Construccion completada: ${event.building_id || 'edificio'} en ${event.colony_id || 'una colonia'}.`
+    case 'ship_complete':
+      return `Nueva nave lista: ${event.ship_type || 'desconocida'} en ${event.colony_id || 'una colonia'}.`
+    case 'research_complete':
+      return `${ownerLabel(event.owner)} ha completado la investigacion ${event.tech_id || 'desconocida'}.`
+    case 'fleet_arrival':
+      return `Flota ${event.fleet_id || ''} de ${ownerLabel(event.owner)} llega al sistema ${event.system_id || ''}.`
+    case 'combat_resolved': {
+      const winner = event.winner ? ownerLabel(event.winner) : 'el ganador'
+      const loc = event.system_id || event.location || 'un sistema'
+      return `Combate resuelto en ${loc}: ${winner} se impone.`
+    }
+    case 'ai_research_selected':
+      return `${ownerLabel(event.owner)} inicia la investigacion ${event.tech_id || 'desconocida'}.`
+    case 'ai_colonized':
+      return `${ownerLabel(event.owner)} funda la colonia ${event.colony_id || ''}.`
+    case 'ai_fleet_moved':
+      return `${ownerLabel(event.owner)} reposiciona la flota ${event.fleet_id || ''}.`
+    case 'ai_build_order':
+      return `${ownerLabel(event.owner)} pone en cola ${event.item_id || 'una unidad'}.`
+    case 'tribute_paid':
+      return `${ownerLabel(event.from)} paga ${event.amount || 0} BC de tributo a ${ownerLabel(event.to)}.`
+    case 'peace_expired': {
+      const a = Array.isArray(event.between) ? event.between.map(ownerLabel).join(' y ') : 'dos imperios'
+      return `Expira el tratado de paz entre ${a}.`
+    }
+    case 'council_convened':
+      return 'El Consejo Galactico se reune.'
+    case 'antarans_escaped':
+      return event.message || 'Los Antaranos han escapado de su dimension.'
+    case 'antaran_attack':
+      return `Ataque antarano sobre ${event.target || 'tu imperio'}.`
+    case 'victory_military':
+      return 'Victoria militar conseguida.'
+    case 'victory_diplomatic':
+      return 'Victoria diplomatica conseguida.'
+    case 'victory_economic':
+      return 'Victoria economica conseguida.'
+    default:
+      if (type.startsWith('victory')) return `Condicion de victoria: ${type.replace('victory_', '')}.`
+      return `Evento: ${type.replaceAll('_', ' ') || 'sin tipo'}.`
+  }
+}
+
+function describeAiAction(action: any) {
+  const type = String(action?.type || '')
+  const d = action?.details || {}
+  switch (type) {
+    case 'colonizePlanet':
+      return `Coloniza el planeta ${d.planetIndex ?? '?'} con la flota ${d.fleetId || '?'}.`
+    case 'selectResearch':
+      return `Selecciona investigacion: ${d.techId || d.field || 'desconocida'}.`
+    case 'addBuildQueue': {
+      const kind = d.itemType === 'ship' ? 'nave' : 'edificio'
+      return `Encola ${kind} ${d.itemId || ''} en ${d.colonyId || 'una colonia'}.`
+    }
+    case 'moveFleet':
+      return `Mueve la flota ${d.fleetId || ''} hacia ${d.destination || 'un sistema'}.`
+    case 'endTurn':
+      return 'Finaliza su turno.'
+    default:
+      return `Accion: ${type.replaceAll('_', ' ') || 'desconocida'}.`
+  }
 }
 
 function clearTurnReport() {
@@ -191,6 +298,26 @@ onMounted(reloadGame)
   padding: 1rem;
 }
 
+.game-layout-wrapper {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.main-column {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-column {
+  flex: 0 0 220px;
+  display: flex;
+  flex-direction: column;
+}
+
 .hud {
   display: flex;
   justify-content: space-between;
@@ -219,17 +346,44 @@ onMounted(reloadGame)
 }
 
 .summary-grid {
-  margin: 1rem 0;
+  margin: 0;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: 1fr;
+  gap: 0.7rem;
+  position: sticky;
+  top: 0.5rem;
 }
 
 .summary-card {
-  padding: 0.8rem;
-  border: 1px solid rgba(89, 170, 255, 0.24);
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(89, 170, 255, 0.32);
   border-radius: 10px;
-  background: rgba(6, 13, 34, 0.52);
+  background: linear-gradient(180deg, rgba(15, 28, 64, 0.78), rgba(6, 13, 34, 0.78));
+  box-shadow: 0 0 0.6rem rgba(79, 180, 255, 0.18) inset;
+  position: relative;
+  overflow: hidden;
+}
+
+.summary-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04) 0,
+    rgba(255, 255, 255, 0.04) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  pointer-events: none;
+}
+
+.summary-card strong {
+  font-size: 1.1rem;
+  color: var(--primary-strong);
+  text-shadow: 0 0 0.45rem rgba(103, 240, 255, 0.55);
+  font-family: monospace;
+  letter-spacing: 0.04em;
 }
 
 .summary-label {
@@ -243,24 +397,53 @@ onMounted(reloadGame)
 
 .tabs {
   display: flex;
-  gap: 0.9rem;
+  gap: 0.6rem;
   flex-wrap: wrap;
-  margin-bottom: 1rem;
+  margin-top: 0.8rem;
+  justify-content: center;
 }
 
-.tabs a {
-  color: var(--text-muted);
-  text-decoration: none;
-  text-transform: uppercase;
+.tab-btn {
+  font-family: var(--font-pixel);
+  font-size: 0.65rem;
   letter-spacing: 0.08em;
-  font-size: 0.78rem;
-  border-bottom: 1px solid transparent;
-  padding-bottom: 0.2rem;
+  border: 2px solid var(--primary);
+  background: var(--bg-1);
+  color: var(--primary);
+  padding: 0.6rem 1.1rem;
+  border-radius: 0;
+  text-transform: uppercase;
+  text-decoration: none;
+  text-shadow: 0 0 0.4rem rgba(51, 255, 102, 0.55);
+  box-shadow:
+    0 0 0 2px var(--bg-0),
+    0 0 0.5rem rgba(51, 255, 102, 0.35),
+    inset -2px -2px 0 var(--green-deep),
+    inset 2px 2px 0 rgba(141, 255, 159, 0.18);
+  transition: transform 0.06s steps(2), background 0.1s steps(2), color 0.1s steps(2);
+  image-rendering: pixelated;
 }
 
-.tabs a.router-link-active {
-  color: var(--primary-strong);
-  border-bottom-color: var(--primary-strong);
+.tab-btn:hover {
+  background: var(--primary);
+  color: var(--bg-0);
+  text-shadow: none;
+  box-shadow:
+    0 0 0 2px var(--bg-0),
+    0 0 0.9rem var(--primary-strong),
+    inset -2px -2px 0 var(--green-mid),
+    inset 2px 2px 0 rgba(255, 255, 255, 0.4);
+}
+
+.tab-btn.router-link-active {
+  background: var(--primary);
+  color: var(--bg-0);
+  text-shadow: none;
+  box-shadow:
+    0 0 0 2px var(--bg-0),
+    0 0 0.9rem var(--primary-strong),
+    inset -2px -2px 0 var(--green-mid),
+    inset 2px 2px 0 rgba(255, 255, 255, 0.4);
 }
 
 .turn-report {
@@ -282,28 +465,79 @@ onMounted(reloadGame)
 .event-list,
 .ai-actions {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
-.event-card,
+.event-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--green-deep);
+  border-left: 3px solid var(--primary);
+  background: rgba(10, 30, 18, 0.7);
+}
+
+.event-icon {
+  font-family: var(--font-pixel);
+  font-size: 0.65rem;
+  color: var(--primary-strong);
+  text-shadow: 0 0 0.4rem rgba(141, 255, 159, 0.6);
+  letter-spacing: 0.08em;
+}
+
+.event-text {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
 .ai-card {
-  padding: 0.75rem;
-  border: 1px solid rgba(112, 166, 214, 0.18);
-  border-radius: 8px;
-  background: rgba(10, 18, 42, 0.7);
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--green-deep);
+  border-left: 3px solid var(--primary);
+  background: rgba(10, 30, 18, 0.7);
 }
 
-.event-card pre {
-  margin: 0.5rem 0 0;
-  white-space: pre-wrap;
-  word-break: break-word;
+.ai-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.4rem;
+}
+
+.ai-card-head strong {
+  font-family: var(--font-pixel);
+  font-size: 0.7rem;
+  color: var(--primary-strong);
+}
+
+.ai-personality {
+  font-size: 0.85rem;
   color: var(--text-muted);
-  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .reasoning {
-  margin: 0.45rem 0;
+  margin: 0.3rem 0 0.4rem;
+  color: var(--text);
+  font-style: italic;
+}
+
+.ai-action-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.2rem;
   color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.ai-action-list li::marker {
+  color: var(--primary);
 }
 
 .error {
@@ -311,9 +545,18 @@ onMounted(reloadGame)
   margin-top: 0.8rem;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1080px) {
+  .game-layout-wrapper {
+    flex-direction: column;
+  }
+
+  .sidebar-column {
+    flex: 1 1 auto;
+  }
+
   .summary-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    position: static;
   }
 }
 
