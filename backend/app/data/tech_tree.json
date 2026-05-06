@@ -1,0 +1,94 @@
+{
+  "fields": [
+    {
+      "field": "Engineering",
+      "levels": [
+        {
+          "level": 1,
+          "options": [
+            { "tech_id": "advanced_engineering", "name": "Advanced Engineering", "base_cost": 80, "status": "available", "description": "Construction fundamentals." },
+            { "tech_id": "basic_hull", "name": "Basic Hull", "base_cost": 80, "status": "available", "description": "Foundation for naval construction." }
+          ]
+        }
+      ]
+    },
+    {
+      "field": "Power",
+      "levels": [
+        {
+          "level": 2,
+          "options": [
+            { "tech_id": "deuterium_cells", "name": "Deuterium Fuel Cells", "base_cost": 160, "status": "available", "description": "Increases ship range." }
+          ]
+        }
+      ]
+    },
+    {
+      "field": "Chemistry",
+      "levels": [
+        {
+          "level": 2,
+          "options": [
+            { "tech_id": "nuclear_missile", "name": "Nuclear Missile", "base_cost": 160, "status": "available", "description": "First missile weapon." },
+            { "tech_id": "titanium_armor", "name": "Titanium Armor", "base_cost": 160, "status": "available", "description": "Basic armor plating." }
+          ]
+        }
+      ]
+    },
+    {
+      "field": "Sociology",
+      "levels": [
+        {
+          "level": 1,
+          "options": [
+            { "tech_id": "constitution", "name": "Constitution", "base_cost": 80, "status": "available", "description": "Base government form." }
+          ]
+        }
+      ]
+    },
+    {
+      "field": "Computers",
+      "levels": [
+        {
+          "level": 2,
+          "options": [
+            { "tech_id": "battle_comp_3", "name": "Battle Computer Mark III", "base_cost": 160, "status": "available", "description": "+20 accuracy." }
+          ]
+        }
+      ]
+    },
+    {
+      "field": "Biology",
+      "levels": [
+        {
+          "level": 2,
+          "options": [
+            { "tech_id": "genetic_eng", "name": "Genetic Engineering", "base_cost": 160, "status": "available", "description": "Early reproduction boost." }
+          ]
+        }
+      ]
+    },
+    {
+      "field": "Physics",
+      "levels": [
+        {
+          "level": 1,
+          "options": [
+            { "tech_id": "laser_cannon", "name": "Laser Cannon", "base_cost": 80, "status": "available", "description": "Standard beam weapon." }
+          ]
+        }
+      ]
+    },
+    {
+      "field": "Force Fields",
+      "levels": [
+        {
+          "level": 1,
+          "options": [
+            { "tech_id": "class_1_shield", "name": "Class I Shield", "base_cost": 80, "status": "available", "description": "Basic ship defense." }
+          ]
+        }
+      ]
+    }
+  ]
+}
