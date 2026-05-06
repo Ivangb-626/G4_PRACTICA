@@ -42,6 +42,7 @@ export const api = {
     get: (id) => request(`/api/game/${id}`),
     delete: (id) => request(`/api/game/${id}`, { method: 'DELETE' }),
     endTurn: (id) => request(`/api/game/${id}/end-turn`, { method: 'POST' }),
+    getTopHallOfFame: () => request('/api/game/hall-of-fame'),
   },
   galaxy: {
     get: (id) => request(`/api/game/${id}/galaxy`),
@@ -57,6 +58,9 @@ export const api = {
     buildQueue: (id, colonyId, item) => request(`/api/game/${id}/colony/${colonyId}/build-queue`, {
       method: 'POST',
       body: JSON.stringify(item),
+    }),
+    removeQueueItem: (id, colonyId, idx) => request(`/api/game/${id}/colony/${colonyId}/build-queue/${idx}`, {
+      method: 'DELETE',
     }),
   },
   fleet: {
@@ -76,5 +80,42 @@ export const api = {
       body: JSON.stringify({ code }),
     }),
     codes: (id) => request(`/api/game/${id}/cheat/codes`),
-  }
+  },
+  leaders: {
+    list: (id) => request(`/api/game/${id}/leaders`),
+    available: (id) => request(`/api/game/${id}/leaders/available`),
+    hire: (id, leaderId) => request(`/api/game/${id}/leaders/hire`, {
+      method: 'POST',
+      body: JSON.stringify({ leader_id: leaderId }),
+    }),
+  },
+  diplomacy: {
+    list: (id) => request(`/api/game/${id}/diplomacy`),
+    propose: (id, body) => request(`/api/game/${id}/diplomacy/propose`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+    declareWar: (id, targetId) => request(`/api/game/${id}/diplomacy/war`, {
+      method: 'POST',
+      body: JSON.stringify({ target_id: targetId }),
+    }),
+  },
+  research: {
+    get: (id) => request(`/api/game/${id}/research`),
+    select: (id, techId) => request(`/api/game/${id}/research/select`, {
+      method: 'POST',
+      body: JSON.stringify({ tech_id: techId }),
+    }),
+  },
+  espionage: {
+    list: (id) => request(`/api/game/${id}/espionage`),
+    recruit: (id, level) => request(`/api/game/${id}/espionage/recruit`, {
+      method: 'POST',
+      body: JSON.stringify({ level }),
+    }),
+    mission: (id, spyId, targetPlayer, missionType) => request(`/api/game/${id}/espionage/mission`, {
+      method: 'POST',
+      body: JSON.stringify({ spy_id: spyId, target_player: targetPlayer, mission_type: missionType }),
+    }),
+  },
 };

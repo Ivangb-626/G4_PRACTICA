@@ -94,7 +94,7 @@ function getRelationStyle(value: number) {
 async function loadRelations() {
   if (!gameStore.gameId) return;
   const res = await api.diplomacy.list(gameStore.gameId);
-  gameStore.relations = res.relations || [];
+  gameStore.relations = res || [];
 }
 
 async function propose(targetId: string) {}

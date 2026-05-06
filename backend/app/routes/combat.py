@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, g
 from app.auth.middleware import token_required
-from app.models.game import GameModel, HallOfFameModel
+from app.models.game import GameModel
 
 combat_bp = Blueprint('combat', __name__)
 
@@ -45,7 +45,3 @@ def attack_antares(game_id):
     
     return jsonify({"message": "Assault on Antares launched"}), 200
 
-@combat_bp.route('/hall-of-fame', methods=['GET'])
-def get_hof():
-    entries = HallOfFameModel.get_top_entries()
-    return jsonify(entries), 200

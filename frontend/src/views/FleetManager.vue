@@ -39,15 +39,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useGameStore } from '../store/gameStore';
-import { useUIStore } from '../store/uiStore';
 import { api } from '../api/client';
 import { Theme, createPanelStyle, btnStyle } from '../styles/styleSystem';
 
 const gameStore = useGameStore();
-const uiStore = useUIStore();
-const hovered = reactive<Record<string, boolean>>({});
 
 const moves = ref<Record<string, number>>({});
 
@@ -56,95 +53,16 @@ const styles = {
   head: { display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', borderBottom: `1px solid ${Theme.colors.border}`, paddingBottom: '1rem' },
   title: { margin: 0, fontSize: '2rem', color: Theme.colors.primary, letterSpacing: '0.2em', textShadow: Theme.effects.glow },
   subtitle: { margin: '0.3rem 0 0', color: Theme.colors.textMuted, fontSize: '0.9rem' },
-  btn: (h: boolean) => btnStyle(h),
-  btnSmall: (h: boolean) => ({ ...btnStyle(h), padding: '0.3rem 0.6rem', fontSize: '0.75rem' }),
+  btn: btnStyle(),
+  btnSmall: { ...btnStyle(), padding: '0.3rem 0.6rem', fontSize: '0.75rem' },
   fleetGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' },
   fleetCard: createPanelStyle(),
-  cardHead: { display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' },
+  cardHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' },
   fleetName: { margin: 0, fontSize: '1.2rem', color: Theme.colors.text },
-  shipList: { margin: '1rem 0', padding: '0.8rem', backgroundColor: Theme.colors.bgPanel, borderRadius: '4px' },
+  shipList: { margin: '1rem 0', padding: '0.8rem', backgroundColor: Theme.colors.bgDark, borderRadius: '4px' },
   shipItem: { fontSize: '0.85rem', marginBottom: '0.3rem', color: Theme.colors.ok },
-  select: { flex: 1, backgroundColor: Theme.colors.bgPanel, color: Theme.colors.primary, border: `1px solid ${Theme.colors.primary}`, padding: '0.3rem', fontSize: '0.8rem' }
-};
-
-function getStatusStyle(fleet: any) {
-  return {
-    fontSize: '0.7rem',
-    padding: '0.2rem 0.5rem',
-    backgroundColor: fleet.in_transit ? Theme.colors.secondary : Theme.colors.ok,
-    color: '#000',
-    borderRadius: '4px',
-    fontWeight: 'bold' as const
-  };
-}
-// ... rest of logic
- stays the same
-
-    margin: '0.3rem 0 0',
-    color: '#8888aa',
-    fontSize: '0.9rem',
-  },
-  btn: {
-    backgroundColor: '#1a1a3e',
-    color: '#00ffff',
-    border: '2px solid #00ffff',
-    padding: '0.6rem 1.2rem',
-    cursor: 'pointer',
-    fontWeight: 'bold' as const,
-  },
-  btnSmall: {
-    backgroundColor: '#2a2a5e',
-    color: '#00ffff',
-    border: '1px solid #00ffff',
-    padding: '0.3rem 0.6rem',
-    cursor: 'pointer',
-  },
-  fleetGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-    gap: '1.5rem',
-  },
-  fleetCard: {
-    padding: '1.2rem',
-    backgroundColor: '#1a1a3e',
-    border: '1px solid rgba(0, 255, 255, 0.3)',
-    borderRadius: '8px',
-  },
-  cardHead: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '1rem',
-  },
-  fleetName: {
-    margin: 0,
-    fontSize: '1.2rem',
-    color: '#fff',
-  },
-  shipList: {
-    margin: '1rem 0',
-    padding: '0.8rem',
-    backgroundColor: '#070f24',
-    borderRadius: '4px',
-  },
-  shipItem: {
-    fontSize: '0.85rem',
-    marginBottom: '0.3rem',
-    color: '#44ee44',
-  },
-  actions: {
-    display: 'flex',
-    gap: '0.5rem',
-    marginTop: '1rem',
-  },
-  select: {
-    flex: 1,
-    backgroundColor: '#070f24',
-    color: '#00ffff',
-    border: '1px solid #00ffff',
-    padding: '0.3rem',
-    fontSize: '0.8rem',
-  }
+  actions: { display: 'flex', gap: '0.5rem', marginTop: '1rem' },
+  select: { flex: 1, backgroundColor: Theme.colors.bgDark, color: Theme.colors.primary, border: `1px solid ${Theme.colors.primary}`, padding: '0.3rem', fontSize: '0.8rem' },
 };
 
 function getStarName(index: number) {
@@ -155,9 +73,10 @@ function getStatusStyle(fleet: any) {
   return {
     fontSize: '0.7rem',
     padding: '0.2rem 0.5rem',
-    backgroundColor: fleet.in_transit ? '#5e4a07' : '#075e2a',
-    color: '#fff',
+    backgroundColor: fleet.in_transit ? Theme.colors.secondary : Theme.colors.ok,
+    color: '#000',
     borderRadius: '4px',
+    fontWeight: 'bold' as const,
   };
 }
 

@@ -187,7 +187,7 @@ onMounted(() => {
     const p = gameStore.game.player;
     score.value = {
       colonies: p.colonies.length,
-      population: p.colonies.reduce((sum, c) => sum + c.population, 0),
+      population: p.colonies.reduce((sum: number, c: any) => sum + (c.population || 0), 0),
       techs: p.technologies.length,
       bc: p.bc,
       turns: gameStore.game.turn,

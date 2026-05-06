@@ -61,14 +61,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useGameStore } from '../store/gameStore';
 import { api } from '../api/client';
 import { Theme, createPanelStyle, btnStyle } from '../styles/styleSystem';
 
 const gameStore = useGameStore();
 const spies = ref<any[]>([]);
-const hovered = reactive<Record<string, boolean>>({});
+const selectedSpyId = ref<string | null>(null);
+const recruitLevel = ref<number>(1);
+const targetPlayer = ref<string>('');
+const selectedMission = ref<string>('steal_tech');
+const missionTypes = ['steal_tech', 'sabotage', 'assassinate', 'incite_rebellion'];
 
 const styles = {
   panel: createPanelStyle(),
@@ -77,115 +81,34 @@ const styles = {
   subtitle: { margin: '0.3rem 0 0', color: Theme.colors.textMuted, fontSize: '0.9rem' },
   mainGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' },
   innerPanel: createPanelStyle(),
+  innerHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' },
   innerTitle: { margin: '0 0 1rem', fontSize: '1.2rem', color: Theme.colors.secondary },
-  btn: (h: boolean) => btnStyle(h),
-  btnSmall: (h: boolean) => ({ ...btnStyle(h), padding: '0.3rem 0.6rem', fontSize: '0.75rem' }),
-  btnDanger: (h: boolean) => ({ ...btnStyle(h), borderColor: Theme.colors.danger, color: Theme.colors.danger, backgroundColor: h ? Theme.colors.danger : 'transparent' }),
-  select: { backgroundColor: Theme.colors.bgPanel, color: Theme.colors.primary, border: `1px solid ${Theme.colors.primary}`, padding: '0.6rem', borderRadius: '4px' },
-  input: { backgroundColor: Theme.colors.bgPanel, color: Theme.colors.text, border: `1px solid ${Theme.colors.primary}`, padding: '0.6rem', borderRadius: '4px' }
+  spyList: { display: 'flex', flexDirection: 'column' as const, gap: '0.8rem' },
+  btn: btnStyle(),
+  btnSmall: { ...btnStyle(), padding: '0.3rem 0.6rem', fontSize: '0.75rem' },
+  btnDanger: {
+    ...btnStyle(),
+    borderColor: Theme.colors.danger,
+    color: Theme.colors.danger,
+    backgroundColor: 'transparent',
+    flex: 1,
+  },
+  selectSmall: { backgroundColor: Theme.colors.bgDark, color: Theme.colors.primary, border: `1px solid ${Theme.colors.primary}`, fontSize: '0.75rem', padding: '0.3rem' },
+  placeholder: { padding: '4rem', textAlign: 'center' as const, color: Theme.colors.textMuted, fontStyle: 'italic' },
+  form: { display: 'flex', flexDirection: 'column' as const, gap: '1rem' },
+  label: { fontSize: '0.8rem', color: Theme.colors.textMuted },
+  input: { backgroundColor: Theme.colors.bgDark, color: Theme.colors.text, border: `1px solid ${Theme.colors.primary}`, padding: '0.6rem', borderRadius: '4px' },
 };
 
 function getSpyCardStyle(id: string) {
   const isSelected = selectedSpyId.value === id;
   return {
     padding: '1rem',
-    backgroundColor: isSelected ? Theme.colors.bgPanel : Theme.colors.bgDark,
+    backgroundColor: isSelected ? Theme.colors.bgGlass : Theme.colors.bgDark,
     border: `1px solid ${isSelected ? Theme.colors.primary : Theme.colors.border}`,
     borderRadius: '4px',
     cursor: 'pointer',
     transition: 'all 0.2s',
-  };
-}
-// ... rest of logic
- stays the same
-
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '1.5rem',
-  },
-  innerPanel: {
-    padding: '1.2rem',
-    backgroundColor: '#1a1a3e',
-    border: '1px solid rgba(0, 255, 255, 0.3)',
-    borderRadius: '8px',
-  },
-  innerHead: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '1rem',
-  },
-  innerTitle: {
-    margin: 0,
-    fontSize: '1.2rem',
-    color: '#ffd700',
-  },
-  spyList: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '0.8rem',
-  },
-  btn: {
-    backgroundColor: '#1a1a3e',
-    color: '#00ffff',
-    border: '2px solid #00ffff',
-    padding: '0.6rem 1.2rem',
-    cursor: 'pointer',
-  },
-  btnSmall: {
-    backgroundColor: '#2a2a5e',
-    color: '#00ffff',
-    border: '1px solid #00ffff',
-    padding: '0.3rem 0.6rem',
-    cursor: 'pointer',
-    fontSize: '0.75rem',
-  },
-  btnDanger: {
-    flex: 1,
-    backgroundColor: '#5e2a2a',
-    color: '#ff4444',
-    border: '1px solid #ff4444',
-    padding: '0.6rem',
-    cursor: 'pointer',
-  },
-  selectSmall: {
-    backgroundColor: '#070f24',
-    color: '#00ffff',
-    border: '1px solid #00ffff',
-    fontSize: '0.75rem',
-  },
-  placeholder: {
-    padding: '4rem',
-    textAlign: 'center' as const,
-    color: '#8888aa',
-    fontStyle: 'italic',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '1rem',
-  },
-  label: {
-    fontSize: '0.8rem',
-    color: '#8888aa',
-  },
-  input: {
-    backgroundColor: '#070f24',
-    color: '#fff',
-    border: '1px solid #00ffff',
-    padding: '0.6rem',
-    borderRadius: '4px',
-  }
-};
-
-function getSpyCardStyle(id: string) {
-  const isSelected = selectedSpyId.value === id;
-  return {
-    padding: '1rem',
-    backgroundColor: isSelected ? '#2a2a5e' : '#070f24',
-    border: isSelected ? '1px solid #00ffff' : '1px solid #1a1a3e',
-    borderRadius: '4px',
-    cursor: 'pointer',
   };
 }
 

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, g
 from app.auth.middleware import token_required
-from app.models.game import GameModel
+from app.models.game import GameModel, HallOfFameModel
 from app.services.game_service import generate_game_state
 from app.services.turn_engine import TurnEngine
 
@@ -55,11 +55,16 @@ def delete_user_game(game_id):
 def process_end_turn(game_id):
     entry, error = _game_entry_or_error(game_id)
     if error: return error
-    
+
     game_state = entry['game_state']
     result = TurnEngine.execute_turn(game_state)
-    
+
     # Save updated state
     GameModel.save_game(g.user_id, game_id, game_state)
-    
+
     return jsonify(result), 200
+
+@game_bp.route('/hall-of-fame', methods=['GET'])
+def get_hall_of_fame():
+    entries = HallOfFameModel.get_top_entries()
+    return jsonify(entries), 200

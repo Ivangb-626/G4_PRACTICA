@@ -84,6 +84,27 @@ def update_build_queue(game_id, colony_id):
     success, error = add_to_build_queue(colony, item_id, item_type, game_state)
     if not success:
         return jsonify({"error": error}), 400
-        
+
     GameModel.save_game(g.user_id, game_id, game_state)
     return jsonify({"message": "Build queue updated", "queue": colony.get('build_queue', [])}), 200
+
+@colony_bp.route('/<colony_id>/build-queue/<int:idx>', methods=['DELETE'])
+@token_required
+def remove_build_queue_item(game_id, colony_id, idx):
+    game_state = _get_game_state(game_id)
+    if not game_state:
+        return jsonify({"error": "Game not found"}), 404
+
+    colony = next((c for c in game_state['player'].get('colonies', []) if c['id'] == colony_id), None)
+    if not colony:
+        return jsonify({"error": "Colony not found"}), 404
+
+    queue = colony.get('build_queue', [])
+    if idx < 0 or idx >= len(queue):
+        return jsonify({"error": "Index out of range"}), 400
+
+    queue.pop(idx)
+    colony['build_queue'] = queue
+
+    GameModel.save_game(g.user_id, game_id, game_state)
+    return jsonify({"message": "Build queue item removed", "queue": queue}), 200

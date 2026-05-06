@@ -9,7 +9,7 @@
       <!-- Parts Selection -->
       <div :style="styles.innerPanel">
         <h3 :style="styles.innerTitle">COMPONENTS</h3>
-        <div v-for="cat in ['HULLS', 'WEAPONS', 'SPECIALS']" :key="cat">
+        <div v-for="cat in categories" :key="cat">
           <h4 :style="{ color: '#00ffff', fontSize: '0.8rem', marginTop: '1rem' }">{{ cat }}</h4>
           <div :style="styles.partGrid">
             <button v-for="part in parts[cat]" :key="part.id" :style="styles.partBtn" @click="selectPart(part)">
@@ -38,11 +38,22 @@ import { ref, reactive } from 'vue';
 import { useUIStore } from '../store/uiStore';
 
 const uiStore = useUIStore();
-const currentDesign = reactive({ size: 100, cost: 500, weapons: [] });
-const parts = {
+
+type Part = { id: string; name: string };
+
+const currentDesign = reactive<{ size: number; cost: number; weapons: Part[] }>({
+  size: 100,
+  cost: 500,
+  weapons: [],
+});
+
+const categories = ['HULLS', 'WEAPONS', 'SPECIALS'] as const;
+type Category = typeof categories[number];
+
+const parts: Record<Category, Part[]> = {
   HULLS: [{ id: 'frigate', name: 'Frigate' }, { id: 'destroyer', name: 'Destroyer' }],
   WEAPONS: [{ id: 'laser', name: 'Laser' }, { id: 'fusion', name: 'Fusion' }],
-  SPECIALS: [{ id: 'shield', name: 'Shield' }]
+  SPECIALS: [{ id: 'shield', name: 'Shield' }],
 };
 
 const styles = {
@@ -58,6 +69,6 @@ const styles = {
   stats: { padding: '1rem', backgroundColor: '#070f24', marginBottom: '1rem', borderRadius: '4px' }
 };
 
-function selectPart(part: any) { currentDesign.weapons.push(part); }
+function selectPart(part: Part) { currentDesign.weapons.push(part); }
 function saveDesign() { /* API call */ }
 </script>

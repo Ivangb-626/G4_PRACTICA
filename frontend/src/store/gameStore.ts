@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { api } from '../api/client';
 
 export const useGameStore = defineStore('game', {
   state: () => ({
@@ -12,6 +13,7 @@ export const useGameStore = defineStore('game', {
     fleets: [] as any[],
     designs: [] as any[],
     techState: null as any | null,
+    relations: [] as any[],
     leaders: [] as any[],
     availableLeaders: [] as any[],
     tacticalState: null as any | null,
@@ -42,7 +44,18 @@ export const useGameStore = defineStore('game', {
     },
     async endTurn() {
       // API call to /api/game/<id>/end-turn
-    }
-    // ... other actions
+    },
+    async fetchGalaxy() {
+      if (!this.gameId) throw new Error('No active game');
+      this.galaxy = await api.galaxy.get(this.gameId);
+    },
+    async fetchResearch() {
+      if (!this.gameId) throw new Error('No active game');
+      this.techState = await api.research.get(this.gameId);
+    },
+    async fetchFleets() {
+      if (!this.gameId) throw new Error('No active game');
+      this.fleets = await api.fleet.list(this.gameId);
+    },
   }
 });
