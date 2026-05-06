@@ -1,0 +1,26 @@
+{
+  "budget": 10,
+  "advantages": [
+    {"id": "creative",            "name": "Creativo",             "cost": 4,  "flags": {"creative": true}},
+    {"id": "tolerant",            "name": "Tolerante",            "cost": 10, "flags": {"tolerant": true}},
+    {"id": "telepathic",          "name": "Telepatico",           "cost": 3,  "flags": {"telepathic": true}},
+    {"id": "lithovore",           "name": "Litofago",             "cost": 3,  "flags": {"lithovore": true}},
+    {"id": "charismatic",         "name": "Carismatico",          "cost": 3,  "flags": {"charismatic": true}},
+    {"id": "unification",         "name": "Unificacion",          "cost": 6,  "flags": {"government_locked": "unification"}},
+    {"id": "aquatic",             "name": "Acuatico",             "cost": 4,  "flags": {"aquatic": true}},
+    {"id": "subterranean",        "name": "Subterraneo",          "cost": 6,  "flags": {"subterranean": true}},
+    {"id": "production_plus_1",   "name": "+1 Produccion",        "cost": 5,  "flags": {"production_per_worker_extra": 1}},
+    {"id": "science_plus_2",      "name": "+2 Ciencia",           "cost": 6,  "flags": {"research_per_scientist_extra": 2}},
+    {"id": "warlord",             "name": "Lider de guerra",      "cost": 4,  "flags": {"warlord": true}},
+    {"id": "rich_homeworld",      "name": "Planeta natal rico",   "cost": 3,  "flags": {"rich_homeworld": true}},
+    {"id": "artifacts_homeworld", "name": "Artefactos en homeworld", "cost": 3, "flags": {"artifacts_homeworld": true}}
+  ],
+  "disadvantages": [
+    {"id": "repulsive",        "name": "Repulsivo",            "cost": -6, "flags": {"repulsive": true}},
+    {"id": "low_g_homeworld",  "name": "Mundo Low-G",          "cost": -5, "flags": {"low_g_homeworld": true}},
+    {"id": "uncreative",       "name": "No creativo",          "cost": -4, "flags": {"uncreative": true}},
+    {"id": "espionage_minus",  "name": "-10 Espionaje",        "cost": -3, "flags": {"espionage_modifier": -10}},
+    {"id": "ground_minus",     "name": "-10 Combate terrestre","cost": -2, "flags": {"ground_combat_modifier": -10}},
+    {"id": "ship_def_minus",   "name": "-20 Defensa de nave",  "cost": -2, "flags": {"ship_defense_modifier": -20}}
+  ]
+}

@@ -2,22 +2,71 @@
   {
     "id": "alkari",
     "name": "Alkari",
-    "government": "democracy",
-    "traits": {"research_bonus": 0, "ground_combat_bonus": -5, "diplomacy_bonus": 0, "trade_bonus": 0, "food_bonus": 0, "industry_bonus": 0, "population_growth_bonus": 0, "ship_attack_bonus": 0, "ship_defense_bonus": 40, "spy_bonus": 0, "bc_per_capita": 0},
-    "special_abilities": []
+    "government": "dictatorship",
+    "ai_personality": "militarist_honorable",
+    "homeworld_preferences": {"climate": "terran", "size": "medium", "richness": "abundant", "gravity": "normal"},
+    "traits": {
+      "research_bonus": 0,
+      "ground_combat_bonus": -5,
+      "diplomacy_bonus": 0,
+      "trade_bonus": 0,
+      "food_bonus": 0,
+      "industry_bonus": 0,
+      "population_growth_bonus": 0,
+      "ship_attack_bonus": 0,
+      "ship_defense_bonus": 40,
+      "spy_bonus": 0,
+      "bc_per_capita": 0,
+      "flags": {}
+    },
+    "special_abilities": ["bird_pilots"],
+    "description": "Aves guerreras y honorables. Excelentes pilotos: +20% defensa de nave."
   },
   {
     "id": "meklar",
     "name": "Meklar",
     "government": "dictatorship",
-    "traits": {"research_bonus": 0, "ground_combat_bonus": 0, "diplomacy_bonus": 0, "trade_bonus": 0, "food_bonus": -1, "industry_bonus": 2, "population_growth_bonus": -50, "ship_attack_bonus": 0, "ship_defense_bonus": 0, "spy_bonus": 0, "bc_per_capita": 0},
-    "special_abilities": []
+    "ai_personality": "industrial_pragmatic",
+    "homeworld_preferences": {"climate": "terran", "size": "medium", "richness": "abundant", "gravity": "normal"},
+    "traits": {
+      "research_bonus": 0,
+      "ground_combat_bonus": 0,
+      "diplomacy_bonus": 0,
+      "trade_bonus": 0,
+      "food_bonus": -1,
+      "industry_bonus": 2,
+      "population_growth_bonus": -50,
+      "ship_attack_bonus": 0,
+      "ship_defense_bonus": 0,
+      "spy_bonus": 0,
+      "bc_per_capita": 0,
+      "flags": {"cybernetic": true}
+    },
+    "special_abilities": ["cybernetic_repair"],
+    "description": "Cyborgs industriales. Cada trabajador da +2 PP, consume media comida y 0.5 PP de mantenimiento."
   },
   {
     "id": "trilarian",
     "name": "Trilarian",
     "government": "unification",
-    "traits": {"research_bonus": -10, "ground_combat_bonus": 0, "diplomacy_bonus": 0, "trade_bonus": 0, "food_bonus": 1, "industry_bonus": 0, "population_growth_bonus": 0, "ship_attack_bonus": 25, "ship_defense_bonus": 0, "spy_bonus": 0, "bc_per_capita": 0},
-    "special_abilities": []
+    "ai_personality": "explorer_scholar",
+    "homeworld_preferences": {"climate": "ocean", "size": "medium", "richness": "abundant", "gravity": "normal"},
+    "traits": {
+      "research_bonus": 0,
+      "ground_combat_bonus": 0,
+      "diplomacy_bonus": 0,
+      "trade_bonus": 0,
+      "food_bonus": 1,
+      "industry_bonus": 0,
+      "population_growth_bonus": 0,
+      "ship_attack_bonus": 25,
+      "ship_defense_bonus": 0,
+      "spy_bonus": 0,
+      "bc_per_capita": 0,
+      "research_per_scientist_extra": 1,
+      "flags": {"aquatic": true, "transdimensional": true}
+    },
+    "special_abilities": ["transdimensional_drive"],
+    "description": "Anfibios transdimensionales. +2 velocidad de naves, +1 RP por cientifico, oceanos como ideales."
   }
 ]

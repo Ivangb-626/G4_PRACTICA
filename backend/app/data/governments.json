@@ -1,0 +1,130 @@
+[
+  {
+    "id": "dictatorship",
+    "name": "Dictadura",
+    "description": "Gobierno equilibrado con control firme. +10% contrainteligencia.",
+    "modifiers": {
+      "research": 0,
+      "bc": 0,
+      "production": 0,
+      "morale_bonus": 0,
+      "morale_immune": false,
+      "counter_espionage": 10,
+      "ground_combat": 0,
+      "ship_cost_reduction": 0
+    },
+    "available": "default"
+  },
+  {
+    "id": "democracy",
+    "name": "Democracia",
+    "description": "+50% investigacion, +50% ingresos. -10% contrainteligencia, -20% combate terrestre.",
+    "modifiers": {
+      "research": 50,
+      "bc": 50,
+      "production": 0,
+      "morale_bonus": 5,
+      "morale_immune": false,
+      "counter_espionage": -10,
+      "ground_combat": -20,
+      "ship_cost_reduction": 0
+    },
+    "available": "default"
+  },
+  {
+    "id": "unification",
+    "name": "Unificacion",
+    "description": "Inmune a la moral. +10% produccion estable. Ideal para mentes colmena.",
+    "modifiers": {
+      "research": 0,
+      "bc": 0,
+      "production": 10,
+      "morale_bonus": 0,
+      "morale_immune": true,
+      "counter_espionage": 5,
+      "ground_combat": 0,
+      "ship_cost_reduction": 0
+    },
+    "available": "default"
+  },
+  {
+    "id": "monarchy",
+    "name": "Monarquia",
+    "description": "Equilibrado con un ligero bonus moral.",
+    "modifiers": {
+      "research": 0,
+      "bc": 10,
+      "production": 0,
+      "morale_bonus": 10,
+      "morale_immune": false,
+      "counter_espionage": 5,
+      "ground_combat": 5,
+      "ship_cost_reduction": 0
+    },
+    "available": "default"
+  },
+  {
+    "id": "oligarchy",
+    "name": "Oligarquia",
+    "description": "Bonus economicos pronunciados, gobierno mercantil.",
+    "modifiers": {
+      "research": 0,
+      "bc": 25,
+      "production": 5,
+      "morale_bonus": 0,
+      "morale_immune": false,
+      "counter_espionage": 0,
+      "ground_combat": 0,
+      "ship_cost_reduction": 0
+    },
+    "available": "default"
+  },
+  {
+    "id": "republic",
+    "name": "Republica",
+    "description": "Version intermedia de democracia. Equilibrio investigacion/ingresos.",
+    "modifiers": {
+      "research": 25,
+      "bc": 25,
+      "production": 0,
+      "morale_bonus": 5,
+      "morale_immune": false,
+      "counter_espionage": -5,
+      "ground_combat": -10,
+      "ship_cost_reduction": 0
+    },
+    "available": "default"
+  },
+  {
+    "id": "feudal",
+    "name": "Feudo",
+    "description": "Mezcla de moral y produccion militar barata. Disponible via tecnologia.",
+    "modifiers": {
+      "research": -50,
+      "bc": 0,
+      "production": 0,
+      "morale_bonus": 10,
+      "morale_immune": false,
+      "counter_espionage": 5,
+      "ground_combat": 10,
+      "ship_cost_reduction": 33
+    },
+    "available": "tech:feudal_state"
+  },
+  {
+    "id": "technocracy",
+    "name": "Tecnocracia",
+    "description": "Bonus a investigacion sin coste pleno de Democracia.",
+    "modifiers": {
+      "research": 30,
+      "bc": 0,
+      "production": 0,
+      "morale_bonus": 0,
+      "morale_immune": false,
+      "counter_espionage": 5,
+      "ground_combat": 0,
+      "ship_cost_reduction": 0
+    },
+    "available": "tech:technocracy"
+  }
+]

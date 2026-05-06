@@ -1,0 +1,12 @@
+[
+  {"id": "co",   "name": "Continuous",          "size_mult": 2.0,  "cost_mult": 2.0, "accuracy_bonus": 25, "description": "Disparo sostenido, +25% precision."},
+  {"id": "nr",   "name": "No Range Dissipation", "size_mult": 1.5, "cost_mult": 1.5, "no_range_loss": true, "description": "El dano no se reduce por la distancia."},
+  {"id": "sp",   "name": "Shield Piercing",     "size_mult": 2.0,  "cost_mult": 2.0, "shield_pierce": true, "description": "Atraviesa los escudos enemigos."},
+  {"id": "ap",   "name": "Armor Piercing",      "size_mult": 1.5,  "cost_mult": 1.5, "armor_pierce": true, "description": "Ignora la armadura del objetivo."},
+  {"id": "hm",   "name": "Heavy Mount",         "size_mult": 2.0,  "cost_mult": 2.0, "damage_mult": 1.5, "range_mult": 2.0, "description": "Mayor rango y dano sin penalizacion."},
+  {"id": "pd",   "name": "Point Defense",       "size_mult": 0.5,  "cost_mult": 0.5, "damage_mult": 0.5, "range_mult": 0.5, "accuracy_bonus": 25, "anti_missile": true, "description": "Defensa anti-misil/caza eficaz."},
+  {"id": "env",  "name": "Enveloping",          "size_mult": 2.0,  "cost_mult": 2.0, "envelope": true, "description": "Dana las cuatro caras del escudo."},
+  {"id": "af",   "name": "Auto Fire",           "size_mult": 2.0,  "cost_mult": 2.0, "shots": 3, "accuracy_per_shot": -20, "description": "Tres disparos con precision decreciente."},
+  {"id": "mirv", "name": "MIRV",                "size_mult": 2.0,  "cost_mult": 2.0, "warheads": 4, "description": "El misil se divide en cuatro cabezas."},
+  {"id": "eccm", "name": "ECCM",                "size_mult": 1.5,  "cost_mult": 1.5, "accuracy_bonus": 25, "description": "Contramedidas vs defensas electronicas."}
+]

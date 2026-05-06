@@ -1,87 +1,122 @@
+"""
+ai_service.py — Cliente HTTP del microservicio `ai-service`.
+
+Decisiones (turno, diplomacia, tactica, voto del Senado, espionaje) se delegan
+al microservicio via HTTP. Si la red falla, se usa un fallback heuristico.
+
+Variables de entorno relevantes:
+- AI_SERVICE_URL      (default http://mmoh-ai-service:8000)
+- AI_SERVICE_TIMEOUT  (default 8.0)
+"""
+from __future__ import annotations
+
 import json
 import os
+from typing import Any, Dict, List, Optional
 
-from app.providers.github_provider import GitHubModelsProvider
-from app.providers.groq_provider import GroQProvider
+import httpx
 
 
-DEFAULT_PROMPT = (
-    "Eres el comandante IA en un juego 4X espacial. "
-    "Debes generar una lista de acciones JSON con colonizacion, investigacion, "
-    "movimiento de flotas y finalizacion de turno."
-)
+AI_SERVICE_URL = os.environ.get("AI_SERVICE_URL", "http://mmoh-ai-service:8000")
+AI_SERVICE_TIMEOUT = float(os.environ.get("AI_SERVICE_TIMEOUT", "8.0"))
 
 
 class AIService:
+    """Wrapper sincrono y asincrono. game_service.py llama get_ai_turn() async."""
+
     def __init__(self):
-        self.providers = []
+        self.url = AI_SERVICE_URL
+        self.timeout = AI_SERVICE_TIMEOUT
 
-        groq_key = os.getenv("GROQ_API_KEY")
-        groq_model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-        if groq_key:
-            self.providers.append(GroQProvider(groq_key, groq_model))
-
-        github_token = os.getenv("GITHUB_MODELS_TOKEN")
-        github_model = os.getenv("GITHUB_MODELS_MODEL", "gpt-4o")
-        if github_token:
-            self.providers.append(GitHubModelsProvider(github_token, github_model))
-
-    def build_system_prompt(self, personality, difficulty):
-        prompt = "Eres un jugador IA de MasterDeHostias. Decide segun personalidad y dificultad."
-        if personality == "aggressive":
-            prompt += " Prioriza guerra y expansion militar."
-        elif personality == "defensive":
-            prompt += " Prioriza seguridad y defensa."
-        elif personality == "expansionist":
-            prompt += " Prioriza expansion y colonizacion."
-        elif personality == "researcher":
-            prompt += " Prioriza investigacion y desarrollo."
-        else:
-            prompt += " Mantente equilibrado."
-        prompt += f" Dificultad actual: {difficulty}."
-        return prompt
-
-    def build_user_prompt(self, game_state, available_actions):
-        safe_state = {**game_state}
-        return (
-            f"Game state (turn {game_state.get('turn', '?')}):\n"
-            f"{json.dumps(safe_state, indent=2)}\n"
-            "Available actions:\n"
-            f"- can_colonize: {available_actions.get('can_colonize')}\n"
-            f"- can_research: {available_actions.get('can_research')}\n"
-            f"- available_buildings: {available_actions.get('available_buildings')}\n"
-            f"- available_ships: {available_actions.get('available_ships')}\n"
-            f"- can_move: {available_actions.get('can_move')}\n"
-            "Devuelve JSON con acciones y siempre un endTurn."
-        )
-
-    async def call_with_fallback(self, system_prompt, user_prompt):
-        for provider in self.providers:
-            try:
-                return await provider.generate(system_prompt, user_prompt)
-            except Exception:
-                continue
-        return ""
-
-    def parse_response(self, raw):
-        if not raw:
-            return None
+    # ---------- Async helpers ----------
+    async def _post_async(self, path: str, payload: dict) -> dict:
         try:
-            return json.loads(raw)
-        except json.JSONDecodeError:
-            start = raw.find("{")
-            end = raw.rfind("}")
-            if start != -1 and end != -1 and start < end:
-                try:
-                    return json.loads(raw[start : end + 1])
-                except json.JSONDecodeError:
-                    return None
-        return None
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                resp = await client.post(f"{self.url}{path}", json=payload)
+                resp.raise_for_status()
+                return resp.json()
+        except Exception as e:
+            return {"_error": str(e)}
 
-    def validate_actions(self, actions, game_state, ai_player_id):
+    def _post_sync(self, path: str, payload: dict) -> dict:
+        try:
+            with httpx.Client(timeout=self.timeout) as client:
+                resp = client.post(f"{self.url}{path}", json=payload)
+                resp.raise_for_status()
+                return resp.json()
+        except Exception as e:
+            return {"_error": str(e)}
+
+    # ---------- Public API ----------
+    async def get_ai_turn(self, request: dict) -> dict:
+        """Delegate to ai-service /ai/turn. request must include game_state, available_actions."""
+        ai_player = request.get("game_state", {}).get("ai_player", {}) or {}
+        personality = ai_player.get("personality") or request.get("personality", "balanced")
+        difficulty = request.get("difficulty", "officer")
+
+        payload = {
+            "state": _summarize_state(request.get("game_state", {}), request.get("available_actions", {})),
+            "personality": personality,
+            "difficulty": difficulty,
+        }
+        result = await self._post_async("/ai/turn", payload)
+
+        if "_error" in result or not result.get("actions"):
+            return self.heuristic_actions(request)
+
+        actions = self.validate_actions(result.get("actions", []), request.get("game_state", {}), ai_player.get("id", "ai_0"))
+        return {
+            "actions": actions,
+            "reasoning": result.get("reasoning", "AI service decision"),
+            "analysis": result.get("analysis", ""),
+        }
+
+    def evaluate_diplomacy(self, ai_player: dict, proposal: dict, relation_value: int = 30) -> dict:
+        payload = {
+            "ai_player_id": ai_player.get("id"),
+            "personality": ai_player.get("personality") or ai_player.get("race", {}).get("ai_personality", "balanced"),
+            "proposal": proposal,
+            "relation_value": relation_value,
+        }
+        result = self._post_sync("/ai/diplomacy", payload)
+        if "_error" in result:
+            return {"accept": False, "reason": "AI service unreachable"}
+        return result
+
+    def evaluate_council_vote(self, ai_player: dict, candidates: list, relations: dict) -> dict:
+        payload = {
+            "ai_player_id": ai_player.get("id"),
+            "personality": ai_player.get("personality") or ai_player.get("race", {}).get("ai_personality", "balanced"),
+            "candidates": candidates,
+            "relations": relations,
+        }
+        result = self._post_sync("/ai/council_vote", payload)
+        if "_error" in result:
+            return {"choice": None, "reason": "AI service unreachable"}
+        return result
+
+    def decide_tactical_action(self, state: dict, unit_uid: str, personality: str = "balanced") -> dict:
+        payload = {"state": state, "unit_uid": unit_uid, "personality": personality}
+        result = self._post_sync("/ai/tactical", payload)
+        if "_error" in result:
+            return {"type": "wait"}
+        return result.get("action", {"type": "wait"})
+
+    def evaluate_espionage(self, ai_player: dict, possible_targets: list) -> dict:
+        payload = {
+            "ai_player_id": ai_player.get("id"),
+            "personality": ai_player.get("personality") or ai_player.get("race", {}).get("ai_personality", "balanced"),
+            "possible_targets": possible_targets,
+        }
+        result = self._post_sync("/ai/espionage", payload)
+        if "_error" in result:
+            return {"mission": None, "target": None}
+        return result
+
+    # ---------- Validation & fallback ----------
+    def validate_actions(self, actions, game_state, ai_player_id) -> list:
         if not isinstance(actions, list):
             return [{"type": "endTurn"}]
-
         valid = []
         for action in actions:
             if not isinstance(action, dict) or "type" not in action:
@@ -89,134 +124,80 @@ class AIService:
             valid.append(action)
             if action["type"] == "endTurn":
                 break
-
-        if not any(action["type"] == "endTurn" for action in valid):
+        if not any(a.get("type") == "endTurn" for a in valid):
             valid.append({"type": "endTurn"})
         return valid
 
-    def heuristic_reasoning(self, request, actions):
-        ai_player = request.get("game_state", {}).get("ai_player", {})
-        personality = ai_player.get("personality") or request.get("personality", "balanced")
-
-        action_types = {action.get("type") for action in actions}
-        narrative = []
-        if "colonizePlanet" in action_types:
-            narrative.append("envia colonos a un nuevo mundo")
-        if "addBuildQueue" in action_types:
-            narrative.append("ordena nueva produccion en sus colonias")
-        if "selectResearch" in action_types:
-            narrative.append("dirige sus laboratorios hacia un nuevo proyecto")
-        if "moveFleet" in action_types:
-            narrative.append("reposiciona su flota")
-        if not narrative:
-            narrative.append("conserva el statu quo")
-
-        intro = {
-            "aggressive": "Su almirante consolida poder militar",
-            "defensive": "Su consejo afianza las defensas",
-            "expansionist": "Sus exploradores trazan rutas hacia nuevas estrellas",
-            "researcher": "Sus cientificos planifican el avance tecnologico",
-        }.get(personality, "El imperio mantiene un curso equilibrado")
-
-        return f"{intro}: {', '.join(narrative)}."
-
-    def heuristic_actions(self, request):
+    def heuristic_actions(self, request: dict) -> dict:
+        """Fallback if ai-service is unreachable."""
         available = request.get("available_actions", {})
-        actions = []
+        actions: List[Dict[str, Any]] = []
 
         if available.get("can_colonize"):
             point = available["can_colonize"][0]
-            actions.append(
-                {
-                    "type": "colonizePlanet",
-                    "details": {
-                        "fleetId": point.get("fleetId"),
-                        "planetIndex": point.get("planetIndex", 0),
-                    },
-                }
-            )
+            actions.append({"type": "colonizePlanet", "details": {"fleetId": point.get("fleetId"), "planetIndex": point.get("planetIndex", 0)}})
 
         if available.get("can_research"):
             tech = available["can_research"][0]
-            actions.append(
-                {
-                    "type": "selectResearch",
-                    "details": {
-                        "techId": tech.get("id"),
-                        "field": tech.get("field"),
-                        "level": tech.get("level"),
-                    },
-                }
-            )
+            actions.append({"type": "selectResearch", "details": {"techId": tech.get("id") or tech.get("tech_id"), "field": tech.get("field"), "level": tech.get("level")}})
 
         if available.get("available_buildings"):
             for colony_id, options in available["available_buildings"].items():
                 if options:
-                    actions.append(
-                        {
-                            "type": "addBuildQueue",
-                            "details": {
-                                "colonyId": colony_id,
-                                "itemType": "building",
-                                "itemId": options[0].get("id"),
-                            },
-                        }
-                    )
+                    actions.append({"type": "addBuildQueue", "details": {"colonyId": colony_id, "itemType": "building", "itemId": options[0].get("id")}})
                     break
 
-        if available.get("available_ships") and not any(action["type"] == "addBuildQueue" for action in actions):
+        if available.get("available_ships") and not any(a["type"] == "addBuildQueue" for a in actions):
             for colony_id, options in available["available_ships"].items():
-                preferred = next((ship for ship in options if ship.get("type") == "colony_ship"), None)
-                choice = preferred or (options[0] if options else None)
-                if choice:
-                    actions.append(
-                        {
-                            "type": "addBuildQueue",
-                            "details": {
-                                "colonyId": colony_id,
-                                "itemType": "ship",
-                                "itemId": choice.get("type"),
-                            },
-                        }
-                    )
-                    break
+                if not options:
+                    continue
+                preferred = next((s for s in options if s.get("type") == "colony_ship"), None)
+                choice = preferred or options[0]
+                actions.append({"type": "addBuildQueue", "details": {"colonyId": colony_id, "itemType": "ship", "itemId": choice.get("type")}})
+                break
 
         if available.get("can_move"):
             move = available["can_move"][0]
-            actions.append(
-                {
-                    "type": "moveFleet",
-                    "details": {
-                        "fleetId": move.get("fleetId"),
-                        "destination": move.get("destination"),
-                    },
-                }
-            )
+            actions.append({"type": "moveFleet", "details": {"fleetId": move.get("fleetId"), "destination": move.get("destination")}})
 
         actions.append({"type": "endTurn"})
-        return {
-            "actions": actions,
-            "reasoning": self.heuristic_reasoning(request, actions),
-            "analysis": "",
-        }
+        return {"actions": actions, "reasoning": "Heuristic fallback (ai-service unreachable)", "analysis": ""}
 
-    async def get_ai_turn(self, request):
-        game_state = request.get("game_state", {})
-        ai_player = request.get("game_state", {}).get("ai_player", {})
-        personality = ai_player.get("personality", request.get("personality", "balanced"))
-        difficulty = request.get("difficulty", "normal")
 
-        system_prompt = self.build_system_prompt(personality, difficulty)
-        user_prompt = self.build_user_prompt(game_state, request.get("available_actions", {}))
-
-        raw = await self.call_with_fallback(system_prompt, user_prompt)
-        parsed = self.parse_response(raw)
-        if not parsed or "actions" not in parsed:
-            return self.heuristic_actions(request)
-
-        valid_actions = self.validate_actions(parsed.get("actions", []), game_state, ai_player.get("id", "ai_0"))
-        return {
-            "actions": valid_actions,
-            "reasoning": parsed.get("reasoning", "Decision determined by AI."),
-            "analysis": parsed.get("analysis", ""),
-        }
+def _summarize_state(game_state: dict, available: dict) -> dict:
+    """Resumen compacto enviado al ai-service. Evita payloads enormes."""
+    ai_player = game_state.get("ai_player", {}) or {}
+    return {
+        "turn": game_state.get("turn"),
+        "bc": ai_player.get("resources", {}).get("bc"),
+        "colonies": [
+            {
+                "id": c.get("id"),
+                "star_system_id": c.get("star_system_id"),
+                "population": c.get("population", {}),
+                "buildings": c.get("buildings", []),
+                "build_queue": c.get("build_queue", [])[:3],
+            }
+            for c in ai_player.get("colonies", [])[:10]
+        ],
+        "fleets": [
+            {
+                "id": f.get("id"),
+                "star_system_id": f.get("star_system_id"),
+                "destination": f.get("destination"),
+                "ships": f.get("ships", []),
+            }
+            for f in ai_player.get("fleets", [])[:10]
+        ],
+        "researched": [
+            t.get("tech_id") for t in ai_player.get("technologies", {}).get("researched", []) if t.get("status") != "discarded"
+        ][:30],
+        "current_research": ai_player.get("technologies", {}).get("current_research"),
+        "available_actions": {
+            "can_colonize": (available.get("can_colonize") or [])[:5],
+            "can_research_count": len(available.get("can_research") or []),
+            "available_buildings": {k: [b.get("id") for b in v[:3]] for k, v in (available.get("available_buildings") or {}).items()},
+            "available_ships": {k: [s.get("type") for s in v[:3]] for k, v in (available.get("available_ships") or {}).items()},
+            "can_move": (available.get("can_move") or [])[:5],
+        },
+    }

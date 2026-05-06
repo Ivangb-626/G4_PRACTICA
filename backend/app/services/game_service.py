@@ -66,33 +66,62 @@ STAR_TYPES = {
     "yellow": {"max_planets": 5, "bias": list(PLANET_TYPES.keys())},
     "white": {"max_planets": 4, "bias": ["barren", "desert", "terran"]},
     "blue": {"max_planets": 3, "bias": ["toxic", "barren", "gaia"]},
+    "black_hole": {"max_planets": 0, "bias": []},
 }
+
+GALAXY_SIZE_COUNTS = {"small": 20, "medium": 30, "large": 40, "huge": 55}
+
+DIFFICULTY_LEVELS = ["gardener", "officer", "commander", "lord", "impossible"]
 
 SCENARIOS = [
     {
         "id": "default",
         "name": "Estandar",
         "description": "Partida de practica",
-        "galaxy_sizes": ["small", "medium", "large"],
-        "max_opponents": 3,
-        "difficulty_options": ["easy", "normal", "hard"],
+        "galaxy_sizes": ["small", "medium", "large", "huge"],
+        "galaxy_ages": ["early", "average", "late"],
+        "max_opponents": 7,
+        "difficulty_options": DIFFICULTY_LEVELS,
+        "starting_tech_levels": ["pre_warp", "average", "advanced"],
     }
 ]
 
 
-def random_star_type():
-    return random.choice(list(STAR_TYPES.keys()))
+def random_star_type(galaxy_age="average"):
+    """Black holes are rare. Galaxy age biases star color distribution."""
+    rolls = ["red", "orange", "yellow", "white", "blue"]
+    weights = {
+        "early": [12, 16, 35, 18, 19],
+        "average": [18, 22, 30, 18, 12],
+        "late": [28, 24, 22, 14, 12],
+    }.get(galaxy_age, [18, 22, 30, 18, 12])
+    base = random.choices(rolls, weights=weights, k=1)[0]
+    if random.random() < 0.05:
+        return "black_hole"
+    return base
 
 
-def random_planet(star_type):
+def random_planet(star_type, galaxy_age="average"):
+    """Galaxy age skews planet types: early -> more Gaia/Terran, late -> more toxic/barren."""
+    if star_type == "black_hole":
+        return None
     size = random.choice(list(PLANET_SIZES.keys()))
-    ptype = random.choice(STAR_TYPES[star_type]["bias"])
+    bias = STAR_TYPES[star_type]["bias"]
+    if galaxy_age == "early" and random.random() < 0.30:
+        ptype = random.choice(["terran", "gaia", "ocean"])
+    elif galaxy_age == "late" and random.random() < 0.30:
+        ptype = random.choice(["toxic", "barren", "radiated", "desert"])
+    else:
+        ptype = random.choice(bias) if bias else "barren"
+    minerals = random.choice(list(MINERAL_MOD.keys()))
+    if galaxy_age == "early" and random.random() < 0.20:
+        minerals = random.choice(["rich", "ultra_rich"])
     return {
         "index": 0,
         "name": f"{ptype.title()}-{random.randint(100, 999)}",
         "type": ptype,
         "size": size,
-        "minerals": random.choice(list(MINERAL_MOD.keys())),
+        "minerals": minerals,
         "gravity": random.choice(["low", "normal", "high"]),
         "max_population": PLANET_SIZES[size]["max_pop"],
         "colonized_by": None,
@@ -201,17 +230,17 @@ def generate_random_system_name():
         return f"{random.choice(ADJECTIVES)} {random.choice(NOUNS)}"
     return f"{random.choice(NOUNS)} {random.choice(SUFFIXES)}"
 
-def generate_galaxy(size, num_opponents, player_race_id):
-    counts = {"small": 20, "medium": 30, "large": 40}
+def generate_galaxy(size, num_opponents, player_race_id, galaxy_age="average", orion_guardian=True):
+    counts = GALAXY_SIZE_COUNTS
     systems = []
     
     used_names = set()
     used_positions = []
     min_dist = 5.0  # Minimum distance percentage between stars
 
-    for index in range(counts[size]):
-        star_type = random_star_type()
-        
+    for index in range(counts.get(size, 30)):
+        star_type = random_star_type(galaxy_age)
+
         system_name = generate_random_system_name()
         while system_name in used_names:
             system_name = generate_random_system_name()
@@ -235,25 +264,29 @@ def generate_galaxy(size, num_opponents, player_race_id):
         used_positions.append((x, y))
 
         planets = []
-        for planet_index in range(random.randint(1, STAR_TYPES[star_type]["max_planets"])):
-            planet = random_planet(star_type)
-            planet["index"] = planet_index
-            
-            numerals = ["I", "II", "III", "IV", "V", "VI", "VII"]
-            numeral = numerals[planet_index] if planet_index < len(numerals) else str(planet_index + 1)
-            planet["name"] = f"{system_name} {numeral}"
-            
-            planets.append(planet)
+        max_planets = STAR_TYPES[star_type]["max_planets"]
+        if max_planets > 0:
+            for planet_index in range(random.randint(1, max_planets)):
+                planet = random_planet(star_type, galaxy_age)
+                if planet is None:
+                    continue
+                planet["index"] = planet_index
+                numerals = ["I", "II", "III", "IV", "V", "VI", "VII"]
+                numeral = numerals[planet_index] if planet_index < len(numerals) else str(planet_index + 1)
+                planet["name"] = f"{system_name} {numeral}"
+                planets.append(planet)
+
         systems.append(
             {
                 "id": f"sys_{index}",
-                "name": system_name,
+                "name": system_name if star_type != "black_hole" else f"BH {system_name}",
                 "position": {"x": x, "y": y},
                 "star_type": star_type,
                 "planets": planets,
                 "connections": [],
                 "explored_by": [],
                 "guardian": {"active": False, "fleet": None},
+                "is_black_hole": star_type == "black_hole",
             }
         )
 
@@ -271,6 +304,7 @@ def generate_galaxy(size, num_opponents, player_race_id):
     orion = systems[0]
     orion["name"] = "Orion"
     orion["star_type"] = "yellow"
+    orion["is_black_hole"] = False
     orion["planets"] = [
         {
             "index": 0,
@@ -284,19 +318,22 @@ def generate_galaxy(size, num_opponents, player_race_id):
             "special": "gaia",
         }
     ]
-    orion["guardian"] = {
-        "active": True,
-        "fleet": {
-            "id": "antaran_guardian",
-            "name": "Guardian",
-            "owner": "antaranos",
-            "star_system_id": orion["id"],
-            "ships": [{"type": "cruiser", "count": 1}, {"type": "destroyer", "count": 2}],
-            "destination": None,
-            "eta_turns": None,
-            "command_points_used": 0,
-        },
-    }
+    if orion_guardian:
+        orion["guardian"] = {
+            "active": True,
+            "fleet": {
+                "id": "antaran_guardian",
+                "name": "Guardian of Orion",
+                "owner": "antaranos",
+                "star_system_id": orion["id"],
+                "ships": [{"type": "battleship", "count": 1}, {"type": "cruiser", "count": 2}, {"type": "destroyer", "count": 3}],
+                "destination": None,
+                "eta_turns": None,
+                "command_points_used": 0,
+            },
+        }
+    else:
+        orion["guardian"] = {"active": False, "fleet": None}
 
     # PLAN sec 18 — Space Monsters guard a few non-Orion, non-starting systems
     candidate_indices = list(range(2, len(systems)))
@@ -382,9 +419,35 @@ def _initial_empire(owner_id, race_id, system, include_id=False, personality=Non
     return empire
 
 
+def _normalize_difficulty(diff: str) -> str:
+    diff = (diff or "officer").lower()
+    aliases = {"easy": "gardener", "normal": "officer", "hard": "commander"}
+    diff = aliases.get(diff, diff)
+    if diff not in DIFFICULTY_LEVELS:
+        return "officer"
+    return diff
+
+
+def _starting_techs_for_level(level: str) -> list:
+    """Returns initial researched tech IDs based on starting tech level."""
+    if level == "pre_warp":
+        return []
+    if level == "advanced":
+        return ["construction_1", "computers_1", "biology_1", "chemistry_1", "laser", "force_fields_1", "power_1", "sociology_1", "engineering_1"]
+    return ["construction_1", "computers_1", "biology_1"]  # average
+
+
 def generate_game_state(name, scenario):
-    galaxy = generate_galaxy(scenario["galaxy_size"], scenario["num_opponents"], scenario["player_race"])
-    player_system = galaxy["star_systems"][1]
+    galaxy_size = scenario.get("galaxy_size", "medium")
+    galaxy_age = scenario.get("galaxy_age", "average")
+    orion_guardian = scenario.get("orion_guardian_enabled", True)
+    antaran_attacks_enabled = scenario.get("antaran_attacks_enabled", True)
+    starting_tech_level = scenario.get("starting_tech_level", "average")
+    random_events_enabled = scenario.get("random_events_enabled", True)
+
+    galaxy = generate_galaxy(galaxy_size, scenario["num_opponents"], scenario["player_race"], galaxy_age, orion_guardian)
+    # Player system: pick first non-black-hole index
+    player_system = next((s for s in galaxy["star_systems"][1:] if not s.get("is_black_hole")), galaxy["star_systems"][1])
     
     if scenario.get("home_system_name"):
         player_system["name"] = scenario["home_system_name"]
@@ -400,34 +463,85 @@ def generate_game_state(name, scenario):
     ai_players = []
     available_races = [race_id for race_id in RACES if race_id != scenario["player_race"]]
     random.shuffle(available_races)
+    # Find suitable AI start systems: skip player's, skip black holes, must have a habitable planet
+    candidate_systems = [
+        s for s in galaxy["star_systems"]
+        if s["id"] != player_system["id"] and not s.get("is_black_hole") and s.get("planets") and any(PLANET_TYPES.get(p.get("type"), {}).get("habitable") for p in s["planets"])
+    ]
+    random.shuffle(candidate_systems)
     for index in range(scenario["num_opponents"]):
+        if index >= len(candidate_systems):
+            break
         ai_id = f"ai_{index}"
-        ai_system = galaxy["star_systems"][2 + index]
+        ai_system = candidate_systems[index]
         ai_system["explored_by"].append(ai_id)
-        ai_system["planets"][0]["colonized_by"] = ai_id
+        habitable_idx = next((i for i, p in enumerate(ai_system["planets"]) if PLANET_TYPES.get(p.get("type"), {}).get("habitable")), 0)
+        ai_system["planets"][habitable_idx]["colonized_by"] = ai_id
         galaxy["fog_of_war"][ai_id] = [ai_system["id"], *ai_system["connections"]]
+        race_id = available_races[index % len(available_races)] if available_races else scenario["player_race"]
         ai_players.append(
             _initial_empire(
                 ai_id,
-                available_races[index % len(available_races)],
+                race_id,
                 ai_system,
                 include_id=True,
-                personality=random.choice(["aggressive", "defensive", "expansionist", "researcher", "balanced"]),
+                personality=RACES[race_id].get("ai_personality") or random.choice(["aggressive", "defensive", "expansionist", "researcher", "balanced"]),
             )
         )
+
+    difficulty = _normalize_difficulty(scenario.get("difficulty"))
+    starting_techs = _starting_techs_for_level(starting_tech_level)
+
+    player_empire = _initial_empire("player", scenario["player_race"], player_system)
+    # Apply starting techs
+    for tech_id in starting_techs:
+        tech = TECHS.get(tech_id)
+        if tech:
+            player_empire["technologies"]["researched"].append({"field": tech["field"], "level": tech["level"], "tech_id": tech_id, "status": "researched"})
+    for ai_emp in ai_players:
+        for tech_id in starting_techs:
+            tech = TECHS.get(tech_id)
+            if tech:
+                ai_emp["technologies"]["researched"].append({"field": tech["field"], "level": tech["level"], "tech_id": tech_id, "status": "researched"})
+
+    # Apply difficulty AI bonuses
+    try:
+        with (DATA_DIR / "difficulty.json").open("r", encoding="utf-8") as f:
+            diff_data = json.load(f)
+        rec = diff_data.get(difficulty, {})
+        if "alias_of" in rec:
+            rec = diff_data.get(rec["alias_of"], {})
+        for ai_emp in ai_players:
+            ai_emp["resources"]["bc"] = ai_emp["resources"].get("bc", 0) + int(rec.get("ai_starting_bc", 0))
+            extra_techs_count = int(rec.get("ai_starting_techs", 0))
+            if extra_techs_count > 0:
+                pool_techs = list(TECHS.values())
+                random.shuffle(pool_techs)
+                for tech in pool_techs[:extra_techs_count]:
+                    ai_emp["technologies"]["researched"].append({"field": tech["field"], "level": tech["level"], "tech_id": tech["id"], "status": "researched"})
+    except Exception:
+        pass
+
+    antaran_next = (50 + random.randint(0, 30)) if antaran_attacks_enabled else None
 
     game_state = {
         "game_id": None,
         "name": name,
         "scenario_id": scenario.get("scenario_id", "default"),
-        "difficulty": scenario.get("difficulty", "normal"),
+        "difficulty": difficulty,
+        "galaxy_size": galaxy_size,
+        "galaxy_age": galaxy_age,
+        "starting_tech_level": starting_tech_level,
+        "antaran_attacks_enabled": antaran_attacks_enabled,
+        "orion_guardian_enabled": orion_guardian,
+        "random_events_enabled": random_events_enabled,
         "turn": 1,
         "current_player": "player",
         "created_at": datetime.utcnow().isoformat(),
         "last_saved": datetime.utcnow().isoformat(),
         "is_autosave": False,
         "cheats_used": [],
-        "antaran_next_attack_turn": 15 + random.randint(0, 5),
+        "antaran_next_attack_turn": antaran_next,
         "antarans_active": False,
         "antaran_attack_level": 1,
         "dimensional_portal_built": False,
@@ -437,7 +551,7 @@ def generate_game_state(name, scenario):
         "avenger_fleet_id": None,
         "exotic_technologies": [],
         "victory_condition": None,
-        "player": _initial_empire("player", scenario["player_race"], player_system),
+        "player": player_empire,
         "ai_players": ai_players,
         "galaxy": galaxy,
     }
@@ -509,13 +623,38 @@ def move_fleet(game_state, owner_or_fleet_id, fleet_id=None, destination=None):
         raise ValueError("Destination not reachable")
 
     slowest = min(SHIP_TYPES[ship["type"]]["speed"] for ship in fleet["ships"] if ship.get("count", 0) > 0)
+    # Trilarian transdimensional: +2 to every ship speed
+    empire = get_empire(game_state, owner_id)
+    flags = (empire or {}).get("race", {}).get("traits", {}).get("flags", {})
+    if flags.get("transdimensional"):
+        slowest += 2
     distance = math.dist(
         [current["position"]["x"], current["position"]["y"]],
         [target["position"]["x"], target["position"]["y"]],
     )
+
+    # Black hole hazard: requires Navigator leader, otherwise lose half the ships
+    casualties = []
+    if target.get("is_black_hole"):
+        try:
+            from app.services.leader_service import fleet_leader_bonuses
+            bonuses = fleet_leader_bonuses(empire, fleet["id"]) if empire else {}
+        except Exception:
+            bonuses = {}
+        if not bonuses.get("black_hole_safe"):
+            for ship in fleet.get("ships", []):
+                lost = max(0, int(ship.get("count", 0) * 0.5))
+                casualties.append({"type": ship["type"], "lost": lost})
+                ship["count"] = max(0, ship["count"] - lost)
+            fleet["ships"] = [s for s in fleet["ships"] if s.get("count", 0) > 0]
+            if not fleet["ships"]:
+                # Fleet wiped out
+                empire["fleets"] = [f for f in empire.get("fleets", []) if f["id"] != fleet["id"]]
+                return {"fleet": None, "path": [current["id"], destination], "black_hole_destroyed": True, "casualties": casualties}
+
     fleet["destination"] = destination
     fleet["eta_turns"] = max(1, math.ceil(distance / max(slowest * 18, 1)))
-    return {"fleet": fleet, "path": [current["id"], destination]}
+    return {"fleet": fleet, "path": [current["id"], destination], "black_hole_casualties": casualties}
 
 
 def colonize_planet(game_state, owner_or_fleet_id, fleet_id=None, planet_index=None):
@@ -547,8 +686,12 @@ def colonize_planet(game_state, owner_or_fleet_id, fleet_id=None, planet_index=N
     planet = system["planets"][planet_index]
     if planet["colonized_by"] is not None:
         raise ValueError("Planet already colonized")
-    if not PLANET_TYPES.get(planet["type"], {}).get("habitable", False):
-        raise ValueError("Planet not colonizable")
+    # Tolerant or Silicoid-like: can colonize anything except destroyed
+    empire = get_empire(game_state, owner_id)
+    flags = (empire or {}).get("race", {}).get("traits", {}).get("flags", {})
+    habitable = PLANET_TYPES.get(planet["type"], {}).get("habitable", False)
+    if not habitable and not flags.get("tolerant"):
+        raise ValueError("Planet not colonizable without Tolerant trait")
 
     planet["colonized_by"] = owner_id
     colony_ship["count"] -= 1
@@ -937,33 +1080,62 @@ def attack_antaran_homeworld(game_state, owner_id="player", fleet_id=None):
 
 def end_turn(game_state):
     events = []
+
+    # 1) Empire economy
     for owner_id in ["player", *[ai["id"] for ai in game_state.get("ai_players", [])]]:
         _compute_empire_economy(game_state, owner_id)
+
+    # 2) Colony construction queue
     for owner_id in ["player", *[ai["id"] for ai in game_state.get("ai_players", [])]]:
         empire = get_empire(game_state, owner_id)
         for colony in empire.get("colonies", []):
             events.extend(process_colony_construction(game_state, colony))
+
+    # 3) Research progression
     for owner_id in ["player", *[ai["id"] for ai in game_state.get("ai_players", [])]]:
         research_event = _apply_research(game_state, owner_id)
         if research_event:
             events.append(research_event)
 
+    # 4) Fleet movement
     events.extend(process_fleet_movements(game_state))
+
+    # 5) Space combat
     events.extend(resolve_space_combats(game_state))
 
+    # 6) Leader pool: roll new + expire old + pay upkeep
+    try:
+        from app.services.leader_service import roll_available_leaders, expire_leaders, pay_upkeep
+        for owner_id in ["player", *[ai["id"] for ai in game_state.get("ai_players", [])]]:
+            empire = get_empire(game_state, owner_id)
+            if not empire:
+                continue
+            res = roll_available_leaders(game_state, empire)
+            if res.get("new_leader"):
+                events.append({"type": "leader_offer", "owner": owner_id, "leader_id": res["new_leader"]["id"]})
+            events.extend(expire_leaders(game_state, empire))
+            pay_upkeep(empire)
+    except Exception as e:
+        events.append({"type": "leader_error", "error": str(e)})
+
+    # 7) Per-empire AI decisions through ai-service
     ai_service = AIService()
     ai_reports = []
     for ai_player in game_state.get("ai_players", []):
-        response = asyncio.run(
-            ai_service.get_ai_turn(
-                {
-                    "game_state": {"turn": game_state.get("turn"), "ai_player": ai_player},
-                    "personality": ai_player.get("personality", "balanced"),
-                    "difficulty": game_state.get("difficulty", "normal"),
-                    "available_actions": _ai_actions(game_state, ai_player),
-                }
+        try:
+            response = asyncio.run(
+                ai_service.get_ai_turn(
+                    {
+                        "game_state": {"turn": game_state.get("turn"), "ai_player": ai_player},
+                        "personality": ai_player.get("personality", "balanced"),
+                        "difficulty": game_state.get("difficulty", "officer"),
+                        "available_actions": _ai_actions(game_state, ai_player),
+                    }
+                )
             )
-        )
+        except Exception as e:
+            response = {"actions": [{"type": "endTurn"}], "reasoning": f"AI error: {e}"}
+
         applied_actions = []
         for action in response.get("actions", []):
             if action.get("type") == "endTurn":
@@ -975,52 +1147,69 @@ def end_turn(game_state):
             if event:
                 events.append(event)
                 applied_actions.append(action)
-        ai_reports.append(
-            {
-                "ai_id": ai_player["id"],
-                "personality": ai_player.get("personality", "balanced"),
-                "actions": applied_actions,
-                "reasoning": response.get("reasoning", ""),
-            }
-        )
+        ai_reports.append({
+            "ai_id": ai_player["id"],
+            "personality": ai_player.get("personality", "balanced"),
+            "actions": applied_actions,
+            "reasoning": response.get("reasoning", ""),
+        })
 
-    # DIPLOMACY sec 4 & 7 — per-turn diplomacy bookkeeping (tributes, treaty income, patience)
+    # 8) Diplomacy maintenance
     from app.services.diplomacy_service import process_turn_diplomacy
     events.extend(process_turn_diplomacy(game_state))
 
-    # DIPLOMACY sec 9 — per-turn espionage (mission ticks, salaries, results)
+    # 9) Espionage missions
     from app.services.espionage_service import process_turn_espionage
     events.extend(process_turn_espionage(game_state))
 
+    # 10) Galactic Council
     council_event = check_galactic_council(game_state)
     if council_event:
         events.append(council_event)
-        if council_event.get("winner") and council_event["winner"] == "player":
-            game_state["victory_condition"] = "Diplomatic"
 
-    # PLAN sec 20 — Antaran activation and escalation
-    if game_state["turn"] >= 50 and not game_state.get("antarans_active"):
-        game_state["antarans_active"] = True
-        events.append({"type": "antarans_escaped", "message": "The Antarans have escaped their pocket dimension!"})
+    # 11) Antaran activation/attacks
+    if game_state.get("antaran_attacks_enabled", True):
+        if game_state["turn"] >= 50 and not game_state.get("antarans_active"):
+            game_state["antarans_active"] = True
+            events.append({"type": "antarans_escaped", "message": "The Antarans have escaped their pocket dimension!"})
+        try:
+            from app.services.antaran_service import maybe_trigger_attack
+            events.extend(maybe_trigger_attack(game_state))
+        except Exception as e:
+            events.append({"type": "antaran_error", "error": str(e)})
 
-    if game_state.get("antaran_next_attack_turn") is not None and game_state["turn"] >= game_state["antaran_next_attack_turn"]:
-        game_state["antaran_next_attack_turn"] = game_state["turn"] + max(5, 10 - game_state.get("antaran_attack_level", 1))
-        # Escalate
-        if game_state["turn"] % 20 == 0:
-            game_state["antaran_attack_level"] = min(10, game_state.get("antaran_attack_level", 1) + 1)
-        events.append({
-            "type": "antaran_attack",
-            "target": "random",
-            "level": game_state.get("antaran_attack_level", 1),
-        })
+    # 12) Ground assimilation tick
+    try:
+        from app.services.ground_combat import process_assimilation
+        events.extend(process_assimilation(game_state))
+    except Exception as e:
+        events.append({"type": "assimilation_error", "error": str(e)})
 
+    # 13) Space monster wandering
+    try:
+        from app.services.creature_service import monster_movement
+        events.extend(monster_movement(game_state))
+    except Exception:
+        pass
+
+    # 14) Random events
+    if game_state.get("random_events_enabled", True):
+        try:
+            from app.services.event_service import generate_random_events
+            events.extend(generate_random_events(game_state))
+        except Exception as e:
+            events.append({"type": "event_error", "error": str(e)})
+
+    # 15) Victory
     victory = check_victory(game_state)
     if victory:
         events.append({"type": victory})
 
+    # Advance turn + autosave every 4 turns
     game_state["turn"] += 1
     game_state["last_saved"] = datetime.utcnow().isoformat()
-    game_state["is_autosave"] = True
+    game_state["is_autosave"] = (game_state["turn"] % 4 == 0)
+
     return {"game_state": game_state, "events": events, "ai_actions": ai_reports, "turn": game_state["turn"]}
 
 

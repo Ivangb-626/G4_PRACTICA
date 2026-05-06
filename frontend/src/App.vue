@@ -4,21 +4,7 @@
     <TopBar v-if="gameStore.gameId && uiStore.activeScreen !== 'main_menu' && uiStore.activeScreen !== 'new_game'" />
 
     <main :style="styles.main">
-      <!-- State-based Routing -->
-      <MainMenu v-if="uiStore.activeScreen === 'main_menu'" />
-      <NewGame v-else-if="uiStore.activeScreen === 'new_game'" />
-      <GalaxyMap v-else-if="uiStore.activeScreen === 'galaxy'" />
-      <ColonyScreen v-else-if="uiStore.activeScreen === 'colony'" />
-      <ResearchScreen v-else-if="uiStore.activeScreen === 'research'" />
-      <FleetScreen v-else-if="uiStore.activeScreen === 'fleet'" />
-      <ShipDesigner v-else-if="uiStore.activeScreen === 'ship_designer'" />
-      <DiplomacyScreen v-else-if="uiStore.activeScreen === 'diplomacy'" />
-      <LeadersScreen v-else-if="uiStore.activeScreen === 'leaders'" />
-      <EspionageScreen v-else-if="uiStore.activeScreen === 'espionage'" />
-      <CombatScreen v-else-if="uiStore.activeScreen === 'combat'" />
-      <TurnSummary v-else-if="uiStore.activeScreen === 'turn_summary'" />
-      <CouncilScreen v-else-if="uiStore.activeScreen === 'council'" />
-      <VictoryScreen v-else-if="uiStore.activeScreen === 'victory'" />
+      <router-view />
     </main>
 
     <!-- Global Modals -->

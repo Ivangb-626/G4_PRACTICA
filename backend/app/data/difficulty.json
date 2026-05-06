@@ -1,0 +1,65 @@
+{
+  "gardener": {
+    "label": "Jardinero",
+    "ai_production_mult": 0.75,
+    "ai_research_mult": 0.75,
+    "ai_combat_mult": 0.85,
+    "ai_starting_bc": 50,
+    "ai_starting_techs": 0,
+    "ai_starting_extra_colony": false,
+    "ai_aggression": 0.30,
+    "antaran_strength_mult": 0.70,
+    "events_severity_mult": 0.7
+  },
+  "officer": {
+    "label": "Oficial",
+    "ai_production_mult": 1.00,
+    "ai_research_mult": 1.00,
+    "ai_combat_mult": 1.00,
+    "ai_starting_bc": 100,
+    "ai_starting_techs": 0,
+    "ai_starting_extra_colony": false,
+    "ai_aggression": 0.50,
+    "antaran_strength_mult": 1.00,
+    "events_severity_mult": 1.0
+  },
+  "commander": {
+    "label": "Comandante",
+    "ai_production_mult": 1.15,
+    "ai_research_mult": 1.15,
+    "ai_combat_mult": 1.05,
+    "ai_starting_bc": 150,
+    "ai_starting_techs": 1,
+    "ai_starting_extra_colony": false,
+    "ai_aggression": 0.65,
+    "antaran_strength_mult": 1.15,
+    "events_severity_mult": 1.1
+  },
+  "lord": {
+    "label": "Senor",
+    "ai_production_mult": 1.30,
+    "ai_research_mult": 1.30,
+    "ai_combat_mult": 1.10,
+    "ai_starting_bc": 250,
+    "ai_starting_techs": 3,
+    "ai_starting_extra_colony": false,
+    "ai_aggression": 0.80,
+    "antaran_strength_mult": 1.30,
+    "events_severity_mult": 1.2
+  },
+  "impossible": {
+    "label": "Imposible",
+    "ai_production_mult": 1.50,
+    "ai_research_mult": 1.50,
+    "ai_combat_mult": 1.20,
+    "ai_starting_bc": 500,
+    "ai_starting_techs": 6,
+    "ai_starting_extra_colony": true,
+    "ai_aggression": 1.00,
+    "antaran_strength_mult": 1.50,
+    "events_severity_mult": 1.5
+  },
+  "easy": {"alias_of": "gardener"},
+  "normal": {"alias_of": "officer"},
+  "hard": {"alias_of": "commander"}
+}

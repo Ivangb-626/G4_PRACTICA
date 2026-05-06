@@ -1,178 +1,205 @@
 [
   {
-    "id": "marine_barracks",
-    "name": "Cuartel de Marines",
-    "description": "Entrena marines y defensores terrestres",
-    "cost": 30,
-    "maintenance": 1,
-    "effects": {
-      "production_bonus": 0,
-      "research_bonus": 0,
-      "food_bonus": 0,
-      "bc_bonus": 0,
-      "command_points": 0,
-      "ground_defense": 10,
-      "orbital_defense": 0,
-      "ship_production_bonus": 0,
-      "morale_bonus": 0
-    },
-    "prerequisites": {
-      "tech": [],
-      "buildings": []
-    }
+    "id": "marine_barracks", "name": "Cuartel de Marines",
+    "description": "Entrena marines y eleva la moral. Gratis al fundar la colonia.",
+    "cost": 30, "maintenance": 1, "auto_built": true,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 10, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 20},
+    "prerequisites": {"tech": [], "buildings": []}
   },
   {
-    "id": "automated_factory",
-    "name": "Fábrica Automatizada",
-    "description": "Aumenta la producción industrial de la colonia",
-    "cost": 60,
-    "maintenance": 2,
-    "effects": {
-      "production_bonus": 5,
-      "research_bonus": 0,
-      "food_bonus": 0,
-      "bc_bonus": 0,
-      "command_points": 0,
-      "ground_defense": 0,
-      "orbital_defense": 0,
-      "ship_production_bonus": 0,
-      "morale_bonus": 0
-    },
-    "prerequisites": {
-      "tech": ["construction_1"],
-      "buildings": []
-    }
+    "id": "star_base", "name": "Base Estelar",
+    "description": "Centro orbital. Gratis al fundar la colonia. Permite construir naves capitales.",
+    "cost": 200, "maintenance": 4, "auto_built": true,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 2, "ground_defense": 0, "orbital_defense": 50, "ship_production_bonus": 0, "morale_bonus": 0},
+    "prerequisites": {"tech": [], "buildings": []}
   },
   {
-    "id": "research_lab",
-    "name": "Laboratorio de Investigación",
-    "description": "Incrementa la velocidad de investigación tecnológica",
-    "cost": 60,
-    "maintenance": 2,
-    "effects": {
-      "production_bonus": 0,
-      "research_bonus": 5,
-      "food_bonus": 0,
-      "bc_bonus": 0,
-      "command_points": 0,
-      "ground_defense": 0,
-      "orbital_defense": 0,
-      "ship_production_bonus": 0,
-      "morale_bonus": 0
-    },
-    "prerequisites": {
-      "tech": ["computers_1"],
-      "buildings": []
-    }
+    "id": "imperial_palace", "name": "Palacio Imperial",
+    "description": "Capital del imperio. +10 moral global. Si se pierde, -30 moral 10 turnos.",
+    "cost": 250, "maintenance": 0, "unique_per_empire": true, "auto_built_if_homeworld": true,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 5, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 10, "morale_global": 5},
+    "prerequisites": {"tech": [], "buildings": []}
   },
   {
-    "id": "hydroponic_farm",
-    "name": "Granja Hidropónica",
-    "description": "Produce alimentos adicionales para la colonia",
-    "cost": 40,
-    "maintenance": 1,
-    "effects": {
-      "production_bonus": 0,
-      "research_bonus": 0,
-      "food_bonus": 2,
-      "bc_bonus": 0,
-      "command_points": 0,
-      "ground_defense": 0,
-      "orbital_defense": 0,
-      "ship_production_bonus": 0,
-      "morale_bonus": 0
-    },
-    "prerequisites": {
-      "tech": ["biology_1"],
-      "buildings": []
-    }
+    "id": "automated_factory", "name": "Fabrica Automatizada",
+    "description": "Multiplicador base de produccion industrial.",
+    "cost": 60, "maintenance": 2,
+    "effects": {"production_bonus": 5, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0},
+    "prerequisites": {"tech": ["construction_1"], "buildings": []}
   },
   {
-    "id": "star_base",
-    "name": "Base Estelar",
-    "description": "Centro de control orbital que permite construcción de naves mayores",
-    "cost": 200,
-    "maintenance": 4,
-    "effects": {
-      "production_bonus": 0,
-      "research_bonus": 0,
-      "food_bonus": 0,
-      "bc_bonus": 0,
-      "command_points": 2,
-      "ground_defense": 0,
-      "orbital_defense": 0,
-      "ship_production_bonus": 0,
-      "morale_bonus": 0
-    },
-    "prerequisites": {
-      "tech": ["construction_2"],
-      "buildings": []
-    }
+    "id": "robotic_factory", "name": "Fabrica Robotica",
+    "description": "Bonus de PP que escala con la riqueza mineral del planeta.",
+    "cost": 150, "maintenance": 3,
+    "effects": {"production_bonus_by_richness": true, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0},
+    "prerequisites": {"tech": ["robotic_factory_tech"], "buildings": ["automated_factory"]}
   },
   {
-    "id": "missile_base",
-    "name": "Base de Misiles",
-    "description": "Defensa orbital contra ataques espaciales",
-    "cost": 80,
-    "maintenance": 2,
-    "effects": {
-      "production_bonus": 0,
-      "research_bonus": 0,
-      "food_bonus": 0,
-      "bc_bonus": 0,
-      "command_points": 0,
-      "ground_defense": 0,
-      "orbital_defense": 20,
-      "ship_production_bonus": 0,
-      "morale_bonus": 0
-    },
-    "prerequisites": {
-      "tech": ["chemistry_1"],
-      "buildings": []
-    }
+    "id": "research_lab", "name": "Laboratorio de Investigacion",
+    "description": "+5 RP base + 1 por cientifico.",
+    "cost": 60, "maintenance": 2,
+    "effects": {"production_bonus": 0, "research_bonus": 5, "research_per_scientist_bonus": 1, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0},
+    "prerequisites": {"tech": ["computers_1"], "buildings": []}
   },
   {
-    "id": "spaceport",
-    "name": "Puerto Espacial",
-    "description": "Acelera la construcción de naves en esta colonia",
-    "cost": 100,
-    "maintenance": 3,
-    "effects": {
-      "production_bonus": 0,
-      "research_bonus": 0,
-      "food_bonus": 0,
-      "bc_bonus": 0,
-      "command_points": 0,
-      "ground_defense": 0,
-      "orbital_defense": 0,
-      "ship_production_bonus": 50,
-      "morale_bonus": 0
-    },
-    "prerequisites": {
-      "tech": ["construction_1"],
-      "buildings": []
-    }
+    "id": "research_center", "name": "Centro de Investigacion",
+    "description": "+10 RP base + 2 por cientifico.",
+    "cost": 120, "maintenance": 3,
+    "effects": {"production_bonus": 0, "research_bonus": 10, "research_per_scientist_bonus": 2, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0},
+    "prerequisites": {"tech": ["research_center_tech"], "buildings": ["research_lab"]}
   },
   {
-    "id": "trade_center",
-    "name": "Centro de Comercio",
-    "description": "Genera ingresos en Créditos de Batalla adicionales",
-    "cost": 60,
-    "maintenance": 1,
-    "effects": {
-      "production_bonus": 0,
-      "research_bonus": 0,
-      "food_bonus": 0,
-      "bc_bonus": 3,
-      "command_points": 0,
-      "ground_defense": 0,
-      "orbital_defense": 0,
-      "ship_production_bonus": 0,
-      "morale_bonus": 0
-    },
-    "prerequisites": {
-      "tech": ["sociology_1"],
-      "buildings": []
-    }
+    "id": "research_institute_advanced", "name": "Instituto Avanzado",
+    "description": "+15 RP base + 3 por cientifico.",
+    "cost": 200, "maintenance": 5,
+    "effects": {"production_bonus": 0, "research_bonus": 15, "research_per_scientist_bonus": 3, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0},
+    "prerequisites": {"tech": ["research_institute_tech"], "buildings": ["research_center"]}
+  },
+  {
+    "id": "autolab", "name": "Autolab",
+    "description": "30 RP fijos por turno sin asignacion.",
+    "cost": 250, "maintenance": 5,
+    "effects": {"production_bonus": 0, "research_bonus": 30, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0},
+    "prerequisites": {"tech": ["autolab_tech"], "buildings": []}
+  },
+  {
+    "id": "hydroponic_farm", "name": "Granja Hidroponica",
+    "description": "+2 alimentos.",
+    "cost": 40, "maintenance": 1,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 2, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0},
+    "prerequisites": {"tech": ["biology_1"], "buildings": []}
+  },
+  {
+    "id": "soil_enrichment", "name": "Enriquecimiento del Suelo",
+    "description": "+1 alimento por agricultor.",
+    "cost": 100, "maintenance": 2,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_per_farmer_bonus": 1, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0},
+    "prerequisites": {"tech": ["soil_enrichment_tech"], "buildings": ["hydroponic_farm"]}
+  },
+  {
+    "id": "subterranean_farms", "name": "Granjas Subterraneas",
+    "description": "+1 alimento adicional por agricultor.",
+    "cost": 120, "maintenance": 2,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_per_farmer_bonus": 1, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0},
+    "prerequisites": {"tech": ["subterranean_farms_tech"], "buildings": ["soil_enrichment"]}
+  },
+  {
+    "id": "weather_controller", "name": "Controlador Climatico",
+    "description": "Anula penalizaciones climaticas en este planeta.",
+    "cost": 200, "maintenance": 4,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0, "negate_climate_penalty": true},
+    "prerequisites": {"tech": ["weather_controller_tech"], "buildings": []}
+  },
+  {
+    "id": "terraforming_facility", "name": "Terraformacion",
+    "description": "Mejora el clima del planeta progresivamente cada 10 turnos.",
+    "cost": 250, "maintenance": 3,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0, "terraform_step": 1},
+    "prerequisites": {"tech": ["terraforming_tech"], "buildings": []}
+  },
+  {
+    "id": "gaia_transformation", "name": "Transformacion Gaia",
+    "description": "Convierte el planeta directamente en Gaia (terminal).",
+    "cost": 500, "maintenance": 5,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0, "force_climate": "gaia"},
+    "prerequisites": {"tech": ["gaia_transformation_tech"], "buildings": ["terraforming_facility"]}
+  },
+  {
+    "id": "alien_management_center", "name": "Centro de Gestion Alienigena",
+    "description": "Acelera asimilacion de poblacion conquistada.",
+    "cost": 100, "maintenance": 2,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0, "assimilation_bonus": 5},
+    "prerequisites": {"tech": ["alien_management_tech"], "buildings": []}
+  },
+  {
+    "id": "artificial_planet_construction", "name": "Construccion de Planeta Artificial",
+    "description": "Convierte un Gigante de Gas o Cinturon de Asteroides en mundo colonizable (800 PP).",
+    "cost": 800, "maintenance": 0,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0, "convert_to_artificial_planet": true},
+    "prerequisites": {"tech": ["artificial_planet_construction_tech"], "buildings": []}
+  },
+  {
+    "id": "missile_base", "name": "Base de Misiles",
+    "description": "Defensa orbital contra ataques espaciales.",
+    "cost": 80, "maintenance": 2,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 30, "ship_production_bonus": 0, "morale_bonus": 0},
+    "prerequisites": {"tech": ["chemistry_1"], "buildings": []}
+  },
+  {
+    "id": "battlestation", "name": "Battlestation",
+    "description": "Defensa orbital pesada. Comparte slot con Star Base.",
+    "cost": 300, "maintenance": 5,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 4, "ground_defense": 0, "orbital_defense": 100, "ship_production_bonus": 0, "morale_bonus": 0},
+    "prerequisites": {"tech": ["battlestation_tech"], "buildings": ["star_base"]}
+  },
+  {
+    "id": "star_fortress", "name": "Fortaleza Estelar",
+    "description": "Maxima defensa orbital. Reemplaza Battlestation.",
+    "cost": 600, "maintenance": 8,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 6, "ground_defense": 0, "orbital_defense": 200, "ship_production_bonus": 0, "morale_bonus": 0},
+    "prerequisites": {"tech": ["star_fortress_tech"], "buildings": ["battlestation"]}
+  },
+  {
+    "id": "spaceport", "name": "Puerto Espacial",
+    "description": "Genera BC segun la poblacion y acelera construccion.",
+    "cost": 100, "maintenance": 3,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_per_pop_bonus": 1, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 25, "morale_bonus": 0},
+    "prerequisites": {"tech": ["construction_1"], "buildings": []}
+  },
+  {
+    "id": "trade_center", "name": "Centro de Comercio",
+    "description": "Genera ingresos extra en BC.",
+    "cost": 60, "maintenance": 1,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 3, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0},
+    "prerequisites": {"tech": ["sociology_1"], "buildings": []}
+  },
+  {
+    "id": "galactic_currency_exchange", "name": "Bolsa Galactica",
+    "description": "Multiplica ingresos por tratados comerciales.",
+    "cost": 200, "maintenance": 4,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 5, "trade_treaty_bonus": 0.5, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0},
+    "prerequisites": {"tech": ["galactic_currency_exchange_tech"], "buildings": ["trade_center"]}
+  },
+  {
+    "id": "pleasure_dome", "name": "Cupula del Placer",
+    "description": "+30 moral.",
+    "cost": 150, "maintenance": 3,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 30},
+    "prerequisites": {"tech": ["pleasure_dome_tech"], "buildings": []}
+  },
+  {
+    "id": "holo_simulator", "name": "Holo-Simulador",
+    "description": "+20 moral.",
+    "cost": 100, "maintenance": 2,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 20},
+    "prerequisites": {"tech": ["holo_simulator_tech"], "buildings": []}
+  },
+  {
+    "id": "cyber_security_link", "name": "Cyber Security Link",
+    "description": "+counter espionaje.",
+    "cost": 120, "maintenance": 2,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0, "counter_espionage_bonus": 10},
+    "prerequisites": {"tech": ["cyber_security_link_tech"], "buildings": []}
+  },
+  {
+    "id": "cloning_center", "name": "Centro de Clonacion",
+    "description": "Acelera el crecimiento de poblacion.",
+    "cost": 100, "maintenance": 2,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0, "pop_growth_bonus_pct": 50},
+    "prerequisites": {"tech": ["cloning_center_tech"], "buildings": []}
+  },
+  {
+    "id": "android_factory", "name": "Fabrica de Androides",
+    "description": "Permite construir trabajadores androides (1 PP/turno, sin comida).",
+    "cost": 150, "maintenance": 3,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0, "enables_androids": true},
+    "prerequisites": {"tech": ["android_tech"], "buildings": []}
+  },
+  {
+    "id": "dimensional_portal_facility", "name": "Portal Dimensional",
+    "description": "Permite asaltar el sistema Antara. Solo si Antaran Attacks esta on.",
+    "cost": 800, "maintenance": 5,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0, "enables_dimensional_portal": true},
+    "prerequisites": {"tech": ["dimensional_portal_tech"], "buildings": []}
   }
 ]

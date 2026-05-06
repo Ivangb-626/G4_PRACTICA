@@ -1,0 +1,23 @@
+[
+  {"id": "ldr_001", "name": "Tarken Volok",   "type": "colony", "level": 3,  "skills": [{"id": "researcher",       "value": 30}, {"id": "famous", "value": 20}], "free_techs": 0, "hire_cost": 250, "upkeep_per_turn": 12, "portrait": "tarken"},
+  {"id": "ldr_002", "name": "Mira Solok",     "type": "colony", "level": 4,  "skills": [{"id": "megawealth",       "value": 40}],                              "free_techs": 0, "hire_cost": 320, "upkeep_per_turn": 15, "portrait": "mira"},
+  {"id": "ldr_003", "name": "Hexa-9",         "type": "colony", "level": 2,  "skills": [{"id": "labor",            "value": 25}],                              "free_techs": 0, "hire_cost": 200, "upkeep_per_turn": 10, "portrait": "hexa"},
+  {"id": "ldr_004", "name": "Senova Maaq",    "type": "colony", "level": 5,  "skills": [{"id": "spiritual",        "value": 20}],                              "free_techs": 0, "hire_cost": 380, "upkeep_per_turn": 18, "portrait": "senova"},
+  {"id": "ldr_005", "name": "Greta Ironhand", "type": "colony", "level": 3,  "skills": [{"id": "farmer",           "value": 30}, {"id": "environmentalist", "value": 25}], "free_techs": 0, "hire_cost": 260, "upkeep_per_turn": 12, "portrait": "greta"},
+  {"id": "ldr_006", "name": "Doctor Kael",    "type": "colony", "level": 4,  "skills": [{"id": "free_tech",        "value": 0}],                                "free_techs": 2, "hire_cost": 400, "upkeep_per_turn": 14, "portrait": "kael"},
+  {"id": "ldr_007", "name": "Spy-9 Rho",      "type": "colony", "level": 3,  "skills": [{"id": "spy",              "value": 30}, {"id": "counter_spy", "value": 20}],     "free_techs": 0, "hire_cost": 280, "upkeep_per_turn": 13, "portrait": "spy9"},
+  {"id": "ldr_008", "name": "Mind-Shield Lyra","type": "colony", "level": 4, "skills": [{"id": "mind_shield",      "value": 0}, {"id": "counter_spy", "value": 15}],     "free_techs": 0, "hire_cost": 300, "upkeep_per_turn": 14, "portrait": "lyra"},
+  {"id": "ldr_009", "name": "Captain Vaska",  "type": "colony", "level": 3,  "skills": [{"id": "instructor",       "value": 25}],                              "free_techs": 0, "hire_cost": 240, "upkeep_per_turn": 11, "portrait": "vaska"},
+  {"id": "ldr_010", "name": "Banker Khel",    "type": "colony", "level": 5,  "skills": [{"id": "megawealth",       "value": 50}, {"id": "famous", "value": 15}], "free_techs": 0, "hire_cost": 420, "upkeep_per_turn": 18, "portrait": "khel"},
+
+  {"id": "ldr_101", "name": "Admiral Korben", "type": "ship", "level": 4,    "skills": [{"id": "raider",           "value": 30}, {"id": "navigator", "value": 20}], "free_techs": 0, "hire_cost": 320, "upkeep_per_turn": 15, "portrait": "korben"},
+  {"id": "ldr_102", "name": "Captain Ula",    "type": "ship", "level": 3,    "skills": [{"id": "defender",         "value": 30}],                              "free_techs": 0, "hire_cost": 250, "upkeep_per_turn": 12, "portrait": "ula"},
+  {"id": "ldr_103", "name": "Engineer Mox",   "type": "ship", "level": 3,    "skills": [{"id": "engineer",         "value": 30}],                              "free_techs": 0, "hire_cost": 240, "upkeep_per_turn": 11, "portrait": "mox"},
+  {"id": "ldr_104", "name": "Pilot Nerys",    "type": "ship", "level": 4,    "skills": [{"id": "fighter_pilot",    "value": 35}],                              "free_techs": 0, "hire_cost": 300, "upkeep_per_turn": 14, "portrait": "nerys"},
+  {"id": "ldr_105", "name": "Scholar Aenix",  "type": "ship", "level": 5,    "skills": [{"id": "galactic_lore",    "value": 40}],                              "free_techs": 1, "hire_cost": 380, "upkeep_per_turn": 16, "portrait": "aenix"},
+  {"id": "ldr_106", "name": "Trader Rovak",   "type": "ship", "level": 3,    "skills": [{"id": "trader_ship",      "value": 30}, {"id": "navigator", "value": 15}], "free_techs": 0, "hire_cost": 260, "upkeep_per_turn": 12, "portrait": "rovak"},
+  {"id": "ldr_107", "name": "Navigator Sev",  "type": "ship", "level": 3,    "skills": [{"id": "navigator",        "value": 35}],                              "free_techs": 0, "hire_cost": 230, "upkeep_per_turn": 10, "portrait": "sev"},
+  {"id": "ldr_108", "name": "Warlord Drakka", "type": "ship", "level": 5,    "skills": [{"id": "raider",           "value": 50}, {"id": "defender", "value": 20}], "free_techs": 0, "hire_cost": 450, "upkeep_per_turn": 20, "portrait": "drakka"},
+
+  {"id": "loknar",  "name": "Loknar",         "type": "ship", "level": 10, "skills": [{"id": "galactic_lore", "value": 50}, {"id": "raider", "value": 40}, {"id": "defender", "value": 40}], "free_techs": 0, "hire_cost": 0, "upkeep_per_turn": 0, "unique": true, "spawn_condition": "guardian_defeated", "portrait": "loknar", "ship": {"hull": "battleship", "name": "Avenger", "experience": 5}}
+]

@@ -9,9 +9,7 @@ export function setupRouteGuards(router: Router) {
     const publicRoutes = ['/login', '/register']
     const isPublic = publicRoutes.includes(to.path)
 
-    if (isLoggedIn && isPublic) {
-      next('/dashboard')
-    } else if (!isLoggedIn && !isPublic) {
+    if (!isLoggedIn && !isPublic) {
       next('/login')
     } else {
       next()

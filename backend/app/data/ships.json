@@ -1,8 +1,19 @@
 [
-  {"type":"frigate","name":"Fragata","hp":10,"armor":2,"speed":4,"attack":8,"defense":2,"command_points":1,"cost":25},
-  {"type":"destroyer","name":"Destructor","hp":25,"armor":5,"speed":3,"attack":20,"defense":5,"command_points":2,"cost":60},
-  {"type":"cruiser","name":"Crucero","hp":60,"armor":10,"speed":2,"attack":40,"defense":10,"command_points":4,"cost":120},
-  {"type":"battleship","name":"Acorazado","hp":120,"armor":20,"speed":1,"attack":80,"defense":20,"command_points":8,"cost":250},
-  {"type":"colony_ship","name":"Nave colonizadora","hp":5,"armor":0,"speed":2,"attack":0,"defense":0,"command_points":0,"cost":50},
-  {"type":"transport","name":"Transporte","hp":5,"armor":0,"speed":2,"attack":0,"defense":0,"command_points":0,"cost":25}
+  {"type":"frigate",       "name":"Fragata",            "hull_space": 25,  "hp":10,   "armor":2,    "speed":4, "attack":8,  "defense":2,   "command_points":1, "cost":25,  "marine_capacity":0, "tech_required": null,                  "category":"warship"},
+  {"type":"destroyer",     "name":"Destructor",         "hull_space": 60,  "hp":25,   "armor":5,    "speed":3, "attack":20, "defense":5,   "command_points":2, "cost":60,  "marine_capacity":0, "tech_required": "destroyer_hull",      "category":"warship"},
+  {"type":"cruiser",       "name":"Crucero",            "hull_space": 120, "hp":60,   "armor":10,   "speed":2, "attack":40, "defense":10,  "command_points":4, "cost":120, "marine_capacity":2, "tech_required": "cruiser_hull",        "category":"warship"},
+  {"type":"battleship",    "name":"Acorazado",          "hull_space": 250, "hp":120,  "armor":20,   "speed":1, "attack":80, "defense":20,  "command_points":8, "cost":250, "marine_capacity":4, "tech_required": "battleship_hull",     "category":"warship"},
+  {"type":"titan",         "name":"Titan",              "hull_space": 500, "hp":260,  "armor":40,   "speed":1, "attack":160,"defense":35,  "command_points":16,"cost":600, "marine_capacity":8, "tech_required": "titan_construction",  "category":"warship"},
+  {"type":"doom_star",     "name":"Estrella de la Muerte","hull_space": 1000,"hp":600, "armor":80,  "speed":1, "attack":320,"defense":50, "command_points":32,"cost":1500,"marine_capacity":16,"tech_required": "doom_star_construction", "category":"warship", "limit_per_empire": 1},
+
+  {"type":"colony_ship",   "name":"Nave colonizadora",  "hull_space": 50,  "hp":5,    "armor":0,    "speed":2, "attack":0,  "defense":0,   "command_points":0, "cost":50,  "marine_capacity":0, "tech_required": null,                  "category":"civilian", "founds_colony": true},
+  {"type":"transport",     "name":"Transporte",         "hull_space": 30,  "hp":5,    "armor":0,    "speed":2, "attack":0,  "defense":0,   "command_points":0, "cost":25,  "marine_capacity":6, "tech_required": null,                  "category":"civilian"},
+  {"type":"outpost_ship",  "name":"Nave Avanzada",      "hull_space": 30,  "hp":4,    "armor":0,    "speed":2, "attack":0,  "defense":0,   "command_points":0, "cost":35,  "marine_capacity":0, "tech_required": "outpost_ship",        "category":"civilian", "builds_outpost": true},
+
+  {"type":"antaran_destroyer","name":"Antaran Destroyer","hull_space": 80,  "hp":80,   "armor":40,   "speed":4, "attack":80, "defense":30,  "command_points":4, "cost":0,   "marine_capacity":0, "tech_required": null, "category":"antaran", "antaran": true},
+  {"type":"antaran_cruiser",  "name":"Antaran Cruiser",  "hull_space": 200, "hp":200,  "armor":100,  "speed":3, "attack":160,"defense":50,  "command_points":8, "cost":0,   "marine_capacity":0, "tech_required": null, "category":"antaran", "antaran": true},
+  {"type":"antaran_battleship","name":"Antaran Battleship","hull_space": 400,"hp":400, "armor":200,"speed":2, "attack":320,"defense":75, "command_points":16,"cost":0,   "marine_capacity":0, "tech_required": null, "category":"antaran", "antaran": true},
+  {"type":"antaran_titan",    "name":"Antaran Titan",    "hull_space": 700, "hp":700,  "armor":400,  "speed":2, "attack":600,"defense":100, "command_points":32,"cost":0,   "marine_capacity":0, "tech_required": null, "category":"antaran", "antaran": true},
+
+  {"type":"orion_battleship", "name":"Orion Battleship", "hull_space": 600, "hp":500,  "armor":200,  "speed":3, "attack":400,"defense":80,  "command_points":16,"cost":0,   "marine_capacity":4, "tech_required": null, "category":"orion",   "unique": true}
 ]
