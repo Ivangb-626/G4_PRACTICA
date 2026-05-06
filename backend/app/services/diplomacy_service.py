@@ -1,45 +1,32 @@
-import random
+import httpx
+from app.models.game import GameModel
 
-# Personalities for the group's specified races
-PERSONALITIES = {
-    "alkari": {
-        "disposition": "defensive",
-        "honorable": True,
-        "expansionist": False,
-        "trait_bonus": "ship_defense"
-    },
-    "meklar": {
-        "disposition": "industrial",
-        "honorable": False,
-        "expansionist": True,
-        "trait_bonus": "industry"
-    },
-    "trilarian": {
-        "disposition": "erratic",
-        "honorable": False,
-        "expansionist": True,
-        "trait_bonus": "ship_attack"
-    }
-}
-
-def update_diplomacy_relations(p_id, game_state):
-    """
-    Update relationship scores based on personality modifiers, treaties, and friction.
-    """
-    # Placeholder for scoring logic
-    pass
-
-def check_galactic_council(game_state):
-    """
-    Pop-weighted voting every 25 turns, 2/3 threshold for victory.
-    """
-    # Placeholder for council logic
-    pass
-
-def propose_treaty(proposer_id, target_id, treaty_type, game_state):
-    """
-    Evaluate if an AI target accepts a treaty based on personality and relation score.
-    """
-    personality = PERSONALITIES.get(target_id, {"disposition": "neutral"})
-    # Logic to accept/reject
-    return True
+class DiplomacyService:
+    @staticmethod
+    def negotiate_with_ai(game_id, player_id, ai_id, proposal):
+        """
+        Interacts with the ai-service for diplomatic decisions.
+        """
+        # Fetch AI personality from game state
+        game = GameModel.get_game(None, game_id) # Simplify for example
+        if not game: return {"accept": False}
+        
+        ai_player = next((ai for ai in game["game_state"].get("ai_players", []) if ai["id"] == ai_id), None)
+        personality = ai_player.get("personality", "balanced") if ai_player else "balanced"
+        
+        try:
+            # Call ai-service
+            response = httpx.post(
+                "http://mmoh-ai-service:8000/ai/diplomacy",
+                json={
+                    "game_id": game_id,
+                    "ai_player_id": ai_id,
+                    "proposal": proposal,
+                    "personality": personality
+                },
+                timeout=5.0
+            )
+            return response.json()
+        except Exception as e:
+            print(f"Diplomacy AI error: {e}")
+            return {"accept": False, "reason": "AI Service unreachable"}

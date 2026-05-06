@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify, g
 from app.auth.middleware import token_required
 from app.models.game import GameModel
-from app.services.game_service import generate_game_state, end_turn
+from app.services.game_service import generate_game_state
+from app.services.turn_engine import TurnEngine
 
 game_bp = Blueprint('game', __name__)
 
@@ -56,7 +57,7 @@ def process_end_turn(game_id):
     if error: return error
     
     game_state = entry['game_state']
-    result = end_turn(game_id, game_state)
+    result = TurnEngine.execute_turn(game_state)
     
     # Save updated state
     GameModel.save_game(g.user_id, game_id, game_state)

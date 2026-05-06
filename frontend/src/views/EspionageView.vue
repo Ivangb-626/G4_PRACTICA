@@ -61,46 +61,44 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { useGameStore } from '../store/gameStore';
 import { api } from '../api/client';
+import { Theme, createPanelStyle, btnStyle } from '../styles/styleSystem';
 
 const gameStore = useGameStore();
-
 const spies = ref<any[]>([]);
-const missionTypes = ref<string[]>(['info_probe', 'tech_espionage', 'sabotage']);
-const selectedSpyId = ref<string | null>(null);
-const targetPlayer = ref('');
-const selectedMission = ref('info_probe');
-const recruitLevel = ref(1);
+const hovered = reactive<Record<string, boolean>>({});
 
 const styles = {
-  panel: {
-    padding: '1.5rem',
-    backgroundColor: '#070f24',
-    color: '#e0e0ff',
-    fontFamily: 'monospace',
-  },
-  head: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '2rem',
-    borderBottom: '2px solid #00ffff',
-    paddingBottom: '1rem',
-  },
-  title: {
-    margin: 0,
-    fontSize: '2rem',
-    color: '#00ffff',
-    letterSpacing: '0.2em',
-  },
-  subtitle: {
-    margin: '0.3rem 0 0',
-    color: '#8888aa',
-    fontSize: '0.9rem',
-  },
-  mainGrid: {
+  panel: createPanelStyle(),
+  head: { display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', borderBottom: `1px solid ${Theme.colors.border}`, paddingBottom: '1rem' },
+  title: { margin: 0, fontSize: '2rem', color: Theme.colors.primary, letterSpacing: '0.2em', textShadow: Theme.effects.glow },
+  subtitle: { margin: '0.3rem 0 0', color: Theme.colors.textMuted, fontSize: '0.9rem' },
+  mainGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' },
+  innerPanel: createPanelStyle(),
+  innerTitle: { margin: '0 0 1rem', fontSize: '1.2rem', color: Theme.colors.secondary },
+  btn: (h: boolean) => btnStyle(h),
+  btnSmall: (h: boolean) => ({ ...btnStyle(h), padding: '0.3rem 0.6rem', fontSize: '0.75rem' }),
+  btnDanger: (h: boolean) => ({ ...btnStyle(h), borderColor: Theme.colors.danger, color: Theme.colors.danger, backgroundColor: h ? Theme.colors.danger : 'transparent' }),
+  select: { backgroundColor: Theme.colors.bgPanel, color: Theme.colors.primary, border: `1px solid ${Theme.colors.primary}`, padding: '0.6rem', borderRadius: '4px' },
+  input: { backgroundColor: Theme.colors.bgPanel, color: Theme.colors.text, border: `1px solid ${Theme.colors.primary}`, padding: '0.6rem', borderRadius: '4px' }
+};
+
+function getSpyCardStyle(id: string) {
+  const isSelected = selectedSpyId.value === id;
+  return {
+    padding: '1rem',
+    backgroundColor: isSelected ? Theme.colors.bgPanel : Theme.colors.bgDark,
+    border: `1px solid ${isSelected ? Theme.colors.primary : Theme.colors.border}`,
+    borderRadius: '4px',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+  };
+}
+// ... rest of logic
+ stays the same
+
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
     gap: '1.5rem',

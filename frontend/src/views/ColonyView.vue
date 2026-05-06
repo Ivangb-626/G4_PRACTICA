@@ -97,6 +97,7 @@ import { reactive, onMounted, computed } from 'vue';
 import { useGameStore } from '../store/gameStore';
 import { useUIStore } from '../store/uiStore';
 import { api } from '../api/client';
+import { Theme, createPanelStyle, btnStyle } from '../styles/styleSystem';
 
 const gameStore = useGameStore();
 const uiStore = useUIStore();
@@ -112,27 +113,30 @@ const population = reactive({
   workers: 0,
   scientists: 0,
 });
+// ... inside ColonyView.vue <script setup>
+const hoveredBtns = reactive<Record<string, boolean>>({});
 
 const styles = {
-  layout: {
-    display: 'grid',
-    gridTemplateColumns: '1.3fr 1fr',
-    gap: '1rem',
-    height: '100%',
-  },
-  colonyPanel: {
-    padding: '1rem',
-    backgroundColor: '#1a1a3e',
-    border: '1px solid #00ffff',
-    borderRadius: '8px',
-  },
-  queuePanel: {
-    padding: '1rem',
-    backgroundColor: '#1a1a3e',
-    border: '1px solid #ffd700',
-    borderRadius: '8px',
-  },
-  panelHead: {
+  layout: { display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '1.5rem', height: '100%' },
+  colonyPanel: createPanelStyle(),
+  queuePanel: createPanelStyle(true), // Highlight with secondary color
+  panelHead: { display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' },
+  title: { margin: 0, fontSize: '2rem', color: Theme.colors.primary, letterSpacing: '0.1em', textShadow: Theme.effects.glow },
+  subtitle: { margin: '0.2rem 0 0', color: Theme.colors.textMuted, fontSize: '0.9rem' },
+  btn: (id: string) => btnStyle(hoveredBtns[id]),
+  statGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' },
+  statCard: { padding: '1rem', backgroundColor: Theme.colors.bgDark, border: `1px solid ${Theme.colors.border}`, borderRadius: '8px', textAlign: 'center' as const },
+  statValue: { display: 'block', fontSize: '1.6rem', color: Theme.colors.primary, marginTop: '0.5rem' }
+};
+// ...
+
+  split: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' },
+  innerPanel: { padding: '1rem', backgroundColor: Theme.colors.bgDark, borderRadius: '4px' },
+  innerTitle: { margin: '0 0 1rem', fontSize: '1rem', color: Theme.colors.secondary },
+  sliderGroup: { marginBottom: '1rem' }
+};
+// ... rest of logic stays the same
+
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',

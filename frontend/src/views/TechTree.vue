@@ -47,24 +47,28 @@ import { api } from '../api/client';
 
 const gameStore = useGameStore();
 
+<script setup lang="ts">
+import { onMounted } from 'vue';
+import { useGameStore } from '../store/gameStore';
+import { api } from '../api/client';
+import { Theme, createPanelStyle, btnStyle } from '../styles/styleSystem';
+
+const gameStore = useGameStore();
+
 const styles = {
-  panel: { padding: '1.5rem', backgroundColor: '#070f24', color: '#e0e0ff', fontFamily: 'monospace' },
-  head: { display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', borderBottom: '2px solid #00ffff', paddingBottom: '1rem' },
-  title: { margin: 0, fontSize: '2rem', color: '#00ffff', letterSpacing: '0.2em' },
-  subtitle: { margin: '0.3rem 0 0', color: '#8888aa', fontSize: '0.9rem' },
-  btn: { backgroundColor: '#1a1a3e', color: '#00ffff', border: '2px solid #00ffff', padding: '0.6rem 1.2rem', cursor: 'pointer', fontWeight: 'bold' as const },
-  btnSmall: { backgroundColor: '#2a2a5e', color: '#00ffff', border: '1px solid #00ffff', padding: '0.3rem 0.6rem', cursor: 'pointer', fontSize: '0.75rem' },
+  panel: createPanelStyle(),
+  head: { display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', borderBottom: `2px solid ${Theme.colors.primary}`, paddingBottom: '1rem' },
+  title: { margin: 0, fontSize: '2rem', color: Theme.colors.primary, letterSpacing: '0.2em' },
+  subtitle: { margin: '0.3rem 0 0', color: Theme.colors.textMuted, fontSize: '0.9rem' },
+  btn: btnStyle,
+  btnSmall: { ...btnStyle, padding: '0.3rem 0.6rem', fontSize: '0.75rem' },
   fieldList: { display: 'flex', flexDirection: 'column' as const, gap: '1.5rem' },
-  fieldCard: { padding: '1.2rem', backgroundColor: '#1a1a3e', border: '1px solid rgba(0, 255, 255, 0.3)', borderRadius: '8px' },
-  fieldTitle: { margin: '0 0 1rem', fontSize: '1.2rem', color: '#ffd700', borderBottom: '1px solid #ffd700', paddingBottom: '0.3rem' },
-  levelRow: { marginBottom: '1rem' },
-  optionGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' },
-  statusBadge: { fontSize: '0.7rem', padding: '0.2rem 0.4rem', backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px', color: '#8888aa' },
-  breakthrough: { marginBottom: '1rem', padding: '1rem', backgroundColor: '#1a1a3e', border: '1px solid #ffd700' },
-  progressLabel: { fontSize: '0.8rem', color: '#ffd700', marginBottom: '0.5rem' },
-  progressBar: { height: '10px', backgroundColor: '#070f24', border: '1px solid #888' },
-  progressFill: { height: '100%', backgroundColor: '#ffd700' }
+  fieldCard: { padding: '1.2rem', backgroundColor: Theme.colors.bgDark, border: `1px solid ${Theme.colors.border}`, borderRadius: '8px' },
+  fieldTitle: { margin: '0 0 1rem', fontSize: '1.2rem', color: Theme.colors.secondary, borderBottom: `1px solid ${Theme.colors.secondary}`, paddingBottom: '0.3rem' },
+  breakthrough: { marginBottom: '1rem', padding: '1rem', backgroundColor: Theme.colors.bgDark, border: `1px solid ${Theme.colors.secondary}` },
+  progressLabel: { fontSize: '0.8rem', color: Theme.colors.secondary, marginBottom: '0.5rem' }
 };
+// ... rest of logic stays same
 
 function getOptionStyle(status: string) {
   let borderColor = 'rgba(112, 166, 214, 0.18)';
