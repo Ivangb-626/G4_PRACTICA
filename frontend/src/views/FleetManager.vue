@@ -1,211 +1,171 @@
 <template>
-  <section class="retro-panel fleet-panel">
-    <header class="panel-head">
+  <div :style="styles.panel">
+    <div :style="styles.head">
       <div>
-        <h3>Gestor de flotas</h3>
-        <p class="subtitle">Movimiento tactico y estado actual de las naves del jugador.</p>
+        <h2 :style="styles.title">FLEET ADMIRALTY</h2>
+        <p :style="styles.subtitle">Strategic command and tactical disposition of imperial vessels.</p>
       </div>
-      <button class="retro-btn" type="button" @click="loadData" :disabled="loading">
-        {{ loading ? 'Cargando...' : 'Actualizar' }}
-      </button>
-    </header>
-
-    <p v-if="error" class="error">{{ error }}</p>
-
-    <div v-if="fleets.length" class="fleet-grid">
-      <article v-for="fleet in fleets" :key="fleet.id" class="fleet-card">
-        <div class="fleet-header">
-          <div>
-            <h4>{{ fleet.name }}</h4>
-            <p>{{ systemName(fleet.star_system_id) }}</p>
-          </div>
-          <span class="status-pill" :class="{ transit: fleet.in_transit }">
-            {{ fleet.in_transit ? `ETA ${fleet.eta_turns}` : 'Lista' }}
-          </span>
-        </div>
-
-        <p class="ship-summary">{{ fleet.ships.map((ship) => `${ship.count}x ${ship.type}`).join(', ') }}</p>
-        <p class="destination-line">Destino: {{ fleet.destination ? systemName(fleet.destination) : 'Sin ordenes' }}</p>
-
-        <div class="fleet-actions">
-          <select v-model="destinations[fleet.id]" class="retro-input" :disabled="fleet.in_transit || !reachableDestinations(fleet).length">
-            <option value="">Selecciona destino</option>
-            <option v-for="destination in reachableDestinations(fleet)" :key="destination.id" :value="destination.id">
-              {{ destination.name }}
-            </option>
-          </select>
-
-          <button
-            class="retro-btn"
-            type="button"
-            @click="moveSelectedFleet(fleet.id)"
-            :disabled="fleet.in_transit || !destinations[fleet.id]"
-          >
-            Mover
-          </button>
-        </div>
-      </article>
+      <button :style="styles.btn" @click="gameStore.fetchFleets()">REFRESH</button>
     </div>
 
-    <p v-else-if="!loading" class="empty">No hay flotas disponibles.</p>
-  </section>
+    <div :style="styles.fleetGrid">
+      <div v-for="fleet in gameStore.fleets" :key="fleet.id" :style="styles.fleetCard">
+        <div :style="styles.cardHead">
+          <div>
+            <h4 :style="styles.fleetName">{{ fleet.name }}</h4>
+            <p :style="styles.subtitle">Location: {{ getStarName(fleet.star_index) }}</p>
+          </div>
+          <span :style="getStatusStyle(fleet)">{{ fleet.in_transit ? `ETA ${fleet.eta} T` : 'READY' }}</span>
+        </div>
+
+        <div :style="styles.shipList">
+          <div v-for="ship in fleet.ships" :key="ship.id" :style="styles.shipItem">
+            {{ ship.count }}x {{ ship.name }}
+          </div>
+        </div>
+
+        <div v-if="!fleet.in_transit" :style="styles.actions">
+          <select v-model="moves[fleet.id]" :style="styles.select">
+            <option value="">SELECT DESTINATION</option>
+            <option v-for="star in gameStore.galaxy?.stars" :key="star.index" :value="star.index">
+              {{ star.name }}
+            </option>
+          </select>
+          <button :style="styles.btnSmall" @click="moveFleet(fleet.id)">JUMP</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
-import { api } from '../services/api'
-import type { FleetSummary, GalaxySystem } from '../types/game'
+import { ref, onMounted } from 'vue';
+import { useGameStore } from '../store/gameStore';
+import { useUIStore } from '../store/uiStore';
+import { api } from '../api/client';
 
-const route = useRoute()
-const gameId = String(route.params.id || '')
+const gameStore = useGameStore();
+const uiStore = useUIStore();
 
-const fleets = ref<FleetSummary[]>([])
-const systems = ref<GalaxySystem[]>([])
-const destinations = ref<Record<string, string>>({})
-const loading = ref(false)
-const error = ref('')
+const moves = ref<Record<string, number>>({});
 
-function systemName(systemId: string | null) {
-  if (!systemId) return '-'
-  return systems.value.find((system) => system.id === systemId)?.name || systemId
+const styles = {
+  panel: {
+    padding: '1.5rem',
+    backgroundColor: '#0a0a2e',
+    color: '#e0e0ff',
+    fontFamily: 'monospace',
+  },
+  head: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '2rem',
+    borderBottom: '2px solid #00ffff',
+    paddingBottom: '1rem',
+  },
+  title: {
+    margin: 0,
+    fontSize: '2rem',
+    color: '#00ffff',
+    letterSpacing: '0.2em',
+  },
+  subtitle: {
+    margin: '0.3rem 0 0',
+    color: '#8888aa',
+    fontSize: '0.9rem',
+  },
+  btn: {
+    backgroundColor: '#1a1a3e',
+    color: '#00ffff',
+    border: '2px solid #00ffff',
+    padding: '0.6rem 1.2rem',
+    cursor: 'pointer',
+    fontWeight: 'bold' as const,
+  },
+  btnSmall: {
+    backgroundColor: '#2a2a5e',
+    color: '#00ffff',
+    border: '1px solid #00ffff',
+    padding: '0.3rem 0.6rem',
+    cursor: 'pointer',
+  },
+  fleetGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+    gap: '1.5rem',
+  },
+  fleetCard: {
+    padding: '1.2rem',
+    backgroundColor: '#1a1a3e',
+    border: '1px solid rgba(0, 255, 255, 0.3)',
+    borderRadius: '8px',
+  },
+  cardHead: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: '1rem',
+  },
+  fleetName: {
+    margin: 0,
+    fontSize: '1.2rem',
+    color: '#fff',
+  },
+  shipList: {
+    margin: '1rem 0',
+    padding: '0.8rem',
+    backgroundColor: '#070f24',
+    borderRadius: '4px',
+  },
+  shipItem: {
+    fontSize: '0.85rem',
+    marginBottom: '0.3rem',
+    color: '#44ee44',
+  },
+  actions: {
+    display: 'flex',
+    gap: '0.5rem',
+    marginTop: '1rem',
+  },
+  select: {
+    flex: 1,
+    backgroundColor: '#070f24',
+    color: '#00ffff',
+    border: '1px solid #00ffff',
+    padding: '0.3rem',
+    fontSize: '0.8rem',
+  }
+};
+
+function getStarName(index: number) {
+  return gameStore.galaxy?.stars.find((s: any) => s.index === index)?.name || 'UNKNOWN';
 }
 
-function reachableDestinations(fleet: FleetSummary) {
-  const current = systems.value.find((system) => system.id === fleet.star_system_id)
-  if (!current) return []
-  return current.connections
-    .map((connection) => systems.value.find((system) => system.id === connection))
-    .filter((system): system is GalaxySystem => Boolean(system))
+function getStatusStyle(fleet: any) {
+  return {
+    fontSize: '0.7rem',
+    padding: '0.2rem 0.5rem',
+    backgroundColor: fleet.in_transit ? '#5e4a07' : '#075e2a',
+    color: '#fff',
+    borderRadius: '4px',
+  };
 }
 
-async function loadData() {
-  loading.value = true
-  error.value = ''
+async function moveFleet(fleetId: string) {
+  const dest = moves.value[fleetId];
+  if (dest === undefined || !gameStore.gameId) return;
   try {
-    const [fleetResponse, galaxyResponse] = await Promise.all([
-      api.getFleets(gameId),
-      api.getGalaxy(gameId),
-    ])
-    fleets.value = Array.isArray(fleetResponse?.fleets) ? fleetResponse.fleets : []
-    systems.value = Array.isArray(galaxyResponse?.star_systems) ? galaxyResponse.star_systems : []
-    const nextDestinations: Record<string, string> = {}
-    for (const fleet of fleets.value) {
-      nextDestinations[fleet.id] = destinations.value[fleet.id] || ''
-    }
-    destinations.value = nextDestinations
+    await api.fleet.move(gameStore.gameId, fleetId, dest);
+    gameStore.fetchFleets();
   } catch (err) {
-    fleets.value = []
-    error.value = (err as Error).message || 'No se pudieron cargar las flotas.'
-  } finally {
-    loading.value = false
+    console.error(err);
   }
 }
 
-async function moveSelectedFleet(fleetId: string) {
-  const destination = destinations.value[fleetId]
-  if (!destination) return
-  error.value = ''
-  try {
-    await api.moveFleet(gameId, fleetId, destination)
-    destinations.value[fleetId] = ''
-    await loadData()
-  } catch (err) {
-    error.value = (err as Error).message || 'No se pudo mover la flota.'
+onMounted(() => {
+  if (gameStore.gameId) {
+    gameStore.fetchFleets();
   }
-}
-
-onMounted(loadData)
+});
 </script>
-
-<style scoped>
-.fleet-panel {
-  padding: 1rem;
-}
-
-.panel-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 0.9rem;
-}
-
-.subtitle {
-  margin: 0.25rem 0 0;
-  color: var(--text-muted);
-}
-
-.fleet-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
-}
-
-.fleet-card {
-  padding: 0.9rem;
-  border-radius: 10px;
-  border: 1px solid rgba(89, 170, 255, 0.18);
-  background: rgba(7, 15, 36, 0.74);
-}
-
-.fleet-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.fleet-header h4 {
-  margin: 0;
-}
-
-.fleet-header p,
-.ship-summary,
-.destination-line {
-  margin: 0.25rem 0 0;
-  color: var(--text-muted);
-}
-
-.status-pill {
-  height: fit-content;
-  padding: 0.25rem 0.55rem;
-  border-radius: 999px;
-  background: rgba(141, 246, 191, 0.18);
-  border: 1px solid rgba(141, 246, 191, 0.3);
-  font-size: 0.76rem;
-}
-
-.status-pill.transit {
-  background: rgba(255, 212, 71, 0.15);
-  border-color: rgba(255, 212, 71, 0.28);
-}
-
-.fleet-actions {
-  display: flex;
-  gap: 0.65rem;
-  margin-top: 0.9rem;
-}
-
-.fleet-actions select {
-  flex: 1;
-}
-
-.empty {
-  color: var(--text-muted);
-}
-
-.error {
-  color: var(--danger);
-  margin-bottom: 0.8rem;
-}
-
-@media (max-width: 900px) {
-  .fleet-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .fleet-actions {
-    flex-direction: column;
-  }
-}
-</style>

@@ -1,98 +1,100 @@
 <template>
-  <div id="app-shell">
-    <header class="app-header retro-panel">
-      <div>
-        <p class="eyebrow">Galactic Command</p>
-        <h1 class="brand">MasterDeHostias</h1>
-      </div>
+  <div :style="styles.appShell">
+    <!-- TopBar is only shown in-game -->
+    <TopBar v-if="gameStore.gameId && uiStore.activeScreen !== 'main_menu' && uiStore.activeScreen !== 'new_game'" />
 
-      <nav class="top-nav">
-        <router-link v-if="!isLoggedIn" to="/login">Login</router-link>
-        <router-link v-if="!isLoggedIn" to="/register">Registro</router-link>
-        <router-link v-if="isLoggedIn" to="/dashboard">Dashboard</router-link>
-        <span v-if="isLoggedIn" class="user-chip">{{ username || 'Commander' }}</span>
-        <button v-if="isLoggedIn" class="retro-btn retro-btn-danger" type="button" @click="logout">
-          Cerrar sesion
-        </button>
-      </nav>
-    </header>
-
-    <main class="page">
-      <router-view />
+    <main :style="styles.main">
+      <!-- State-based Routing -->
+      <MainMenu v-if="uiStore.activeScreen === 'main_menu'" />
+      <NewGame v-else-if="uiStore.activeScreen === 'new_game'" />
+      <GalaxyMap v-else-if="uiStore.activeScreen === 'galaxy'" />
+      <ColonyScreen v-else-if="uiStore.activeScreen === 'colony'" />
+      <ResearchScreen v-else-if="uiStore.activeScreen === 'research'" />
+      <FleetScreen v-else-if="uiStore.activeScreen === 'fleet'" />
+      <ShipDesigner v-else-if="uiStore.activeScreen === 'ship_designer'" />
+      <DiplomacyScreen v-else-if="uiStore.activeScreen === 'diplomacy'" />
+      <LeadersScreen v-else-if="uiStore.activeScreen === 'leaders'" />
+      <EspionageScreen v-else-if="uiStore.activeScreen === 'espionage'" />
+      <CombatScreen v-else-if="uiStore.activeScreen === 'combat'" />
+      <TurnSummary v-else-if="uiStore.activeScreen === 'turn_summary'" />
+      <CouncilScreen v-else-if="uiStore.activeScreen === 'council'" />
+      <VictoryScreen v-else-if="uiStore.activeScreen === 'victory'" />
     </main>
+
+    <!-- Global Modals -->
+    <EventLogModal v-if="uiStore.eventLogOpen" />
+    <Notification v-if="uiStore.notification" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { useAuth } from './types/useAuth'
+import { onMounted, onUnmounted } from 'vue';
+import { useUIStore } from './store/uiStore';
+import { useGameStore } from './store/gameStore';
 
-const { isLoggedIn, logout, username } = useAuth()
+// Components (Refactored versions)
+import MainMenu from './views/Dashboard.vue';
+import NewGame from './views/GameView.vue';
+import GalaxyMap from './views/GalaxyMap.vue';
+import ColonyScreen from './views/ColonyView.vue';
+import ResearchScreen from './views/TechTree.vue';
+import FleetScreen from './views/FleetManager.vue';
+import ShipDesigner from './views/SystemView.vue';
+import DiplomacyScreen from './views/DiplomacyView.vue';
+import LeadersScreen from './views/LeadersView.vue';
+import EspionageScreen from './views/EspionageView.vue';
+import CombatScreen from './views/CombatResult.vue';
+import VictoryScreen from './views/VictoryScreen.vue';
+import TopBar from './views/BaseButton.vue'; // Need to refactor this to a proper TopBar
+import EventLogModal from './views/LoadingSpinner.vue'; // Need to refactor this
+import Notification from './views/ErrorAlert.vue';
+
+const uiStore = useUIStore();
+const gameStore = useGameStore();
+
+const styles = {
+  appShell: {
+    minHeight: '100vh',
+    backgroundColor: '#070f24',
+    color: '#e0e0ff',
+    fontFamily: 'monospace',
+    display: 'flex',
+    flexDirection: 'column' as const,
+  },
+  main: {
+    flex: 1,
+    padding: '1rem',
+    overflow: 'auto',
+  }
+};
+
+const handleKeyDown = (e: KeyboardEvent) => {
+  // Ignore if typing in input
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) return;
+
+  if (!gameStore.gameId) return;
+
+  switch (e.key.toUpperCase()) {
+    case 'T': gameStore.endTurn(); break;
+    case 'G': uiStore.setScreen('galaxy'); break;
+    case 'C': uiStore.setScreen('colony'); break;
+    case 'R': uiStore.setScreen('research'); break;
+    case 'F': uiStore.setScreen('fleet'); break;
+    case 'L': uiStore.setScreen('leaders'); break;
+    case 'D': uiStore.setScreen('diplomacy'); break;
+    case 'S': uiStore.setScreen('ship_designer'); break;
+    case 'ESCAPE': 
+      if (uiStore.eventLogOpen) uiStore.closeEventLog();
+      else uiStore.setScreen('galaxy'); 
+      break;
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeyDown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown);
+});
 </script>
-
-<style scoped>
-#app-shell {
-  min-height: 100vh;
-  color: var(--text);
-}
-
-.app-header {
-  margin: 0.8rem;
-  padding: 0.85rem 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.eyebrow {
-  margin: 0 0 0.25rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  font-size: 0.68rem;
-}
-
-.brand {
-  margin: 0;
-  color: var(--primary-strong);
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  text-shadow: 0 0 0.8rem rgba(103, 240, 255, 0.45);
-}
-
-.top-nav {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.top-nav a {
-  color: var(--text-muted);
-  text-decoration: none;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.78rem;
-  padding-bottom: 0.15rem;
-  border-bottom: 1px solid transparent;
-}
-
-.top-nav a.router-link-active {
-  color: var(--primary-strong);
-  border-bottom-color: var(--primary-strong);
-}
-
-.user-chip {
-  padding: 0.3rem 0.65rem;
-  border: 1px solid rgba(112, 166, 214, 0.55);
-  border-radius: 999px;
-  background: rgba(7, 15, 36, 0.7);
-  color: var(--text);
-  font-size: 0.78rem;
-}
-
-.page {
-  padding: 0 0.8rem 0.8rem;
-}
-</style>

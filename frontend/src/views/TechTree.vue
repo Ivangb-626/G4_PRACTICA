@@ -1,230 +1,160 @@
 <template>
-  <section class="retro-panel tech-panel">
-    <header class="panel-head">
+  <div :style="styles.panel">
+    <div :style="styles.head">
       <div>
-        <h3>Arbol tecnologico</h3>
-        <p class="subtitle">
-          {{ currentResearch ? `Proyecto actual: ${currentResearch.tech_id}` : 'Sin investigacion activa' }}
+        <h2 :style="styles.title">RESEARCH CENTER</h2>
+        <p :style="styles.subtitle">
+          {{ gameStore.techState?.current_research ? `Proyecto actual: ${gameStore.techState.current_research}` : 'Sin investigacion activa' }}
         </p>
       </div>
-      <button class="retro-btn" type="button" @click="loadTree" :disabled="loading">
-        {{ loading ? 'Cargando...' : 'Actualizar' }}
-      </button>
-    </header>
+      <button :style="styles.btn" @click="gameStore.fetchResearch()">REFRESH</button>
+    </div>
 
-    <p v-if="error" class="error">{{ error }}</p>
-
-    <div class="field-list">
-      <section v-for="field in fields" :key="field.field" class="field-card">
-        <header class="field-head">
-          <h4>{{ field.field }}</h4>
-        </header>
-
-        <div v-for="level in field.levels" :key="`${field.field}-${level.level}`" class="level-row">
-          <p class="level-title">Nivel {{ level.level }}</p>
-
-          <div class="option-grid">
-            <article
-              v-for="option in level.options"
-              :key="option.tech_id"
-              class="option-card"
-              :class="option.status"
-            >
+    <div :style="styles.fieldList">
+      <div v-for="field in gameStore.techState?.available_techs" :key="field.field" :style="styles.fieldCard">
+        <h3 :style="styles.fieldTitle">{{ field.field }}</h3>
+        
+        <div v-for="level in field.levels" :key="level.level" :style="styles.levelRow">
+          <p :style="styles.levelTitle">LEVEL {{ level.level }}</p>
+          <div :style="styles.optionGrid">
+            <div v-for="opt in level.options" :key="opt.tech_id" :style="getOptionStyle(opt.status)">
               <div>
-                <strong>{{ option.name }}</strong>
-                <p>{{ option.description || 'Tecnologia base del campo.' }}</p>
-                <small>Coste: {{ option.research_cost }} RP</small>
+                <strong :style="{ color: '#fff' }">{{ opt.name }}</strong>
+                <p :style="styles.subtitle">{{ opt.description }}</p>
+                <small :style="{ color: '#8888aa', fontSize: '0.7rem' }">COST: {{ opt.research_cost }} RP</small>
               </div>
-
-              <button
-                v-if="option.status === 'available'"
-                class="retro-btn"
-                type="button"
-                @click="selectTechnology(option)"
-                :disabled="selectingTechId === option.tech_id"
-              >
-                {{ selectingTechId === option.tech_id ? 'Seleccionando...' : 'Investigar' }}
-              </button>
-              <span v-else class="status-badge">{{ labelForStatus(option.status) }}</span>
-            </article>
+              <button v-if="opt.status === 'available'" :style="styles.btnSmall" @click="selectTech(opt.tech_id)">RESEARCH</button>
+              <span v-else :style="styles.statusBadge">{{ opt.status.toUpperCase() }}</span>
+            </div>
           </div>
         </div>
-      </section>
+      </div>
     </div>
-  </section>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
-import { api } from '../services/api'
-import type { TechField, TechOption } from '../types/game'
+import { useGameStore } from '../store/gameStore';
+import { api } from '../api/client';
 
-const route = useRoute()
-const gameId = String(route.params.id || '')
+const gameStore = useGameStore();
 
-const fields = ref<TechField[]>([])
-const currentResearch = ref<{ tech_id: string } | null>(null)
-const loading = ref(false)
-const selectingTechId = ref('')
-const error = ref('')
-
-function labelForStatus(status: TechOption['status']) {
-  switch (status) {
-    case 'researched':
-      return 'Investigada'
-    case 'current':
-      return 'En curso'
-    case 'discarded':
-      return 'Descartada'
-    case 'locked':
-      return 'Bloqueada'
-    default:
-      return 'Disponible'
+const styles = {
+  panel: {
+    padding: '1.5rem',
+    backgroundColor: '#0a0a2e',
+    color: '#e0e0ff',
+    fontFamily: 'monospace',
+  },
+  head: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '2rem',
+    borderBottom: '2px solid #00ffff',
+    paddingBottom: '1rem',
+  },
+  title: {
+    margin: 0,
+    fontSize: '2rem',
+    color: '#00ffff',
+    letterSpacing: '0.2em',
+  },
+  subtitle: {
+    margin: '0.3rem 0 0',
+    color: '#8888aa',
+    fontSize: '0.9rem',
+  },
+  btn: {
+    backgroundColor: '#1a1a3e',
+    color: '#00ffff',
+    border: '2px solid #00ffff',
+    padding: '0.6rem 1.2rem',
+    cursor: 'pointer',
+    fontWeight: 'bold' as const,
+  },
+  btnSmall: {
+    backgroundColor: '#2a2a5e',
+    color: '#00ffff',
+    border: '1px solid #00ffff',
+    padding: '0.3rem 0.6rem',
+    cursor: 'pointer',
+    fontSize: '0.75rem',
+  },
+  fieldList: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '1.5rem',
+  },
+  fieldCard: {
+    padding: '1.2rem',
+    backgroundColor: '#1a1a3e',
+    border: '1px solid rgba(0, 255, 255, 0.3)',
+    borderRadius: '8px',
+  },
+  fieldTitle: {
+    margin: '0 0 1rem',
+    fontSize: '1.2rem',
+    color: '#ffd700',
+    borderBottom: '1px solid #ffd700',
+    paddingBottom: '0.3rem',
+  },
+  levelRow: {
+    marginBottom: '1rem',
+  },
+  levelTitle: {
+    margin: '0 0 0.5rem',
+    fontSize: '0.8rem',
+    color: '#8888aa',
+  },
+  optionGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+    gap: '1rem',
+  },
+  statusBadge: {
+    fontSize: '0.7rem',
+    padding: '0.2rem 0.4rem',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: '4px',
+    color: '#8888aa',
   }
+};
+
+function getOptionStyle(status: string) {
+  let borderColor = 'rgba(112, 166, 214, 0.18)';
+  let opacity = 1;
+  
+  if (status === 'available') borderColor = '#00ffff';
+  if (status === 'current') borderColor = '#ffd700';
+  if (status === 'researched') borderColor = '#44ee44';
+  if (status === 'discarded') opacity = 0.5;
+
+  return {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '0.8rem',
+    backgroundColor: '#070f24',
+    border: `1px solid ${borderColor}`,
+    borderRadius: '4px',
+    opacity,
+  };
 }
 
-async function loadTree() {
-  loading.value = true
-  error.value = ''
+async function selectTech(techId: string) {
+  if (!gameStore.gameId) return;
   try {
-    const response = await api.getTechTree(gameId)
-    fields.value = Array.isArray(response?.fields) ? response.fields : []
-    currentResearch.value = response?.current_research || null
+    await api.research.select(gameStore.gameId, techId);
+    gameStore.fetchResearch();
   } catch (err) {
-    fields.value = []
-    currentResearch.value = null
-    error.value = (err as Error).message || 'No se pudo cargar el arbol tecnologico.'
-  } finally {
-    loading.value = false
+    console.error(err);
   }
 }
 
-async function selectTechnology(option: TechOption) {
-  selectingTechId.value = option.tech_id
-  error.value = ''
-  try {
-    await api.selectResearch(gameId, {
-      field: option.field,
-      level: option.level,
-      tech_id: option.tech_id,
-    })
-    await loadTree()
-  } catch (err) {
-    error.value = (err as Error).message || 'No se pudo seleccionar la tecnologia.'
-  } finally {
-    selectingTechId.value = ''
+onMounted(() => {
+  if (gameStore.gameId) {
+    gameStore.fetchResearch();
   }
-}
-
-onMounted(loadTree)
+});
 </script>
-
-<style scoped>
-.tech-panel {
-  padding: 1rem;
-}
-
-.panel-head,
-.field-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-}
-
-.subtitle {
-  margin: 0.25rem 0 0;
-  color: var(--text-muted);
-}
-
-.field-list {
-  display: grid;
-  gap: 1rem;
-}
-
-.field-card {
-  padding: 0.9rem;
-  border: 1px solid rgba(89, 170, 255, 0.2);
-  border-radius: 10px;
-  background: rgba(6, 13, 34, 0.58);
-}
-
-.field-head {
-  margin-bottom: 0.75rem;
-}
-
-.level-row + .level-row {
-  margin-top: 0.9rem;
-}
-
-.level-title {
-  margin: 0 0 0.55rem;
-  color: var(--primary-strong);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.75rem;
-}
-
-.option-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.option-card {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.85rem;
-  border-radius: 8px;
-  border: 1px solid rgba(112, 166, 214, 0.18);
-  background: rgba(7, 15, 36, 0.72);
-}
-
-.option-card p {
-  margin: 0.25rem 0;
-  color: var(--text-muted);
-  font-size: 0.84rem;
-}
-
-.option-card.available {
-  border-color: rgba(103, 240, 255, 0.35);
-}
-
-.option-card.current {
-  border-color: rgba(255, 212, 71, 0.45);
-}
-
-.option-card.researched {
-  border-color: rgba(141, 246, 191, 0.4);
-}
-
-.option-card.discarded {
-  opacity: 0.65;
-}
-
-.status-badge {
-  align-self: flex-start;
-  padding: 0.25rem 0.55rem;
-  border-radius: 999px;
-  background: rgba(81, 99, 124, 0.5);
-  font-size: 0.76rem;
-  white-space: nowrap;
-}
-
-.error {
-  color: var(--danger);
-  margin: 0.8rem 0;
-}
-
-@media (max-width: 860px) {
-  .option-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .option-card {
-    flex-direction: column;
-  }
-}
-</style>
