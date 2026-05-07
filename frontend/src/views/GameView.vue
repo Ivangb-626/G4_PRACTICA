@@ -58,6 +58,7 @@
         <router-link :to="`/game/${gameId}/galaxy`" class="tab-btn">Mapa</router-link>
         <router-link :to="`/game/${gameId}/tech`" class="tab-btn">Tech</router-link>
         <router-link :to="`/game/${gameId}/fleets`" class="tab-btn">Flotas</router-link>
+        <button type="button" class="tab-btn" @click="showColoniesModal = true">Colonias</button>
         <router-link :to="`/game/${gameId}/ships`" class="tab-btn">Disenador</router-link>
         <router-link :to="`/game/${gameId}/diplomacy`" class="tab-btn">Diplomacia</router-link>
         <router-link :to="`/game/${gameId}/espionage`" class="tab-btn">Espionaje</router-link>
@@ -81,6 +82,10 @@
           <strong>{{ formatNumber(gameState?.player?.resources?.bc) }}</strong>
         </article>
         <article class="summary-card">
+          <span class="summary-label">Comida</span>
+          <strong>{{ formatNumber(gameState?.player?.resources?.total_food_surplus) }}</strong>
+        </article>
+        <article class="summary-card">
           <span class="summary-label">Colonias</span>
           <strong>{{ gameState?.player?.colonies?.length ?? '-' }}</strong>
         </article>
@@ -102,6 +107,27 @@
         </article>
       </section>
     </aside>
+
+    <!-- Modal Colonias -->
+    <div v-if="showColoniesModal" class="modal-overlay">
+      <div class="modal-content retro-panel">
+        <header class="modal-header">
+          <h3>Mis Colonias</h3>
+          <button class="close-btn" @click="showColoniesModal = false">×</button>
+        </header>
+
+        <ul class="colonies-list" v-if="gameState?.player?.colonies?.length">
+          <li v-for="col in gameState.player.colonies" :key="col.id" class="colony-item">
+            <div class="colony-info">
+              <strong>{{ colonyLabel(col) }}</strong>
+              <small v-if="col.population">Población: {{ col.population.total }} / {{ col.population.max }}</small>
+            </div>
+            <router-link :to="`/game/${gameId}/colony/${col.id}`" class="retro-btn small-btn" @click="showColoniesModal = false">Gestionar</router-link>
+          </li>
+        </ul>
+        <p v-else class="empty">No tienes colonias actualmente.</p>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -122,6 +148,7 @@ const refreshKey = ref(0)
 const loading = ref(false)
 const endingTurn = ref(false)
 const error = ref('')
+const showColoniesModal = ref(false)
 
 const totalPopulation = computed(() => {
   const cols = gameState.value?.player?.colonies || []
@@ -132,6 +159,15 @@ const totalPopulation = computed(() => {
 function formatNumber(value?: number) {
   if (value === undefined || value === null) return '-'
   return Number(value).toLocaleString()
+}
+
+function colonyLabel(colony: any) {
+  const systems = gameState.value?.galaxy?.star_systems || []
+  const system = systems.find((s: any) => s.id === colony?.star_system_id)
+  const planetName = system?.planets?.[colony?.planet_index]?.name || colony?.planet_name || colony?.name || ''
+  if (!planetName) return 'Colonia'
+  if (/^Colonia:\s*".*"$/.test(colony?.name || '')) return colony.name
+  return `Colonia: "${planetName}"`
 }
 
 function ownerLabel(owner: unknown) {
@@ -546,6 +582,82 @@ onMounted(async () => {
 .error {
   color: var(--danger);
   margin-top: 0.8rem;
+}
+
+/* Modales */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(2px);
+}
+.modal-content {
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0,255,255,0.2);
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+.modal-header h3 {
+  margin: 0;
+  color: var(--primary);
+}
+.close-btn {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 0.5rem;
+  border-radius: 4px;
+}
+.close-btn:hover {
+  background: rgba(255, 68, 68, 0.1);
+}
+.colonies-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.colony-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem;
+  background: rgba(0, 255, 255, 0.05);
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  border-radius: 4px;
+}
+.colony-info strong {
+  display: block;
+  color: var(--text-bright);
+}
+.colony-info small {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+.small-btn {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
 }
 
 @media (max-width: 1080px) {

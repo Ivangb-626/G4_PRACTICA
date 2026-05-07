@@ -3,7 +3,7 @@
     <header class="colony-head">
       <div>
         <p class="eyebrow">COLONIA</p>
-        <h2 class="title">{{ colony?.name || 'Cargando...' }}</h2>
+        <h2 class="title">{{ colonyLabel || 'Cargando...' }}</h2>
         <p class="subtitle" v-if="colony">
           <span :class="['planet-tag', `tag-${planetInfo?.type || ''}`]">{{ planetInfo?.type || '?' }}</span>
           · {{ planetInfo?.size || '?' }}
@@ -199,6 +199,13 @@ const planetInfo = computed(() => {
   const sys = (gameStore.galaxy?.star_systems || []).find((s: any) => s.id === colony.value?.star_system_id)
   if (!sys) return null
   return sys.planets?.[colony.value?.planet_index] || null
+})
+
+const colonyLabel = computed(() => {
+  const planetName = planetInfo.value?.name || colony.value?.planet_name || colony.value?.name || ''
+  if (!planetName) return 'Colonia'
+  if (/^Colonia:\s*".*"$/.test(colony.value?.name || '')) return colony.value?.name || ''
+  return `Colonia: "${planetName}"`
 })
 
 const builtBuildings = computed(() => {

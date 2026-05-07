@@ -33,7 +33,11 @@ def _make_relation_key(owner_a: str, owner_b: str) -> str:
 
 
 def initialize_diplomacy(game_state: dict) -> None:
-    """Garantiza la estructura diplomatica en game_state."""
+    """Garantiza la estructura diplomatica en game_state.
+
+    Todas las facciones empiezan en estado 'neutral' con valor 0. Solo los
+    Antaranos arrancan en guerra eterna (-100).
+    """
     diplo = game_state.setdefault("diplomacy", {"relations": {}, "treaties": [], "history": []})
     relations = diplo.setdefault("relations", {})
     treaties = diplo.setdefault("treaties", [])
@@ -42,7 +46,7 @@ def initialize_diplomacy(game_state: dict) -> None:
     for i, a in enumerate(factions):
         for b in factions[i + 1 :]:
             key = _make_relation_key(a, b)
-            relations.setdefault(key, {"value": 30, "state": "neutral", "last_changed_turn": game_state.get("turn", 1)})
+            relations.setdefault(key, {"value": 0, "state": "neutral", "last_changed_turn": game_state.get("turn", 1)})
 
     # Antaranos always hostile
     for f in factions:
@@ -299,12 +303,12 @@ def process_turn_diplomacy(game_state: dict) -> list:
             t["active"] = False
             events.append({"type": "treaty_expired", "treaty_id": t["id"]})
 
-    # Slight decay back toward neutral (30) every turn
+    # Slight decay back toward neutral (0) every turn
     for key, rel in game_state["diplomacy"]["relations"].items():
         if rel.get("state") == "war":
             continue
-        target = 30
-        v = rel.get("value", 30)
+        target = 0
+        v = rel.get("value", 0)
         if v < target:
             rel["value"] = min(target, v + 1)
         elif v > target:

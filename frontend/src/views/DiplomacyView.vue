@@ -79,11 +79,15 @@ const relations = computed<Record<string, any>>(() => gameStore.diplomacy?.relat
 const treaties = computed<any[]>(() => (gameStore.diplomacy?.treaties || []).filter((t: any) => t.active))
 
 const relationRows = computed(() => {
+  // Solo mostramos la relacion del jugador con cada IA: una entrada por imperio.
+  const seen = new Set<string>()
   const out: Array<{ other: string; value: number; state: string }> = []
   Object.entries(relations.value).forEach(([key, rel]) => {
     const parts = key.split('|')
+    if (!parts.includes('player')) return
     const other = parts.find((p) => p !== 'player')
-    if (!other || other === 'antaranos') return
+    if (!other || other === 'antaranos' || seen.has(other)) return
+    seen.add(other)
     out.push({ other, value: rel.value ?? 0, state: rel.state ?? 'neutral' })
   })
   return out.sort((a, b) => a.other.localeCompare(b.other))

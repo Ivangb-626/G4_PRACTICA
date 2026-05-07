@@ -25,9 +25,23 @@ export const useGameStore = defineStore('game', {
     lastTurnResult: null as AnyObj | null,
   }),
   getters: {
-    /** Numero maximo de saltos interestelares basado en techs de Power. */
+    /** True si el imperio investigo Interphased Drive (rango ilimitado). */
+    hasUnlimitedRange(state): boolean {
+      const techs = state.game?.player?.technologies?.researched || []
+      return techs.some(
+        (t: AnyObj) => t.tech_id === 'interphased_drive' && t.status !== 'discarded',
+      )
+    },
+    /**
+     * Numero maximo de saltos interestelares basado en techs de Power.
+     * Devuelve Infinity si Interphased Drive esta investigada.
+     */
     maxJumps(state): number {
       const techs = state.game?.player?.technologies?.researched || []
+      const hasTop = techs.some(
+        (t: AnyObj) => t.tech_id === 'interphased_drive' && t.status !== 'discarded',
+      )
+      if (hasTop) return Number.POSITIVE_INFINITY
       const power = techs.filter((t: AnyObj) => t.field === 'power' && t.status !== 'discarded')
       let base = Math.max(1, power.length)
       const flags = state.game?.player?.race?.traits?.flags || {}

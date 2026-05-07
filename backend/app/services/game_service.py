@@ -362,11 +362,13 @@ def generate_galaxy(size, num_opponents, player_race_id, galaxy_age="average", o
 
 def make_colony(star_system_id, planet_index, owner, planet=None):
     max_population = 8
+    colony_name = f"Colonia: \"{star_system_id}-{planet_index}\""
     if planet:
         max_population = planet.get("max_population", max_population)
+        colony_name = f"Colonia: \"{planet.get('name', f'{star_system_id}-{planet_index}')}\""
     return {
         "id": f"col_{star_system_id}_{planet_index}",
-        "name": f"Colony {star_system_id}-{planet_index}",
+        "name": colony_name,
         "star_system_id": star_system_id,
         "planet_index": planet_index,
         "owner": owner,
@@ -599,25 +601,41 @@ def _reveal_for_owner(game_state, owner_id, system_id):
                 visible.append(connection)
 
 
+# Top-tier propulsion tech that grants unlimited jump range
+UNLIMITED_RANGE_TECH = "interphased_drive"
+
+
+def empire_has_unlimited_range(empire):
+    """True si el imperio investigo la propulsion Interphased Drive (rama Power, nivel 8)."""
+    if not empire:
+        return False
+    techs = empire.get("technologies", {}).get("researched", [])
+    return any(
+        t.get("tech_id") == UNLIMITED_RANGE_TECH and t.get("status") != "discarded"
+        for t in techs
+    )
+
+
 def empire_max_jumps(empire):
     """Numero maximo de saltos interestelares en un solo movimiento.
 
-    El motor base permite 1 salto (sistemas adyacentes). Cada tecnologia de la
-    rama 'power' investigada anade 1 salto extra. Los Trilarian (transdimensional)
-    obtienen +1 base.
+    - Base: 1 salto (sistemas adyacentes).
+    - Cada tecnologia de la rama 'power' investigada anade 1 salto extra.
+    - La tech Interphased Drive (rama Power, nivel 8) elimina el limite.
+    - Los Trilarian (transdimensional) obtienen +1 base.
     """
     if not empire:
         return 1
+    if empire_has_unlimited_range(empire):
+        return 9999  # Treated as unlimited by callers
     techs = empire.get("technologies", {}).get("researched", [])
     power_count = 0
     for t in techs:
         if t.get("status") == "discarded":
             continue
-        # Match by field
         if t.get("field") == "power":
             power_count += 1
             continue
-        # Some tech entries store only tech_id without field; resolve via TECHS catalog
         cat = TECHS.get(t.get("tech_id"))
         if cat and cat.get("field") == "power":
             power_count += 1
@@ -673,10 +691,11 @@ def move_fleet(game_state, owner_or_fleet_id, fleet_id=None, destination=None):
     if not current or not target:
         raise ValueError("Destination not found")
     empire = get_empire(game_state, owner_id)
-    max_jumps = empire_max_jumps(empire)
-    reachable = reachable_systems(game_state, current["id"], max_jumps)
-    if destination not in reachable:
-        raise ValueError(f"Destination out of fuel range (max {max_jumps} jumps)")
+    if not empire_has_unlimited_range(empire):
+        max_jumps = empire_max_jumps(empire)
+        reachable = reachable_systems(game_state, current["id"], max_jumps)
+        if destination not in reachable:
+            raise ValueError(f"Destination out of fuel range (max {max_jumps} jumps)")
 
     slowest = min(SHIP_TYPES[ship["type"]]["speed"] for ship in fleet["ships"] if ship.get("count", 0) > 0)
     flags = (empire or {}).get("race", {}).get("traits", {}).get("flags", {})
@@ -1370,7 +1389,7 @@ def get_galaxy_view(game_state):
                 "star_type": system["star_type"] if system["id"] in visible else "unknown",
                 "explored": system["id"] in visible,
                 "planets": system["planets"] if system["id"] in visible else [],
-                "connections": [connection for connection in system.get("connections", []) if connection in visible],
+                "connections": system.get("connections", []),
                 "has_player_colony": system["id"] in player_colonies,
                 "has_player_fleet": system["id"] in player_fleets,
                 "has_enemy_fleet": system["id"] in visible

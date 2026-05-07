@@ -7,7 +7,7 @@
         <p class="subtitle">
           <span :class="['star-tag', `tag-${system?.star_type || 'yellow'}`]">{{ system?.star_type || '?' }}</span>
           · {{ system?.planets?.length || 0 }} planeta(s)
-          · rango {{ gameStore.maxJumps }} salto(s)
+          · rango {{ rangeLabel }}
         </p>
       </div>
       <div class="head-actions">
@@ -112,7 +112,7 @@
 
       <h3 class="travel-heading">
         Mover flota aqui
-        <small>(rango {{ gameStore.maxJumps }})</small>
+        <small>(rango {{ rangeLabel }})</small>
       </h3>
       <div class="move-row" v-if="movableFleets.length">
         <select v-model="moveDraft.fleetId">
@@ -179,6 +179,12 @@ const movableFleets = computed<any[]>(() => {
     const reach = reachableSystems(allSystems.value, f.star_system_id, jumps)
     return reach.has(sysId.value)
   })
+})
+
+const rangeLabel = computed(() => {
+  const j = gameStore.maxJumps
+  if (!Number.isFinite(j)) return 'ilimitado'
+  return `${j} salto${j === 1 ? '' : 's'}`
 })
 
 function isPlanetHabitable(planet: any) {

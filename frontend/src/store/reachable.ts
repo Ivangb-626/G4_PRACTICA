@@ -12,6 +12,15 @@ export function reachableSystems(
   const byId = new Map<string, any>()
   for (const s of starSystems) byId.set(s.id, s)
   if (!byId.has(originId)) return result
+
+  // Rango ilimitado (Interphased Drive): cualquier sistema vale.
+  if (!Number.isFinite(maxJumps)) {
+    for (const s of starSystems) {
+      if (s.id !== originId) result.add(s.id)
+    }
+    return result
+  }
+
   let frontier: string[] = [originId]
   const visited = new Set<string>([originId])
   for (let i = 0; i < maxJumps; i += 1) {

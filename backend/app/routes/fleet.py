@@ -5,6 +5,7 @@ from app.services.game_service import (
     move_fleet,
     colonize_planet,
     empire_max_jumps,
+    empire_has_unlimited_range,
     reachable_systems,
     find_fleet,
     get_empire,
@@ -40,7 +41,10 @@ def get_range(game_id):
     if not entry:
         return jsonify({"error": "Game not found"}), 404
     empire = get_empire(entry['game_state'], 'player')
-    return jsonify({"max_jumps": empire_max_jumps(empire)}), 200
+    return jsonify({
+        "max_jumps": empire_max_jumps(empire),
+        "unlimited": empire_has_unlimited_range(empire),
+    }), 200
 
 
 @fleet_bp.route('/<fleet_id>/reachable', methods=['GET'])
@@ -54,9 +58,27 @@ def fleet_reachable(game_id, fleet_id):
     if not fleet:
         return jsonify({"error": "Fleet not found"}), 404
     empire = get_empire(entry['game_state'], 'player')
+    unlimited = empire_has_unlimited_range(empire)
+    if unlimited:
+        all_ids = [
+            s["id"]
+            for s in entry['game_state'].get('galaxy', {}).get('star_systems', [])
+            if s.get("id") != fleet['star_system_id']
+        ]
+        return jsonify({
+            "max_jumps": -1,
+            "unlimited": True,
+            "origin": fleet['star_system_id'],
+            "reachable": all_ids,
+        }), 200
     max_jumps = empire_max_jumps(empire)
     targets = reachable_systems(entry['game_state'], fleet['star_system_id'], max_jumps)
-    return jsonify({"max_jumps": max_jumps, "origin": fleet['star_system_id'], "reachable": list(targets)}), 200
+    return jsonify({
+        "max_jumps": max_jumps,
+        "unlimited": False,
+        "origin": fleet['star_system_id'],
+        "reachable": list(targets),
+    }), 200
 
 
 @fleet_bp.route('/<fleet_id>/move', methods=['POST'])

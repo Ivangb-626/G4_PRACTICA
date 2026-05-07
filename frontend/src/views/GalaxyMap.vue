@@ -29,8 +29,8 @@
           {{ travelMode ? 'Cancelar' : 'Viajar aqui' }}
         </button>
       </div>
-      <p v-if="!canTravelHere && selectedInfo.id !== originSystemId" :style="styles.warn">
-        Fuera de rango ({{ gameStore.maxJumps }} saltos max).
+      <p v-if="!canTravelHere && selectedInfo.id && cantTravelReason" :style="styles.warn">
+        {{ cantTravelReason }}
       </p>
 
       <!-- Fleet picker -->
@@ -184,15 +184,37 @@ const travelableFleets = computed<any[]>(() => {
   const jumps = gameStore.maxJumps
   return playerFleets.value.filter((f) => {
     if (f.destination) return false
+    if (f.star_system_id === target) return false
     const reach = reachableSystems(allSystems.value, f.star_system_id, jumps)
     return reach.has(target)
   })
 })
 
+const rangeLabel = computed(() => {
+  const j = gameStore.maxJumps
+  if (!Number.isFinite(j)) return 'rango ilimitado'
+  return `${j} salto${j === 1 ? '' : 's'} max`
+})
+
+const cantTravelReason = computed(() => {
+  if (!uiStore.selectedSystemId) return ''
+  const target = uiStore.selectedSystemId
+  
+  const idle = playerFleets.value.filter(f => !f.destination)
+  if (idle.length === 0) return 'No tienes flotas libres disponibles.'
+  
+  const notHere = idle.filter(f => f.star_system_id !== target)
+  if (notHere.length === 0) return 'Tus flotas libres ya están en este sistema.'
+  
+  if (travelableFleets.value.length === 0) {
+      return `Fuera de rango (${rangeLabel.value}).`
+  }
+  
+  return ''
+})
+
 const canTravelHere = computed(() => {
-  if (!uiStore.selectedSystemId) return false
-  if (uiStore.selectedSystemId === originSystemId.value) return false
-  return travelableFleets.value.length > 0
+  return cantTravelReason.value === ''
 })
 
 function getSystemName(id: string) {
