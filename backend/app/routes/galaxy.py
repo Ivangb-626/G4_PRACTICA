@@ -1,58 +1,38 @@
 from flask import Blueprint, jsonify, g
 from app.auth.middleware import token_required
 from app.models.game import GameModel
+from app.services.game_service import get_galaxy_view, find_system
 
 galaxy_bp = Blueprint('galaxy', __name__)
 
-def _get_game_state(game_id):
+
+def _entry(game_id):
     entry = GameModel.get_game(g.user_id, game_id)
     if not entry or entry == "forbidden":
         return None
-    return entry['game_state']
+    return entry
+
 
 @galaxy_bp.route('/', methods=['GET'])
 @galaxy_bp.route('', methods=['GET'])
 @token_required
 def get_galaxy(game_id):
-    game_state = _get_game_state(game_id)
-    if not game_state:
+    entry = _entry(game_id)
+    if not entry:
         return jsonify({"error": "Game not found"}), 404
-    
-    # Fog of war filtering
-    galaxy = game_state.get('galaxy', {})
-    stars = galaxy.get('stars', [])
-    
-    # Simplified filtering: only show stars explored by player
-    filtered_stars = []
-    for star in stars:
-        if "player" in star.get("explored_by", []):
-            filtered_stars.append(star)
-        else:
-            # Show basic info but not planet details
-            filtered_stars.append({
-                "index": star["index"],
-                "name": star["name"],
-                "x": star["x"],
-                "y": star["y"],
-                "type": star["type"],
-                "explored": False
-            })
-            
-    return jsonify({"stars": filtered_stars, "size": galaxy.get("size")}), 200
+    return jsonify(get_galaxy_view(entry['game_state'])), 200
 
-@galaxy_bp.route('/star/<int:star_idx>', methods=['GET'])
+
+@galaxy_bp.route('/system/<system_id>', methods=['GET'])
 @token_required
-def get_star_details(game_id, star_idx):
-    game_state = _get_game_state(game_id)
-    if not game_state:
+def get_system(game_id, system_id):
+    entry = _entry(game_id)
+    if not entry:
         return jsonify({"error": "Game not found"}), 404
-        
-    stars = game_state.get('galaxy', {}).get('stars', [])
-    if star_idx < 0 or star_idx >= len(stars):
-        return jsonify({"error": "Star not found"}), 404
-        
-    star = stars[star_idx]
-    if "player" not in star.get("explored_by", []):
-        return jsonify({"error": "Star not explored"}), 403
-        
-    return jsonify(star), 200
+    visible = set(entry['game_state'].get('galaxy', {}).get('fog_of_war', {}).get('player', []))
+    if system_id not in visible:
+        return jsonify({"error": "System not explored"}), 403
+    sys = find_system(entry['game_state'], system_id)
+    if not sys:
+        return jsonify({"error": "System not found"}), 404
+    return jsonify(sys), 200

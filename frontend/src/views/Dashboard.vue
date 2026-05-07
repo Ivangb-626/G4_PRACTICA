@@ -73,12 +73,23 @@
 
         <div class="form-row">
           <label>
-            <span>Galaxia</span>
+            <span>Tamano galaxia</span>
             <select v-model="form.galaxy_size" class="retro-input">
               <option v-for="size in scenarioSizes" :key="size" :value="size">{{ size }}</option>
             </select>
           </label>
 
+          <label>
+            <span>Edad galaxia</span>
+            <select v-model="form.galaxy_age" class="retro-input">
+              <option value="early">Temprana</option>
+              <option value="average">Media</option>
+              <option value="late">Tardia</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="form-row">
           <label>
             <span>Dificultad</span>
             <select v-model="form.difficulty" class="retro-input">
@@ -87,11 +98,35 @@
               </option>
             </select>
           </label>
+
+          <label>
+            <span>Tecnologia inicial</span>
+            <select v-model="form.starting_tech_level" class="retro-input">
+              <option value="pre_warp">Pre-Warp</option>
+              <option value="average">Media</option>
+              <option value="advanced">Avanzada</option>
+            </select>
+          </label>
         </div>
 
         <label>
           <span>Numero de oponentes</span>
           <input v-model.number="form.num_opponents" class="retro-input" min="1" :max="scenarioMaxOpponents" type="number" />
+        </label>
+
+        <div class="form-row">
+          <label class="checkbox-row">
+            <input type="checkbox" v-model="form.antaran_attacks_enabled" />
+            <span>Ataques Antaranos</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" v-model="form.orion_guardian_enabled" />
+            <span>Guardian de Orion</span>
+          </label>
+        </div>
+        <label class="checkbox-row">
+          <input type="checkbox" v-model="form.random_events_enabled" />
+          <span>Eventos aleatorios</span>
         </label>
 
         <button class="retro-btn" type="submit" :disabled="creating">
@@ -106,7 +141,10 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../services/api'
+import { useGameStore } from '../store/gameStore'
 import type { GameSummary, Scenario } from '../types/game'
+
+const gameStore = useGameStore()
 
 const router = useRouter()
 
@@ -126,15 +164,20 @@ const form = ref({
   name: 'Partida nueva',
   home_system_name: 'Sol',
   player_race: 'alkari',
-  galaxy_size: 'small',
-  difficulty: 'normal',
-  num_opponents: 1,
+  galaxy_size: 'medium',
+  galaxy_age: 'average',
+  difficulty: 'officer',
+  starting_tech_level: 'average',
+  num_opponents: 3,
+  antaran_attacks_enabled: true,
+  orion_guardian_enabled: true,
+  random_events_enabled: true,
 })
 
 const activeScenario = computed<Scenario | null>(() => scenarios.value[0] || null)
-const scenarioSizes = computed(() => activeScenario.value?.galaxy_sizes || ['small', 'medium', 'large'])
-const scenarioDifficulties = computed(() => activeScenario.value?.difficulty_options || ['easy', 'normal', 'hard'])
-const scenarioMaxOpponents = computed(() => activeScenario.value?.max_opponents || 3)
+const scenarioSizes = computed(() => activeScenario.value?.galaxy_sizes || ['small', 'medium', 'large', 'huge'])
+const scenarioDifficulties = computed(() => activeScenario.value?.difficulty_options || ['gardener', 'officer', 'commander', 'lord', 'impossible'])
+const scenarioMaxOpponents = computed(() => activeScenario.value?.max_opponents || 7)
 
 function raceLabel(raceId?: string) {
   return races.find((race) => race.id === raceId)?.name || raceId || '-'
@@ -151,7 +194,7 @@ async function loadGames() {
   error.value = ''
   try {
     const response = await api.listGames()
-    games.value = Array.isArray(response?.games) ? response.games : []
+    games.value = Array.isArray(response) ? response : (response?.games ?? [])
   } catch (err) {
     error.value = (err as Error).message || 'No se pudieron cargar las partidas.'
     games.value = []
@@ -163,10 +206,12 @@ async function loadGames() {
 async function loadScenarios() {
   try {
     const response = await api.getScenarios()
-    scenarios.value = Array.isArray(response?.scenarios) ? response.scenarios : []
+    scenarios.value = Array.isArray(response) ? response : (response?.scenarios ?? [])
     if (activeScenario.value) {
-      form.value.galaxy_size = activeScenario.value.galaxy_sizes[0]
-      form.value.difficulty = activeScenario.value.difficulty_options[1] || activeScenario.value.difficulty_options[0]
+      const sizes = activeScenario.value.galaxy_sizes || ['small', 'medium', 'large', 'huge']
+      if (!sizes.includes(form.value.galaxy_size)) form.value.galaxy_size = sizes[1] || sizes[0]
+      const diffs = activeScenario.value.difficulty_options || ['officer']
+      if (!diffs.includes(form.value.difficulty)) form.value.difficulty = diffs[1] || diffs[0]
       form.value.num_opponents = Math.min(form.value.num_opponents, activeScenario.value.max_opponents)
     }
   } catch {
@@ -178,13 +223,19 @@ async function createNewGame() {
   creating.value = true
   error.value = ''
   try {
-    const response = await api.createGame(form.value.name, {
+    const response = await gameStore.createGame({
+      name: form.value.name,
       scenario_id: activeScenario.value?.id || 'default',
       galaxy_size: form.value.galaxy_size,
+      galaxy_age: form.value.galaxy_age,
       difficulty: form.value.difficulty,
+      starting_tech_level: form.value.starting_tech_level,
       num_opponents: form.value.num_opponents,
       player_race: form.value.player_race,
       home_system_name: form.value.home_system_name,
+      antaran_attacks_enabled: form.value.antaran_attacks_enabled,
+      orion_guardian_enabled: form.value.orion_guardian_enabled,
+      random_events_enabled: form.value.random_events_enabled,
     })
     router.push(`/game/${response.game_id}/galaxy`)
   } catch (err) {
@@ -196,7 +247,7 @@ async function createNewGame() {
 
 async function openGame(gameId: string) {
   try {
-    await api.loadGame(gameId)
+    await gameStore.loadGame(gameId)
     router.push(`/game/${gameId}/galaxy`)
   } catch (err) {
     error.value = (err as Error).message || 'No se pudo cargar la partida.'
@@ -304,6 +355,13 @@ th {
   color: var(--danger);
   margin-bottom: 1rem;
 }
+
+.checkbox-row {
+  display: flex !important;
+  align-items: center;
+  gap: 0.5rem;
+}
+.checkbox-row input { width: auto; }
 
 @media (max-width: 980px) {
   .dashboard-grid {

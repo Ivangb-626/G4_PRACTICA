@@ -599,6 +599,59 @@ def _reveal_for_owner(game_state, owner_id, system_id):
                 visible.append(connection)
 
 
+def empire_max_jumps(empire):
+    """Numero maximo de saltos interestelares en un solo movimiento.
+
+    El motor base permite 1 salto (sistemas adyacentes). Cada tecnologia de la
+    rama 'power' investigada anade 1 salto extra. Los Trilarian (transdimensional)
+    obtienen +1 base.
+    """
+    if not empire:
+        return 1
+    techs = empire.get("technologies", {}).get("researched", [])
+    power_count = 0
+    for t in techs:
+        if t.get("status") == "discarded":
+            continue
+        # Match by field
+        if t.get("field") == "power":
+            power_count += 1
+            continue
+        # Some tech entries store only tech_id without field; resolve via TECHS catalog
+        cat = TECHS.get(t.get("tech_id"))
+        if cat and cat.get("field") == "power":
+            power_count += 1
+    base = max(1, power_count)
+    flags = (empire.get("race") or {}).get("traits", {}).get("flags", {})
+    if flags.get("transdimensional"):
+        base += 1
+    return base
+
+
+def reachable_systems(game_state, origin_id, max_jumps):
+    """BFS desde origin_id hasta max_jumps saltos. Devuelve set de IDs (excluye origen)."""
+    galaxy = game_state.get("galaxy", {})
+    systems = {s["id"]: s for s in galaxy.get("star_systems", [])}
+    if origin_id not in systems:
+        return set()
+    visited = {origin_id}
+    frontier = [origin_id]
+    for _ in range(max_jumps):
+        next_frontier = []
+        for sid in frontier:
+            sys = systems.get(sid)
+            if not sys:
+                continue
+            for conn in sys.get("connections", []) or []:
+                if conn in visited:
+                    continue
+                visited.add(conn)
+                next_frontier.append(conn)
+        frontier = next_frontier
+    visited.discard(origin_id)
+    return visited
+
+
 def move_fleet(game_state, owner_or_fleet_id, fleet_id=None, destination=None):
     if destination is None:
         destination = fleet_id
@@ -619,12 +672,13 @@ def move_fleet(game_state, owner_or_fleet_id, fleet_id=None, destination=None):
     target = find_system(game_state, destination)
     if not current or not target:
         raise ValueError("Destination not found")
-    if destination not in current.get("connections", []):
-        raise ValueError("Destination not reachable")
+    empire = get_empire(game_state, owner_id)
+    max_jumps = empire_max_jumps(empire)
+    reachable = reachable_systems(game_state, current["id"], max_jumps)
+    if destination not in reachable:
+        raise ValueError(f"Destination out of fuel range (max {max_jumps} jumps)")
 
     slowest = min(SHIP_TYPES[ship["type"]]["speed"] for ship in fleet["ships"] if ship.get("count", 0) > 0)
-    # Trilarian transdimensional: +2 to every ship speed
-    empire = get_empire(game_state, owner_id)
     flags = (empire or {}).get("race", {}).get("traits", {}).get("flags", {})
     if flags.get("transdimensional"):
         slowest += 2

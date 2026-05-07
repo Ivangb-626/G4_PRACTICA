@@ -1,121 +1,118 @@
-const BASE_URL = window.location.origin;
-
-async function request(path: string, options: RequestInit = {}) {
-  const token = localStorage.getItem('token');
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    ...options.headers,
-  };
-
-  const response = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || `HTTP ${response.status}`);
-  }
-
-  return response.json();
-}
+/**
+ * Compatibility shim. The canonical API client is in `services/api.ts`.
+ * This module re-exports it under the legacy nested structure used by
+ * older views (auth/game/galaxy/colony/fleet/cheat/leaders/diplomacy/research/espionage).
+ */
+import { api as flatApi } from '../services/api'
 
 export const api = {
   auth: {
-    login: (username, password) => request('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ username, password }),
-    }),
-    register: (username, email, password) => request('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ username, email, password }),
-    }),
-    profile: () => request('/api/auth/profile'),
+    login: flatApi.login,
+    register: flatApi.register,
+    profile: flatApi.getProfile,
   },
   game: {
-    new: (name, scenario_id) => request('/api/game/new', {
-      method: 'POST',
-      body: JSON.stringify({ name, scenario_id }),
-    }),
-    list: () => request('/api/game/list'),
-    get: (id) => request(`/api/game/${id}`),
-    delete: (id) => request(`/api/game/${id}`, { method: 'DELETE' }),
-    endTurn: (id) => request(`/api/game/${id}/end-turn`, { method: 'POST' }),
-    getTopHallOfFame: () => request('/api/game/hall-of-fame'),
+    new: (config: Record<string, unknown>) => flatApi.createGame(config),
+    list: flatApi.listGames,
+    get: flatApi.loadGame,
+    delete: flatApi.deleteGame,
+    endTurn: flatApi.endTurn,
+    score: flatApi.getScore,
+    getTopHallOfFame: flatApi.getHallOfFame,
+    scenarios: flatApi.getScenarios,
   },
   galaxy: {
-    get: (id) => request(`/api/game/${id}/galaxy`),
-    getStar: (id, starIdx) => request(`/api/game/${id}/galaxy/star/${starIdx}`),
+    get: flatApi.getGalaxy,
+    getSystem: flatApi.getSystem,
   },
   colony: {
-    list: (id) => request(`/api/game/${id}/colony`),
-    get: (id, colonyId) => request(`/api/game/${id}/colony/${colonyId}`),
-    assign: (id, colonyId, assignment) => request(`/api/game/${id}/colony/${colonyId}/assign`, {
-      method: 'POST',
-      body: JSON.stringify(assignment),
-    }),
-    buildQueue: (id, colonyId, item) => request(`/api/game/${id}/colony/${colonyId}/build-queue`, {
-      method: 'POST',
-      body: JSON.stringify(item),
-    }),
-    removeQueueItem: (id, colonyId, idx) => request(`/api/game/${id}/colony/${colonyId}/build-queue/${idx}`, {
-      method: 'DELETE',
-    }),
+    list: flatApi.listColonies,
+    get: flatApi.getColony,
+    assign: (gameId: string, colonyId: string, payload: { farmers: number; workers: number; scientists: number }) =>
+      flatApi.assignPopulation(gameId, colonyId, payload),
+    buildQueue: (gameId: string, colonyId: string, item: { item_type: 'building' | 'ship'; item_id: string }) =>
+      flatApi.addBuildQueueItem(gameId, colonyId, item.item_type, item.item_id),
+    removeQueueItem: flatApi.removeBuildQueueItem,
   },
   fleet: {
-    list: (id) => request(`/api/game/${id}/fleet`),
-    move: (id, fleetId, starIdx) => request(`/api/game/${id}/fleet/${fleetId}/move`, {
-      method: 'POST',
-      body: JSON.stringify({ star_idx: starIdx }),
-    }),
-    colonize: (id, fleetId, planetIdx) => request(`/api/game/${id}/fleet/${fleetId}/colonize`, {
-      method: 'POST',
-      body: JSON.stringify({ planet_idx: planetIdx }),
-    }),
-  },
-  cheat: {
-    apply: (id, code) => request(`/api/game/${id}/cheat`, {
-      method: 'POST',
-      body: JSON.stringify({ code }),
-    }),
-    codes: (id) => request(`/api/game/${id}/cheat/codes`),
-  },
-  leaders: {
-    list: (id) => request(`/api/game/${id}/leaders`),
-    available: (id) => request(`/api/game/${id}/leaders/available`),
-    hire: (id, leaderId) => request(`/api/game/${id}/leaders/hire`, {
-      method: 'POST',
-      body: JSON.stringify({ leader_id: leaderId }),
-    }),
-  },
-  diplomacy: {
-    list: (id) => request(`/api/game/${id}/diplomacy`),
-    propose: (id, body) => request(`/api/game/${id}/diplomacy/propose`, {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
-    declareWar: (id, targetId) => request(`/api/game/${id}/diplomacy/war`, {
-      method: 'POST',
-      body: JSON.stringify({ target_id: targetId }),
-    }),
+    list: flatApi.listFleets,
+    move: flatApi.moveFleet,
+    colonize: flatApi.colonizePlanet,
+    split: flatApi.splitFleet,
+    merge: flatApi.mergeFleets,
+    disband: flatApi.disbandFleet,
+    range: flatApi.getFleetRange,
+    reachable: flatApi.getFleetReachable,
   },
   research: {
-    get: (id) => request(`/api/game/${id}/research`),
-    select: (id, techId) => request(`/api/game/${id}/research/select`, {
-      method: 'POST',
-      body: JSON.stringify({ tech_id: techId }),
-    }),
+    get: flatApi.getResearch,
+    select: (gameId: string, payload: { field: string; level: number; tech_id: string } | string) => {
+      if (typeof payload === 'string') {
+        return flatApi.selectResearch(gameId, { field: '', level: 1, tech_id: payload })
+      }
+      return flatApi.selectResearch(gameId, payload)
+    },
+  },
+  diplomacy: {
+    list: flatApi.getDiplomacy,
+    propose: (gameId: string, body: any) => flatApi.proposeTreaty(gameId, body.target, body.type || body.treaty_type, body.terms),
+    accept: flatApi.acceptTreaty,
+    reject: flatApi.rejectTreaty,
+    declareWar: flatApi.declareWar,
+    surrender: flatApi.surrender,
+    gift: flatApi.giveGift,
+    demand: flatApi.makeDemand,
+    techTrade: flatApi.techTrade,
+    blackmail: flatApi.blackmail,
+    aiEvaluate: flatApi.aiEvaluateProposal,
   },
   espionage: {
-    list: (id) => request(`/api/game/${id}/espionage`),
-    recruit: (id, level) => request(`/api/game/${id}/espionage/recruit`, {
-      method: 'POST',
-      body: JSON.stringify({ level }),
-    }),
-    mission: (id, spyId, targetPlayer, missionType) => request(`/api/game/${id}/espionage/mission`, {
-      method: 'POST',
-      body: JSON.stringify({ spy_id: spyId, target_player: targetPlayer, mission_type: missionType }),
-    }),
+    list: flatApi.listSpies,
+    recruit: flatApi.recruitSpy,
+    mission: flatApi.assignSpyMission,
   },
-};
+  leaders: {
+    list: flatApi.listHiredLeaders,
+    available: flatApi.listAvailableLeaders,
+    hire: flatApi.hireLeader,
+    assign: flatApi.assignLeader,
+    unassign: flatApi.unassignLeader,
+    dismiss: flatApi.dismissLeader,
+  },
+  shipDesign: {
+    catalog: flatApi.getShipDesignCatalog,
+    list: flatApi.listShipDesigns,
+    create: flatApi.createShipDesign,
+    delete: flatApi.deleteShipDesign,
+  },
+  council: {
+    votes: flatApi.getCouncilVotes,
+    convene: flatApi.conveneCouncil,
+    vote: flatApi.voteCouncil,
+  },
+  combat: {
+    auto: flatApi.combatAuto,
+    monster: flatApi.fightMonster,
+    defeatGuardian: flatApi.defeatGuardian,
+    buildPortal: flatApi.buildDimensionalPortal,
+    assaultAntaran: flatApi.assaultAntaranHomeworld,
+    tacticalStart: flatApi.combatTacticalStart,
+    tacticalAuto: flatApi.combatTacticalAuto,
+    tacticalAction: flatApi.combatTacticalAction,
+  },
+  ground: {
+    assault: flatApi.groundAssault,
+    mindControl: flatApi.mindControl,
+    bombard: flatApi.bombardColony,
+  },
+  raceDesign: {
+    options: flatApi.getRaceDesignOptions,
+    validate: flatApi.validateRaceDesign,
+  },
+  cheat: {
+    apply: (gameId: string, code: string, target?: Record<string, unknown>) => flatApi.applyCheat(gameId, code, target),
+    codes: flatApi.listCheatCodes,
+  },
+}
+
+export default api

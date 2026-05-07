@@ -2,103 +2,190 @@
   <div :style="styles.panel">
     <div :style="styles.head">
       <div>
-        <h2 :style="styles.title">DIPLOMATIC CORPS</h2>
-        <div :style="styles.tabs">
-          <button v-for="t in tabs" :key="t.id" :style="getTabStyle(t.id)" @click="activeTab = t.id">{{ t.label }}</button>
-        </div>
+        <h2 :style="styles.title">CUERPO DIPLOMATICO</h2>
+        <p :style="styles.subtitle">Tratados, regalos, demandas y declaraciones de guerra.</p>
       </div>
-      <button :style="styles.btn(hovered.refresh)" @mouseover="hovered.refresh=true" @mouseleave="hovered.refresh=false" @click="loadRelations">REFRESH</button>
+      <button :style="styles.btn" @click="reload">REFRESH</button>
     </div>
 
-    <!-- Relations Table -->
-    <div :style="styles.content">
-      <table :style="styles.table">
-        <thead>
-          <tr>
-            <th :style="styles.th">FACTION</th>
-            <th :style="styles.th">RELATION</th>
-            <th :style="styles.th">STATUS</th>
-            <th :style="styles.th">ACTION</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="rel in gameStore.relations" :key="rel.other" :style="styles.tr">
-            <td :style="styles.td">
-              <strong :style="{ color: getRaceColor(rel.other) }">{{ rel.other.toUpperCase() }}</strong>
-            </td>
-            <td :style="getRelationStyle(rel.value)">{{ rel.value }}</td>
-            <td :style="styles.td">{{ rel.status.replace('_', ' ').toUpperCase() }}</td>
-            <td :style="styles.td">
-              <button :style="styles.btnSmall(hovered[rel.other+'p'])" @mouseover="hovered[rel.other+'p']=true" @mouseleave="hovered[rel.other+'p']=false" @click="propose(rel.other)">PROPOSE</button>
-              <button :style="styles.btnDanger(hovered[rel.other+'w'])" @mouseover="hovered[rel.other+'w']=true" @mouseleave="hovered[rel.other+'w']=false" @click="declareWar(rel.other)">WAR</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <p v-if="error" :style="styles.error">{{ error }}</p>
+    <p v-if="info" :style="styles.info">{{ info }}</p>
+
+    <!-- Relations -->
+    <h3 :style="styles.h3">Relaciones</h3>
+    <table :style="styles.table">
+      <thead>
+        <tr>
+          <th :style="styles.th">FACCION</th>
+          <th :style="styles.th">VALOR</th>
+          <th :style="styles.th">ESTADO</th>
+          <th :style="styles.th">ACCIONES</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="rel in relationRows" :key="rel.other">
+          <td :style="styles.td"><strong :style="{ color: '#88ff88' }">{{ rel.other.toUpperCase() }}</strong></td>
+          <td :style="getRelationStyle(rel.value)">{{ rel.value }}</td>
+          <td :style="styles.td">{{ rel.state.toUpperCase() }}</td>
+          <td :style="styles.td">
+            <button :style="styles.btnSmall" @click="proposeTreaty(rel.other, 'non_aggression_pact')">NAP</button>
+            <button :style="styles.btnSmall" @click="proposeTreaty(rel.other, 'trade_treaty')">COMERCIO</button>
+            <button :style="styles.btnSmall" @click="proposeTreaty(rel.other, 'alliance')">ALIANZA</button>
+            <button :style="styles.btnSmall" @click="giftBC(rel.other)">REGALO 50 BC</button>
+            <button :style="styles.btnDanger" @click="declareWar(rel.other)">GUERRA</button>
+            <button :style="styles.btnDanger" @click="surrender(rel.other)">RENDIRSE</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Treaties -->
+    <h3 :style="styles.h3">Tratados activos</h3>
+    <ul :style="styles.list">
+      <li v-for="t in treaties" :key="t.id" :style="styles.li">
+        <strong>{{ t.type.toUpperCase() }}</strong> · {{ (t.parties || []).join(' & ') }}
+        · turno {{ t.signed_at_turn }}
+        <span v-if="t.expires_at_turn"> - expira en T{{ t.expires_at_turn }}</span>
+      </li>
+      <li v-if="!treaties.length" :style="styles.empty">No hay tratados activos.</li>
+    </ul>
+
+    <!-- Tech trade -->
+    <h3 :style="styles.h3">Intercambio de tecnologia</h3>
+    <div :style="styles.row">
+      <select v-model="trade.target" :style="styles.select">
+        <option value="">Objetivo</option>
+        <option v-for="rel in relationRows" :key="rel.other" :value="rel.other">{{ rel.other }}</option>
+      </select>
+      <input v-model="trade.offered" :style="styles.input" placeholder="tech ofrecida" />
+      <input v-model="trade.requested" :style="styles.input" placeholder="tech solicitada" />
+      <button :style="styles.btnSmall" @click="techTrade">PROPONER</button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
-import { useGameStore } from '../store/gameStore';
-import { api } from '../api/client';
-import { Theme, createPanelStyle, btnStyle } from '../styles/styleSystem';
+import { computed, onMounted, ref } from 'vue'
+import { useGameStore } from '../store/gameStore'
+import { api } from '../api/client'
+import { Theme, createPanelStyle, btnStyle } from '../styles/styleSystem'
 
-const gameStore = useGameStore();
-const activeTab = ref('relations');
-const hovered = reactive<Record<string, boolean>>({});
+const gameStore = useGameStore()
+const error = ref('')
+const info = ref('')
+const trade = ref({ target: '', offered: '', requested: '' })
 
-const tabs = [
-  { id: 'relations', label: 'RELATIONS' },
-  { id: 'intel', label: 'INTEL' },
-  { id: 'trade', label: 'TRADE' }
-];
+const relations = computed<Record<string, any>>(() => gameStore.diplomacy?.relations || {})
+const treaties = computed<any[]>(() => (gameStore.diplomacy?.treaties || []).filter((t: any) => t.active))
+
+const relationRows = computed(() => {
+  const out: Array<{ other: string; value: number; state: string }> = []
+  Object.entries(relations.value).forEach(([key, rel]) => {
+    const parts = key.split('|')
+    const other = parts.find((p) => p !== 'player')
+    if (!other || other === 'antaranos') return
+    out.push({ other, value: rel.value ?? 0, state: rel.state ?? 'neutral' })
+  })
+  return out.sort((a, b) => a.other.localeCompare(b.other))
+})
 
 const styles = {
   panel: createPanelStyle(),
-  head: { display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' },
-  title: { margin: 0, fontSize: '2rem', color: Theme.colors.primary, letterSpacing: '0.2em', textShadow: Theme.effects.glow },
-  tabs: { display: 'flex', gap: '0.5rem', marginTop: '1rem' },
-  btn: (h: boolean) => btnStyle(h),
-  btnSmall: (h: boolean) => ({ ...btnStyle(h), padding: '0.3rem 0.6rem', fontSize: '0.75rem', marginRight: '0.5rem' }),
-  btnDanger: (h: boolean) => ({ ...btnStyle(h), borderColor: Theme.colors.danger, color: Theme.colors.danger, backgroundColor: h ? Theme.colors.danger : 'transparent', padding: '0.3rem 0.6rem', fontSize: '0.75rem' }),
-  content: { marginTop: '1rem' },
-  table: { width: '100%', borderCollapse: 'collapse' as const },
-  th: { textAlign: 'left' as const, padding: '1rem', color: Theme.colors.textMuted, fontSize: '0.8rem', textTransform: 'uppercase' as const },
-  td: { padding: '1rem', borderBottom: `1px solid ${Theme.colors.border}` },
-  tr: { transition: 'background 0.2s', '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }
-};
-
-function getTabStyle(id: string) {
-  const isActive = activeTab.value === id;
-  return {
-    padding: '0.4rem 0.8rem',
-    backgroundColor: isActive ? Theme.colors.primary : 'transparent',
-    color: isActive ? '#000' : Theme.colors.primary,
-    border: `1px solid ${Theme.colors.primary}`,
-    cursor: 'pointer',
-    fontSize: '0.75rem',
-    fontWeight: 'bold' as const,
-  };
-}
-
-function getRaceColor(raceId: string) {
-  return { alkari: Theme.colors.ok, meklar: Theme.colors.danger, trilarian: Theme.colors.primary }[raceId] || '#fff';
+  head: { display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', borderBottom: `1px solid ${Theme.colors.border}`, paddingBottom: '1rem' },
+  title: { margin: 0, fontSize: '1.6rem', color: Theme.colors.primary, letterSpacing: '0.18em' },
+  subtitle: { margin: '0.3rem 0 0', color: Theme.colors.textMuted, fontSize: '0.85rem' },
+  h3: { color: Theme.colors.secondary, marginTop: '1.4rem', marginBottom: '0.6rem', fontSize: '1rem', letterSpacing: '0.1em' },
+  btn: btnStyle(),
+  btnSmall: { ...btnStyle(), padding: '0.25rem 0.55rem', fontSize: '0.7rem', marginRight: '0.3rem', marginBottom: '0.3rem' },
+  btnDanger: { ...btnStyle(), padding: '0.25rem 0.55rem', fontSize: '0.7rem', borderColor: Theme.colors.danger, color: Theme.colors.danger, marginRight: '0.3rem' },
+  table: { width: '100%', borderCollapse: 'collapse' as const, marginBottom: '0.5rem' },
+  th: { textAlign: 'left' as const, padding: '0.5rem', color: Theme.colors.textMuted, fontSize: '0.75rem', textTransform: 'uppercase' as const, borderBottom: `1px solid ${Theme.colors.border}` },
+  td: { padding: '0.5rem', borderBottom: '1px solid rgba(89, 170, 255, 0.15)', fontSize: '0.85rem' },
+  list: { margin: '0.5rem 0', padding: 0, listStyle: 'none' as const },
+  li: { padding: '0.4rem 0.6rem', backgroundColor: Theme.colors.bgDark, border: `1px solid ${Theme.colors.border}`, borderRadius: '4px', marginBottom: '0.3rem', fontSize: '0.85rem' },
+  empty: { color: Theme.colors.textMuted, fontStyle: 'italic' as const, padding: '0.4rem' },
+  row: { display: 'flex', gap: '0.4rem', flexWrap: 'wrap' as const, alignItems: 'center' },
+  select: { backgroundColor: Theme.colors.bgDark, color: Theme.colors.primary, border: `1px solid ${Theme.colors.primary}`, padding: '0.3rem 0.5rem', fontSize: '0.8rem' },
+  input: { backgroundColor: Theme.colors.bgDark, color: Theme.colors.text, border: `1px solid ${Theme.colors.primary}`, padding: '0.3rem 0.5rem', fontSize: '0.8rem' },
+  error: { color: Theme.colors.danger, marginBottom: '0.6rem' },
+  info: { color: Theme.colors.ok, marginBottom: '0.6rem' },
 }
 
 function getRelationStyle(value: number) {
-  return { padding: '1rem', color: value > 50 ? Theme.colors.ok : value < 0 ? Theme.colors.danger : Theme.colors.text, fontWeight: 'bold' as const };
+  return {
+    padding: '0.5rem',
+    color: value > 50 ? Theme.colors.ok : value < 0 ? Theme.colors.danger : Theme.colors.text,
+    fontWeight: 'bold' as const,
+    borderBottom: '1px solid rgba(89, 170, 255, 0.15)',
+  }
 }
 
-async function loadRelations() {
-  if (!gameStore.gameId) return;
-  const res = await api.diplomacy.list(gameStore.gameId);
-  gameStore.relations = res || [];
+async function reload() {
+  error.value = ''
+  info.value = ''
+  if (!gameStore.gameId) return
+  try {
+    await gameStore.fetchDiplomacy()
+  } catch (err: any) {
+    error.value = err.message || 'No se pudieron cargar las relaciones'
+  }
 }
 
-async function propose(targetId: string) {}
-async function declareWar(targetId: string) { if (confirm('DECLARE WAR?')) {} }
+async function proposeTreaty(target: string, type: string) {
+  try {
+    const res = await gameStore.proposeTreaty(target, type)
+    info.value = res?.accepted ? `${target} acepto ${type}` : `${target} rechazo ${type}`
+  } catch (err: any) {
+    error.value = err.message || 'Error en la propuesta'
+  }
+}
 
-onMounted(loadRelations);
+async function declareWar(target: string) {
+  if (!confirm(`Declarar guerra a ${target}?`)) return
+  try {
+    await gameStore.declareWar(target)
+    info.value = `Guerra declarada a ${target}`
+  } catch (err: any) {
+    error.value = err.message
+  }
+}
+
+async function surrender(target: string) {
+  if (!confirm(`Rendirse ante ${target}? PERDERAS TUS COLONIAS.`)) return
+  try {
+    await api.diplomacy.surrender(gameStore.gameId!, target)
+    info.value = 'Rendicion entregada'
+    await reload()
+  } catch (err: any) {
+    error.value = err.message
+  }
+}
+
+async function giftBC(target: string) {
+  try {
+    await api.diplomacy.gift(gameStore.gameId!, target, { bc: 50 })
+    info.value = `Regalo de 50 BC enviado a ${target}`
+    await reload()
+  } catch (err: any) {
+    error.value = err.message
+  }
+}
+
+async function techTrade() {
+  if (!trade.value.target || !trade.value.offered || !trade.value.requested) return
+  try {
+    const res = await api.diplomacy.techTrade(
+      gameStore.gameId!,
+      trade.value.target,
+      trade.value.offered,
+      trade.value.requested,
+    )
+    info.value = res?.accepted ? 'Intercambio aceptado' : 'Intercambio rechazado'
+    await reload()
+  } catch (err: any) {
+    error.value = err.message
+  }
+}
+
+onMounted(reload)
 </script>

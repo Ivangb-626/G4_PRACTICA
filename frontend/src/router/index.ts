@@ -12,6 +12,10 @@ import SystemView from '../views/SystemView.vue'
 import TechTree from '../views/TechTree.vue'
 import EspionageView from '../views/EspionageView.vue'
 import LeadersView from '../views/LeadersView.vue'
+import CouncilView from '../views/CouncilView.vue'
+import ScoreView from '../views/ScoreView.vue'
+import ShipDesignerView from '../views/ShipDesignerView.vue'
+import CheatsView from '../views/CheatsView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -31,9 +35,13 @@ const router = createRouter({
         { path: 'colony/:colId', component: ColonyView, props: true },
         { path: 'tech', component: TechTree },
         { path: 'fleets', component: FleetManager },
+        { path: 'ships', component: ShipDesignerView },
         { path: 'diplomacy', component: DiplomacyView },
         { path: 'espionage', component: EspionageView },
         { path: 'leaders', component: LeadersView },
+        { path: 'council', component: CouncilView },
+        { path: 'score', component: ScoreView },
+        { path: 'cheats', component: CheatsView },
         { path: 'combat/:combatId', component: CombatResult, props: true },
       ],
     },

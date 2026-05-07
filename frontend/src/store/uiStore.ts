@@ -20,7 +20,7 @@ export type ScreenName =
 export const useUIStore = defineStore('ui', {
   state: () => ({
     activeScreen: 'main_menu' as ScreenName,
-    selectedStarIndex: null as number | null,
+    selectedSystemId: null as string | null,
     selectedColonyId: null as string | null,
     sidebarOpen: false,
     cheatInput: '',
@@ -31,8 +31,8 @@ export const useUIStore = defineStore('ui', {
     setScreen(screen: ScreenName) {
       this.activeScreen = screen;
     },
-    selectStar(index: number | null) {
-      this.selectedStarIndex = index;
+    selectSystem(id: string | null) {
+      this.selectedSystemId = id;
     },
     selectColony(id: string | null) {
       this.selectedColonyId = id;

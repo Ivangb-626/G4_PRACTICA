@@ -2,57 +2,57 @@
   <div :style="styles.panel">
     <div :style="styles.head">
       <div>
-        <h2 :style="styles.title">INTELLIGENCE NETWORK</h2>
-        <p :style="styles.subtitle">Shadow operations, deep cover agents, and counter-intelligence protocols.</p>
+        <h2 :style="styles.title">RED DE ESPIONAJE</h2>
+        <p :style="styles.subtitle">Reclutamiento de espias y operaciones encubiertas.</p>
       </div>
-      <button :style="styles.btn" @click="fetchSpies">REFRESH</button>
+      <button :style="styles.btn" @click="reload">REFRESH</button>
     </div>
 
+    <p v-if="error" :style="styles.error">{{ error }}</p>
+    <p v-if="info" :style="styles.info">{{ info }}</p>
+
     <div :style="styles.mainGrid">
-      <!-- Roster -->
       <div :style="styles.innerPanel">
         <div :style="styles.innerHead">
-          <h3 :style="styles.innerTitle">ACTIVE AGENTS</h3>
-          <div :style="{ display: 'flex', gap: '0.5rem' }">
-            <select v-model="recruitLevel" :style="styles.selectSmall">
-              <option :value="1">LVL 1 (50 BC)</option>
-              <option :value="2">LVL 2 (100 BC)</option>
-              <option :value="3">LVL 3 (200 BC)</option>
-              <option :value="4">LVL 4 (400 BC)</option>
-            </select>
-            <button :style="styles.btnSmall" @click="recruitSpy">RECRUIT</button>
-          </div>
+          <h3 :style="styles.innerTitle">AGENTES ACTIVOS</h3>
+          <button :style="styles.btnSmall" @click="recruit">RECLUTAR</button>
         </div>
 
+        <div v-if="!spies.length" :style="styles.empty">No hay espias todavia.</div>
         <div :style="styles.spyList">
-          <div v-for="spy in spies" :key="spy.id" 
+          <div v-for="spy in spies" :key="spy.id"
                :style="getSpyCardStyle(spy.id)"
                @click="selectedSpyId = spy.id">
-            <div :style="{ display: 'flex', justifyContent: 'space-between' }">
-              <strong :style="{ color: '#fff' }">{{ spy.name }}</strong>
-              <span :style="{ color: '#00ffff', fontSize: '0.8rem' }">L{{ spy.level }} · {{ spy.level_name }}</span>
+            <div :style="styles.spyHead">
+              <strong :style="{ color: '#fff' }">{{ spy.id }}</strong>
+              <span :style="{ color: '#00ffff', fontSize: '0.75rem' }">EXP {{ spy.experience || 0 }}</span>
             </div>
-            <div :style="getStatusStyle(spy)">{{ spy.status.toUpperCase() }}</div>
+            <div :style="styles.spyMeta">
+              Asignado: <em>{{ spy.assignment || 'sin asignacion' }}</em>
+              <span v-if="spy.mission"> · Mision: {{ spy.mission }}</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Control -->
       <div :style="styles.innerPanel">
-        <h3 :style="styles.innerTitle">MISSION CONTROL</h3>
-        <div v-if="!selectedSpyId" :style="styles.placeholder">SELECT AN AGENT TO BEGIN OPERATIONS.</div>
+        <h3 :style="styles.innerTitle">CENTRO DE OPERACIONES</h3>
+        <div v-if="!selectedSpyId" :style="styles.placeholder">Selecciona un agente para asignar mision.</div>
         <div v-else :style="styles.form">
-          <label :style="styles.label">TARGET EMPIRE</label>
-          <input v-model="targetPlayer" :style="styles.input" placeholder="e.g. ai_0" />
+          <label :style="styles.label">IMPERIO OBJETIVO</label>
+          <select v-model="targetEmpire" :style="styles.input">
+            <option value="">selecciona</option>
+            <option v-for="ai in aiTargets" :key="ai" :value="ai">{{ ai }}</option>
+          </select>
 
-          <label :style="styles.label">OPERATION TYPE</label>
+          <label :style="styles.label">OPERACION</label>
           <select v-model="selectedMission" :style="styles.input">
             <option v-for="m in missionTypes" :key="m" :value="m">{{ m.toUpperCase().replace('_', ' ') }}</option>
           </select>
 
-          <div :style="{ display: 'flex', gap: '1rem', marginTop: '1rem' }">
-            <button :style="styles.btnDanger" @click="assignMission">LAUNCH MISSION</button>
-            <button :style="styles.btn" @click="assignDefense">DEFENSE</button>
+          <div :style="{ display: 'flex', gap: '0.6rem', marginTop: '0.8rem', flexWrap: 'wrap' }">
+            <button :style="styles.btnDanger" @click="assignMission">LANZAR MISION</button>
+            <button :style="styles.btnSmall" @click="assignDefense">DEFENSA</button>
           </div>
         </div>
       </div>
@@ -61,106 +61,104 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useGameStore } from '../store/gameStore';
-import { api } from '../api/client';
-import { Theme, createPanelStyle, btnStyle } from '../styles/styleSystem';
+import { computed, onMounted, ref } from 'vue'
+import { useGameStore } from '../store/gameStore'
+import { Theme, createPanelStyle, btnStyle } from '../styles/styleSystem'
 
-const gameStore = useGameStore();
-const spies = ref<any[]>([]);
-const selectedSpyId = ref<string | null>(null);
-const recruitLevel = ref<number>(1);
-const targetPlayer = ref<string>('');
-const selectedMission = ref<string>('steal_tech');
-const missionTypes = ['steal_tech', 'sabotage', 'assassinate', 'incite_rebellion'];
+const gameStore = useGameStore()
+const error = ref('')
+const info = ref('')
+
+const selectedSpyId = ref<string | null>(null)
+const targetEmpire = ref<string>('')
+const selectedMission = ref<string>('steal_tech')
+const missionTypes = ['steal_tech', 'sabotage', 'incite_rebellion', 'frame']
+
+const spies = computed<any[]>(() => gameStore.spies || [])
+const aiTargets = computed<string[]>(() => {
+  const game = gameStore.game as any
+  const ais = (game?.ai_players || []).map((ai: any) => ai.id)
+  return ais
+})
 
 const styles = {
   panel: createPanelStyle(),
-  head: { display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', borderBottom: `1px solid ${Theme.colors.border}`, paddingBottom: '1rem' },
-  title: { margin: 0, fontSize: '2rem', color: Theme.colors.primary, letterSpacing: '0.2em', textShadow: Theme.effects.glow },
-  subtitle: { margin: '0.3rem 0 0', color: Theme.colors.textMuted, fontSize: '0.9rem' },
-  mainGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' },
-  innerPanel: createPanelStyle(),
-  innerHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' },
-  innerTitle: { margin: '0 0 1rem', fontSize: '1.2rem', color: Theme.colors.secondary },
-  spyList: { display: 'flex', flexDirection: 'column' as const, gap: '0.8rem' },
+  head: { display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', borderBottom: `1px solid ${Theme.colors.border}`, paddingBottom: '1rem' },
+  title: { margin: 0, fontSize: '1.6rem', color: Theme.colors.primary, letterSpacing: '0.18em' },
+  subtitle: { margin: '0.3rem 0 0', color: Theme.colors.textMuted, fontSize: '0.85rem' },
+  mainGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' },
+  innerPanel: { padding: '0.9rem', backgroundColor: Theme.colors.bgDark, border: `1px solid ${Theme.colors.border}`, borderRadius: '8px' },
+  innerHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.7rem' },
+  innerTitle: { margin: 0, fontSize: '1rem', color: Theme.colors.secondary, letterSpacing: '0.1em' },
+  spyList: { display: 'flex', flexDirection: 'column' as const, gap: '0.6rem' },
+  spyHead: { display: 'flex', justifyContent: 'space-between' },
+  spyMeta: { fontSize: '0.75rem', color: Theme.colors.textMuted, marginTop: '0.25rem' },
+  empty: { color: Theme.colors.textMuted, fontStyle: 'italic' as const, marginTop: '0.4rem' },
+  placeholder: { padding: '2rem', textAlign: 'center' as const, color: Theme.colors.textMuted, fontStyle: 'italic' as const },
+  form: { display: 'flex', flexDirection: 'column' as const, gap: '0.5rem' },
+  label: { fontSize: '0.75rem', color: Theme.colors.textMuted },
+  input: { backgroundColor: '#070f24', color: Theme.colors.text, border: `1px solid ${Theme.colors.primary}`, padding: '0.4rem', borderRadius: '4px' },
   btn: btnStyle(),
   btnSmall: { ...btnStyle(), padding: '0.3rem 0.6rem', fontSize: '0.75rem' },
-  btnDanger: {
-    ...btnStyle(),
-    borderColor: Theme.colors.danger,
-    color: Theme.colors.danger,
-    backgroundColor: 'transparent',
-    flex: 1,
-  },
-  selectSmall: { backgroundColor: Theme.colors.bgDark, color: Theme.colors.primary, border: `1px solid ${Theme.colors.primary}`, fontSize: '0.75rem', padding: '0.3rem' },
-  placeholder: { padding: '4rem', textAlign: 'center' as const, color: Theme.colors.textMuted, fontStyle: 'italic' },
-  form: { display: 'flex', flexDirection: 'column' as const, gap: '1rem' },
-  label: { fontSize: '0.8rem', color: Theme.colors.textMuted },
-  input: { backgroundColor: Theme.colors.bgDark, color: Theme.colors.text, border: `1px solid ${Theme.colors.primary}`, padding: '0.6rem', borderRadius: '4px' },
-};
+  btnDanger: { ...btnStyle(), borderColor: Theme.colors.danger, color: Theme.colors.danger, padding: '0.4rem 0.8rem', fontSize: '0.8rem' },
+  error: { color: Theme.colors.danger, marginBottom: '0.5rem' },
+  info: { color: Theme.colors.ok, marginBottom: '0.5rem' },
+}
 
 function getSpyCardStyle(id: string) {
-  const isSelected = selectedSpyId.value === id;
+  const isSelected = selectedSpyId.value === id
   return {
-    padding: '1rem',
-    backgroundColor: isSelected ? Theme.colors.bgGlass : Theme.colors.bgDark,
+    padding: '0.6rem 0.7rem',
+    backgroundColor: isSelected ? '#162244' : '#070f24',
     border: `1px solid ${isSelected ? Theme.colors.primary : Theme.colors.border}`,
     borderRadius: '4px',
     cursor: 'pointer',
-    transition: 'all 0.2s',
-  };
-}
-
-function getStatusStyle(spy: any) {
-  let color = '#44ee44';
-  if (spy.status === 'compromised') color = '#ff4444';
-  if (spy.status === 'on_mission') color = '#ffd700';
-
-  return {
-    fontSize: '0.75rem',
-    marginTop: '0.4rem',
-    color,
-  };
-}
-
-async function fetchSpies() {
-  if (!gameStore.gameId) return;
-  try {
-    const res = await api.espionage.list(gameStore.gameId);
-    spies.value = res || [];
-  } catch (err) {
-    console.error(err);
+    transition: 'all 0.15s',
   }
 }
 
-async function recruitSpy() {
-  if (!gameStore.gameId) return;
+async function reload() {
+  error.value = ''
+  info.value = ''
+  if (!gameStore.gameId) return
   try {
-    await api.espionage.recruit(gameStore.gameId, recruitLevel.value);
-    fetchSpies();
-  } catch (err) {
-    console.error(err);
+    await gameStore.fetchSpies()
+  } catch (err: any) {
+    error.value = err.message
+  }
+}
+
+async function recruit() {
+  error.value = ''
+  info.value = ''
+  try {
+    const res = await gameStore.recruitSpy()
+    if (res?.success) info.value = `Espia reclutado por ${res.cost} BC`
+    else error.value = res?.reason || 'No se pudo reclutar'
+  } catch (err: any) {
+    error.value = err.message
   }
 }
 
 async function assignMission() {
-  if (!gameStore.gameId || !selectedSpyId.value) return;
+  if (!selectedSpyId.value || !targetEmpire.value) return
   try {
-    await api.espionage.mission(gameStore.gameId, selectedSpyId.value, targetPlayer.value, selectedMission.value);
-    fetchSpies();
-  } catch (err) {
-    console.error(err);
+    const res = await gameStore.assignSpy(selectedSpyId.value, targetEmpire.value, selectedMission.value)
+    info.value = res?.success ? 'Mision asignada' : res?.reason || 'Falla al asignar mision'
+  } catch (err: any) {
+    error.value = err.message
   }
 }
 
 async function assignDefense() {
-  // Defense logic
+  if (!selectedSpyId.value) return
+  try {
+    await gameStore.assignSpy(selectedSpyId.value, '', 'defense')
+    info.value = 'Asignado a defensa'
+  } catch (err: any) {
+    error.value = err.message
+  }
 }
 
-onMounted(() => {
-  if (gameStore.gameId) {
-    fetchSpies();
-  }
-});
+onMounted(reload)
 </script>

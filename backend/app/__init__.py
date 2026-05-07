@@ -41,6 +41,15 @@ def create_app():
     from app.routes.ship_design import ship_design_bp
     app.register_blueprint(ship_design_bp, url_prefix='/api/game/<game_id>/ship-design')
 
+    from app.routes.council import council_bp
+    app.register_blueprint(council_bp, url_prefix='/api/game/<game_id>/council')
+
+    from app.routes.ground import ground_bp
+    app.register_blueprint(ground_bp, url_prefix='/api/game/<game_id>/ground')
+
+    from app.routes.race_design import race_design_bp
+    app.register_blueprint(race_design_bp, url_prefix='/api/race-design')
+
     from app.routes.cheat import cheat_bp
     app.register_blueprint(cheat_bp, url_prefix='/api/game/<game_id>/cheat')
 

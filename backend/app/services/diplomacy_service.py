@@ -16,7 +16,7 @@ import random
 from typing import List, Optional
 
 
-AI_SERVICE_URL = os.environ.get("AI_SERVICE_URL", "http://mmoh-ai-service:8000")
+AI_SERVICE_URL = os.environ.get("AI_SERVICE_URL", "http://ai-service:8001")
 
 
 def get_relation_key(relations: dict, owner_a: str, owner_b: str) -> Optional[str]:

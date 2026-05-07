@@ -5,35 +5,48 @@ from app.services.game_service import apply_cheat
 
 cheat_bp = Blueprint('cheat', __name__)
 
-def _get_game_state(game_id):
+
+def _entry(game_id):
     entry = GameModel.get_game(g.user_id, game_id)
     if not entry or entry == "forbidden":
         return None
-    return entry['game_state']
+    return entry
+
 
 @cheat_bp.route('/', methods=['POST'])
 @cheat_bp.route('', methods=['POST'])
 @token_required
-def apply_cheat_route(game_id):
-    game_state = _get_game_state(game_id)
-    if not game_state:
+def apply(game_id):
+    entry = _entry(game_id)
+    if not entry:
         return jsonify({"error": "Game not found"}), 404
-        
-    data = request.get_json()
-    code = data.get('code')
-    
-    # original 11 + RUSHBUY + CRUNCH = 13
-    # MOLA, GALAXY, RESEARCH, ...
-    
-    success, message = apply_cheat(game_state, code)
-    if not success:
-        return jsonify({"error": message}), 400
-        
-    GameModel.save_game(g.user_id, game_id, game_state)
-    return jsonify({"message": message}), 200
+    data = request.get_json() or {}
+    code = data.get('code') or data.get('cheat_code')
+    target = data.get('target')
+    try:
+        result = apply_cheat(entry['game_state'], code, target)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    GameModel.save_game(g.user_id, game_id, entry['game_state'])
+    return jsonify(result), 200
+
 
 @cheat_bp.route('/codes', methods=['GET'])
 @token_required
 def list_cheat_codes(game_id):
-    codes = ["MOLA", "GALAXY", "RESEARCH", "MONEY", "POP", "SCORE", "SHIP", "TECH", "COLONY", "FLEET", "ANTARAS", "RUSHBUY", "CRUNCH"]
+    codes = [
+        "recursos_infinitos",
+        "revelar_galaxia",
+        "tecnologia_total",
+        "flota_invencible",
+        "victoria_inmediata",
+        "derrota_inmediata",
+        "colonizar_todo",
+        "poblacion_maxima",
+        "naves_gratis",
+        "guardian_eliminado",
+        "antaranos_desactivados",
+        "rushbuy",
+        "crunch",
+    ]
     return jsonify(codes), 200

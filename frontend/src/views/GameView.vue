@@ -6,17 +6,14 @@
           <p class="eyebrow">Partida activa</p>
           <h2>{{ gameState?.name || `Partida ${gameId}` }}</h2>
           <p class="subtitle">
-            Turno {{ status?.turn || gameState?.turn || '-' }} · {{ gameState?.player.race.name || '-' }} ·
-            {{ gameState?.galaxy.size || '-' }}
+            Turno {{ gameState?.turn || '-' }} · {{ gameState?.player?.race?.name || '-' }} ·
+            {{ gameState?.galaxy_size || gameState?.galaxy?.size || '-' }}
           </p>
         </div>
 
         <div class="hud-actions">
           <button class="retro-btn" type="button" @click="reloadGame" :disabled="loading">
             {{ loading ? 'Cargando...' : 'Recargar' }}
-          </button>
-          <button class="retro-btn" type="button" @click="saveCurrentGame" :disabled="saving">
-            {{ saving ? 'Guardando...' : 'Guardar' }}
           </button>
           <button class="retro-btn" type="button" @click="runEndTurn" :disabled="endingTurn">
             {{ endingTurn ? 'Procesando...' : 'Fin de turno' }}
@@ -59,9 +56,21 @@
 
       <nav class="tabs">
         <router-link :to="`/game/${gameId}/galaxy`" class="tab-btn">Mapa</router-link>
-        <router-link :to="`/game/${gameId}/tech`" class="tab-btn">Tecnologia</router-link>
+        <router-link :to="`/game/${gameId}/tech`" class="tab-btn">Tech</router-link>
         <router-link :to="`/game/${gameId}/fleets`" class="tab-btn">Flotas</router-link>
+        <router-link :to="`/game/${gameId}/ships`" class="tab-btn">Disenador</router-link>
         <router-link :to="`/game/${gameId}/diplomacy`" class="tab-btn">Diplomacia</router-link>
+        <router-link :to="`/game/${gameId}/espionage`" class="tab-btn">Espionaje</router-link>
+        <router-link :to="`/game/${gameId}/leaders`" class="tab-btn">Lideres</router-link>
+        <router-link :to="`/game/${gameId}/council`" class="tab-btn">Senado</router-link>
+        <router-link
+          v-if="gameStore.isGameOver"
+          :to="`/game/${gameId}/score`"
+          class="tab-btn"
+        >
+          Puntuacion
+        </router-link>
+        <router-link :to="`/game/${gameId}/cheats`" class="tab-btn">Cheats</router-link>
       </nav>
     </div>
 
@@ -69,27 +78,27 @@
       <section class="summary-grid">
         <article class="summary-card">
           <span class="summary-label">BC</span>
-          <strong>{{ formatNumber(status?.resources?.bc) }}</strong>
+          <strong>{{ formatNumber(gameState?.player?.resources?.bc) }}</strong>
         </article>
         <article class="summary-card">
           <span class="summary-label">Colonias</span>
-          <strong>{{ status?.colonies_count ?? gameState?.player.colonies.length ?? '-' }}</strong>
+          <strong>{{ gameState?.player?.colonies?.length ?? '-' }}</strong>
         </article>
         <article class="summary-card">
           <span class="summary-label">Flotas</span>
-          <strong>{{ status?.fleets_count ?? gameState?.player.fleets.length ?? '-' }}</strong>
+          <strong>{{ gameState?.player?.fleets?.length ?? '-' }}</strong>
         </article>
         <article class="summary-card">
           <span class="summary-label">Poblacion</span>
-          <strong>{{ status?.total_population ?? '-' }}</strong>
+          <strong>{{ totalPopulation }}</strong>
         </article>
         <article class="summary-card">
           <span class="summary-label">Investigacion</span>
-          <strong>{{ status?.current_research?.tech_id || 'Sin proyecto' }}</strong>
+          <strong>{{ gameState?.player?.technologies?.current_research?.tech_id || 'Sin proyecto' }}</strong>
         </article>
         <article class="summary-card">
           <span class="summary-label">Condicion</span>
-          <strong>{{ status?.victory_condition || 'En curso' }}</strong>
+          <strong>{{ gameState?.victory_condition || 'En curso' }}</strong>
         </article>
       </section>
     </aside>
@@ -99,21 +108,26 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { api } from '../services/api'
-import type { AIActionSummary, GameState, TurnEvent } from '../types/game'
+import { useGameStore } from '../store/gameStore'
+import type { AIActionSummary, TurnEvent } from '../types/game'
 
 const route = useRoute()
+const gameStore = useGameStore()
 const gameId = computed(() => String(route.params.id || ''))
 
-const gameState = ref<GameState | null>(null)
-const status = ref<Record<string, any> | null>(null)
+const gameState = computed<any>(() => gameStore.game)
 const turnEvents = ref<TurnEvent[]>([])
 const aiActions = ref<AIActionSummary[]>([])
 const refreshKey = ref(0)
 const loading = ref(false)
-const saving = ref(false)
 const endingTurn = ref(false)
 const error = ref('')
+
+const totalPopulation = computed(() => {
+  const cols = gameState.value?.player?.colonies || []
+  const total = cols.reduce((acc: number, c: any) => acc + (c?.population?.total || 0), 0)
+  return total || '-'
+})
 
 function formatNumber(value?: number) {
   if (value === undefined || value === null) return '-'
@@ -240,12 +254,7 @@ async function reloadGame() {
   loading.value = true
   error.value = ''
   try {
-    const [gameResponse, statusResponse] = await Promise.all([
-      api.loadGame(gameId.value),
-      api.getStatus(gameId.value),
-    ])
-    gameState.value = gameResponse?.game_state || null
-    status.value = statusResponse || null
+    await gameStore.loadGame(gameId.value)
     refreshKey.value += 1
   } catch (err) {
     error.value = (err as Error).message || 'No se pudo cargar la partida.'
@@ -254,27 +263,14 @@ async function reloadGame() {
   }
 }
 
-async function saveCurrentGame() {
-  saving.value = true
-  error.value = ''
-  try {
-    await api.saveGame(gameId.value)
-    await reloadGame()
-  } catch (err) {
-    error.value = (err as Error).message || 'No se pudo guardar la partida.'
-  } finally {
-    saving.value = false
-  }
-}
-
 async function runEndTurn() {
   endingTurn.value = true
   error.value = ''
   try {
-    const response = await api.endTurn(gameId.value)
+    const response = await gameStore.endTurn()
     turnEvents.value = Array.isArray(response?.events) ? response.events : []
     aiActions.value = Array.isArray(response?.ai_actions) ? response.ai_actions : []
-    await reloadGame()
+    refreshKey.value += 1
   } catch (err) {
     error.value = (err as Error).message || 'No se pudo finalizar el turno.'
   } finally {
@@ -290,7 +286,14 @@ watch(
   },
 )
 
-onMounted(reloadGame)
+onMounted(async () => {
+  // Skip reload if store already has this game cached (avoids hammering the backend on tab navigation).
+  if (gameStore.gameId === gameId.value && gameStore.game) {
+    refreshKey.value += 1
+    return
+  }
+  await reloadGame()
+})
 </script>
 
 <style scoped>

@@ -1,87 +1,129 @@
 from flask import Blueprint, request, jsonify, g
 from app.auth.middleware import token_required
 from app.models.game import GameModel
-from app.services.game_service import move_fleet, colonize_planet # Assuming these are in game_service or fleet_service
+from app.services.game_service import (
+    move_fleet,
+    colonize_planet,
+    empire_max_jumps,
+    reachable_systems,
+    find_fleet,
+    get_empire,
+)
+from app.services.fleet_service import split_fleet, merge_fleets, disband_fleet
 
 fleet_bp = Blueprint('fleet', __name__)
 
-def _get_game_state(game_id):
+
+def _entry(game_id):
     entry = GameModel.get_game(g.user_id, game_id)
     if not entry or entry == "forbidden":
         return None
-    return entry['game_state']
+    return entry
+
 
 @fleet_bp.route('/', methods=['GET'])
 @fleet_bp.route('', methods=['GET'])
 @token_required
 def list_fleets(game_id):
-    game_state = _get_game_state(game_id)
-    if not game_state:
+    entry = _entry(game_id)
+    if not entry:
         return jsonify({"error": "Game not found"}), 404
-        
-    fleets = game_state.get('player', {}).get('fleets', [])
+    fleets = entry['game_state'].get('player', {}).get('fleets', [])
     return jsonify(fleets), 200
 
-@fleet_bp.route('/<fleet_id>/move', methods=['POST'])
-@token_required
-def move_fleet_route(game_id, fleet_id):
-    game_state = _get_game_state(game_id)
-    if not game_state:
-        return jsonify({"error": "Game not found"}), 404
-        
-    data = request.get_json()
-    star_idx = data.get('star_idx')
-    
-    success, error = move_fleet(game_state, "player", fleet_id, star_idx)
-    if not success:
-        return jsonify({"error": error}), 400
-        
-    GameModel.save_game(g.user_id, game_id, game_state)
-    return jsonify({"message": "Fleet movement orders issued"}), 200
 
 @fleet_bp.route('/range', methods=['GET'])
 @token_required
-def get_fleet_range(game_id):
-    game_state = _get_game_state(game_id)
-    if not game_state:
+def get_range(game_id):
+    """Numero maximo de saltos del jugador en este momento."""
+    entry = _entry(game_id)
+    if not entry:
         return jsonify({"error": "Game not found"}), 404
-        
-    # Logic to calculate fleet range based on tech and starbases
-    # This is often derived from the game_state player object
-    fuel_range = game_state['player'].get('fuel_range', 4)
-    return jsonify({"range": fuel_range}), 200
+    empire = get_empire(entry['game_state'], 'player')
+    return jsonify({"max_jumps": empire_max_jumps(empire)}), 200
 
-@fleet_bp.route('/<fleet_id>/split', methods=['POST'])
+
+@fleet_bp.route('/<fleet_id>/reachable', methods=['GET'])
 @token_required
-def split_fleet_route(game_id, fleet_id):
-    game_state = _get_game_state(game_id)
-    if not game_state:
+def fleet_reachable(game_id, fleet_id):
+    """IDs de sistemas accesibles para esa flota desde su posicion actual."""
+    entry = _entry(game_id)
+    if not entry:
         return jsonify({"error": "Game not found"}), 404
-        
-    data = request.get_json()
-    ships_to_move = data.get('ships', []) # List of ship indices or IDs
-    
-    # Logic to split fleet
-    # success, error = split_fleet(game_state, "player", fleet_id, ships_to_move)
-    # For now, placeholder error
-    return jsonify({"error": "Split fleet not fully implemented in service layer"}), 501
+    fleet = find_fleet(entry['game_state'], 'player', fleet_id)
+    if not fleet:
+        return jsonify({"error": "Fleet not found"}), 404
+    empire = get_empire(entry['game_state'], 'player')
+    max_jumps = empire_max_jumps(empire)
+    targets = reachable_systems(entry['game_state'], fleet['star_system_id'], max_jumps)
+    return jsonify({"max_jumps": max_jumps, "origin": fleet['star_system_id'], "reachable": list(targets)}), 200
+
+
+@fleet_bp.route('/<fleet_id>/move', methods=['POST'])
+@token_required
+def move(game_id, fleet_id):
+    entry = _entry(game_id)
+    if not entry:
+        return jsonify({"error": "Game not found"}), 404
+    data = request.get_json() or {}
+    destination = data.get('destination') or data.get('star_id')
+    try:
+        result = move_fleet(entry['game_state'], 'player', fleet_id, destination)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    GameModel.save_game(g.user_id, game_id, entry['game_state'])
+    return jsonify(result), 200
+
 
 @fleet_bp.route('/<fleet_id>/colonize', methods=['POST'])
 @token_required
-def colonize_route(game_id, fleet_id):
-    game_state = _get_game_state(game_id)
-    if not game_state:
+def colonize(game_id, fleet_id):
+    entry = _entry(game_id)
+    if not entry:
         return jsonify({"error": "Game not found"}), 404
-        
-    data = request.get_json()
-    planet_idx = data.get('planet_idx')
-    
-    success, error = colonize_planet(game_state, "player", fleet_id, planet_idx)
-    if not success:
-        return jsonify({"error": error}), 400
-        
-    # As per rule 10: set star owner and update galaxy
-    # The colonize_planet service should handle this, but we'll ensure it here if needed
-    
-    GameModel.save_game(g.user_id, game_id, game_state)
-    return jsonify({"message": "Planet colonized"}), 200
+    data = request.get_json() or {}
+    planet_index = int(data.get('planet_index', data.get('planet_idx', 0)))
+    try:
+        result = colonize_planet(entry['game_state'], 'player', fleet_id, planet_index)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    GameModel.save_game(g.user_id, game_id, entry['game_state'])
+    return jsonify(result), 200
+
+
+@fleet_bp.route('/<fleet_id>/split', methods=['POST'])
+@token_required
+def split(game_id, fleet_id):
+    entry = _entry(game_id)
+    if not entry:
+        return jsonify({"error": "Game not found"}), 404
+    data = request.get_json() or {}
+    ships = data.get('ships', [])
+    res = split_fleet(entry['game_state']['player'], fleet_id, ships)
+    if res.get('success'):
+        GameModel.save_game(g.user_id, game_id, entry['game_state'])
+    return jsonify(res), 200 if res.get('success') else 400
+
+
+@fleet_bp.route('/merge', methods=['POST'])
+@token_required
+def merge(game_id):
+    entry = _entry(game_id)
+    if not entry:
+        return jsonify({"error": "Game not found"}), 404
+    data = request.get_json() or {}
+    res = merge_fleets(entry['game_state']['player'], data.get('fleet_a'), data.get('fleet_b'))
+    if res.get('success'):
+        GameModel.save_game(g.user_id, game_id, entry['game_state'])
+    return jsonify(res), 200 if res.get('success') else 400
+
+
+@fleet_bp.route('/<fleet_id>', methods=['DELETE'])
+@token_required
+def disband(game_id, fleet_id):
+    entry = _entry(game_id)
+    if not entry:
+        return jsonify({"error": "Game not found"}), 404
+    res = disband_fleet(entry['game_state']['player'], fleet_id)
+    GameModel.save_game(g.user_id, game_id, entry['game_state'])
+    return jsonify(res), 200

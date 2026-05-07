@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 
-AI_SERVICE_URL = os.environ.get("AI_SERVICE_URL", "http://mmoh-ai-service:8000")
+AI_SERVICE_URL = os.environ.get("AI_SERVICE_URL", "http://ai-service:8001")
 AI_SERVICE_TIMEOUT = float(os.environ.get("AI_SERVICE_TIMEOUT", "8.0"))
 
 
