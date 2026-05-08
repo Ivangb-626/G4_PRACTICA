@@ -196,6 +196,20 @@
     "prerequisites": {"tech": ["android_tech"], "buildings": []}
   },
   {
+    "id": "pollution_processor", "name": "Pollution Processor",
+    "description": "Reduce la contaminacion generada por la industria en un 50%.",
+    "cost": 80, "maintenance": 1,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0, "pollution_multiplier": 0.5},
+    "prerequisites": {"tech": ["pollution_processor_tech"], "buildings": []}
+  },
+  {
+    "id": "atmospheric_renovator", "name": "Atmospheric Renovator",
+    "description": "Elimina completamente la contaminacion industrial.",
+    "cost": 150, "maintenance": 2,
+    "effects": {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0, "command_points": 0, "ground_defense": 0, "orbital_defense": 0, "ship_production_bonus": 0, "morale_bonus": 0, "pollution_multiplier": 0},
+    "prerequisites": {"tech": ["atmospheric_renovator_tech"], "buildings": ["pollution_processor"]}
+  },
+  {
     "id": "dimensional_portal_facility", "name": "Portal Dimensional",
     "description": "Permite asaltar el sistema Antara. Solo si Antaran Attacks esta on.",
     "cost": 800, "maintenance": 5,

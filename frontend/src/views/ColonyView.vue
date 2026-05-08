@@ -25,17 +25,17 @@
       <section class="stats-grid">
         <article class="stat-card stat-food">
           <span class="stat-label">COMIDA</span>
-          <strong class="stat-value">{{ colony.food_output || 0 }}</strong>
+          <strong class="stat-value">{{ previewStats?.food !== null ? previewStats.food : colony.food_output || 0 }}</strong>
           <small class="stat-foot">surplus {{ colony.food_surplus || 0 }}</small>
         </article>
         <article class="stat-card stat-industry">
           <span class="stat-label">INDUSTRIA</span>
-          <strong class="stat-value">{{ colony.industry_output || 0 }}</strong>
+          <strong class="stat-value">{{ previewStats?.industry !== null ? previewStats.industry : colony.industry_output || 0 }}</strong>
           <small class="stat-foot">PP / turno</small>
         </article>
         <article class="stat-card stat-research">
           <span class="stat-label">CIENCIA</span>
-          <strong class="stat-value">{{ colony.research_output || 0 }}</strong>
+          <strong class="stat-value">{{ previewStats?.research !== null ? previewStats.research : colony.research_output || 0 }}</strong>
           <small class="stat-foot">RP / turno</small>
         </article>
         <article class="stat-card stat-bc">
@@ -87,11 +87,13 @@
           </header>
           <ul v-if="builtBuildings.length" class="bld-list">
             <li v-for="b in builtBuildings" :key="b.id">
-              <span class="bld-icon"></span>
-              <div>
-                <strong>{{ b.name || b.id }}</strong>
-                <small v-if="b.description">{{ b.description }}</small>
-              </div>
+              <Tooltip :title="b.name || b.id" :description="b.description">
+                <span class="bld-icon"></span>
+                <div>
+                  <strong>{{ b.name || b.id }}</strong>
+                  <small v-if="b.description">{{ b.description }}</small>
+                </div>
+              </Tooltip>
             </li>
           </ul>
           <p v-else class="empty">Aun no hay edificios construidos.</p>
@@ -124,17 +126,21 @@
             <h3>PROYECTOS</h3>
           </header>
           <div class="bld-grid" v-if="availableBuildings.length">
-            <button
+            <Tooltip
               v-for="b in availableBuildings"
               :key="b.id"
-              class="bld-card"
-              type="button"
-              @click="addBuilding(b.id)"
-              :title="b.description"
+              :title="b.name"
+              :description="b.description"
             >
-              <strong>{{ b.name }}</strong>
-              <small>{{ b.cost }} PP</small>
-            </button>
+              <button
+                class="bld-card"
+                type="button"
+                @click="addBuilding(b.id)"
+              >
+                <strong>{{ b.name }}</strong>
+                <small>{{ b.cost }} PP</small>
+              </button>
+            </Tooltip>
           </div>
           <p v-else class="empty">No hay edificios desbloqueados.</p>
 
@@ -142,17 +148,21 @@
             <h3>NAVES</h3>
           </header>
           <div class="bld-grid" v-if="availableShips.length">
-            <button
+            <Tooltip
               v-for="s in availableShips"
               :key="s.type"
-              class="bld-card"
-              type="button"
-              @click="addShip(s.type)"
-              :title="s.name"
+              :title="s.name || s.type"
+              :description="s.description"
             >
-              <strong>{{ s.name || s.type }}</strong>
-              <small>{{ s.cost }} PP</small>
-            </button>
+              <button
+                class="bld-card"
+                type="button"
+                @click="addShip(s.type)"
+              >
+                <strong>{{ s.name || s.type }}</strong>
+                <small>{{ s.cost }} PP</small>
+              </button>
+            </Tooltip>
           </div>
           <p v-else class="empty">No hay naves disponibles.</p>
         </section>
@@ -253,6 +263,23 @@ function rebalance(changed: PopKey) {
   }
 }
 
+const previewStats = computed(() => {
+  if (!colony.value || !planetInfo.value) return null;
+  const tempColony = JSON.parse(JSON.stringify(colony.value));
+  tempColony.population.farmers = pop.farmers;
+  tempColony.population.workers = pop.workers;
+  tempColony.population.scientists = pop.scientists;
+
+  // This would ideally call a backend service or a local pure function
+  // to calculate production based on the new assignments without saving.
+  // For now, it's a simplified placeholder.
+  return {
+    food: (pop.farmers * (planetInfo.value.food_per_farmer || 1)) + (tempColony.food_output - colony.value.food_output),
+    industry: (pop.workers * (planetInfo.value.industry_per_worker || 1)) + (tempColony.industry_output - colony.value.industry_output),
+    research: (pop.scientists * (planetInfo.value.research_per_scientist || 1)) + (tempColony.research_output - colony.value.research_output),
+  };
+});
+
 async function reload() {
   loading.value = true
   error.value = ''
@@ -316,6 +343,7 @@ async function addShip(shipType: string) {
 
 async function removeQueue(idx: number) {
   if (!gameStore.gameId || !colId.value) return
+  if (!confirm('¿Quitar este item de la cola de construcción?')) return
   try {
     await api.colony.removeQueueItem(gameStore.gameId, colId.value, idx)
     await reload()

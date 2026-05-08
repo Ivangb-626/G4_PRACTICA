@@ -71,7 +71,7 @@
         >
           Puntuacion
         </router-link>
-        <router-link :to="`/game/${gameId}/cheats`" class="tab-btn">Cheats</router-link>
+        <router-link v-if="isDev" :to="`/game/${gameId}/cheats`" class="tab-btn">Cheats</router-link>
       </nav>
     </div>
 

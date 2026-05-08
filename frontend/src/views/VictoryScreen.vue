@@ -189,9 +189,9 @@ onMounted(() => {
       colonies: p.colonies.length,
       population: p.colonies.reduce((sum: number, c: any) => sum + (c.population || 0), 0),
       techs: p.technologies.length,
-      bc: p.bc,
+      bc: p.resources.bc,
       turns: gameStore.game.turn,
-      total: gameStore.game.score || 0
+      total: gameStore.score?.total || 0 // Use the score from gameStore.score
     };
   }
 });

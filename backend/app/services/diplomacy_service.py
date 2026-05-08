@@ -16,6 +16,10 @@ import random
 from typing import List, Optional
 
 
+with (DATA_DIR / "technologies.json").open("r", encoding="utf-8") as f:
+    TECHS = {item["id"]: item for item in json.load(f)}
+
+
 AI_SERVICE_URL = os.environ.get("AI_SERVICE_URL", "http://ai-service:8001")
 
 
@@ -102,6 +106,18 @@ def propose_treaty(game_state: dict, sender: str, recipient: str, treaty_type: s
     bonus = 0
     if sender_emp and sender_emp.get("race", {}).get("traits", {}).get("flags", {}).get("charismatic"):
         bonus += 20
+
+    # Personality impact
+    personality = recipient_emp.get("personality", "balanced") if recipient_emp else "balanced"
+    
+    if personality == "aggressive":
+        bonus -= 15
+    elif personality == "researcher" and treaty_type == "research_pact":
+        bonus += 15
+    elif personality == "expansionist" and treaty_type == "non_aggression_pact":
+        bonus -= 10 # Expansionists want to keep options open
+    elif personality == "charismatic": # If personality itself is charismatic (special case)
+        bonus += 10
 
     threshold = {"non_aggression_pact": 30, "trade_treaty": 25, "research_pact": 40, "alliance": 60, "tribute": 0}.get(treaty_type, 50)
 
@@ -236,15 +252,77 @@ def propose_tech_trade(game_state: dict, sender: str, recipient: str, offered_te
     if requested_tech not in recipient_techs:
         return {"success": False, "reason": "Recipient does not own requested tech"}
 
+    # AI evaluation: compare tech levels
+    offered_data = TECHS.get(offered_tech, {"level": 1})
+    requested_data = TECHS.get(requested_tech, {"level": 1})
+    
+    # Base value: difference in levels. Positive is good for recipient.
+    # recipient wants offered_level >= requested_level
+    value_diff = offered_data.get("level", 1) - requested_data.get("level", 1)
+    
     rel = game_state["diplomacy"]["relations"].get(_make_relation_key(sender, recipient), {"value": 30})
-    accept = rel.get("value", 0) >= 25
+    rel_val = rel.get("value", 0)
+    
+    # Threshold for acceptance: requires better relations for unfair trades (negative value_diff)
+    # If levels are equal (0), threshold is 25.
+    # If offered is better (+1), threshold is 10.
+    # If requested is better (-1), threshold is 40.
+    threshold = 25 - (value_diff * 15)
+    
+    accept = rel_val >= threshold or recipient == "player"
     if not accept:
-        return {"accepted": False, "reason": "Recipient declined the tech trade"}
+        return {"accepted": False, "reason": "Recipient declined the tech trade (bad deal or bad relations)"}
 
-    sender_emp["technologies"]["researched"].append({"tech_id": requested_tech, "field": "", "level": 1, "status": "researched"})
-    recipient_emp["technologies"]["researched"].append({"tech_id": offered_tech, "field": "", "level": 1, "status": "researched"})
+    # Grant techs
+    sender_emp["technologies"]["researched"].append({
+        "tech_id": requested_tech, 
+        "field": requested_data.get("field", ""), 
+        "level": requested_data.get("level", 1), 
+        "status": "researched"
+    })
+    recipient_emp["technologies"]["researched"].append({
+        "tech_id": offered_tech, 
+        "field": offered_data.get("field", ""), 
+        "level": offered_data.get("level", 1), 
+        "status": "researched"
+    })
     _adjust_relation(game_state, sender, recipient, +10)
     return {"accepted": True}
+
+
+def ultimatum(game_state: dict, sender: str, recipient: str, payload: dict) -> dict:
+    """Demanda algo con amenaza de guerra inmediata si se rechaza."""
+    initialize_diplomacy(game_state)
+    sender_emp = _find_empire(game_state, sender)
+    recipient_emp = _find_empire(game_state, recipient)
+    if not sender_emp or not recipient_emp:
+        return {"success": False, "reason": "Empire not found"}
+
+    # AI evaluation for ultimatum:
+    # 1. Relative power (simplified: number of ships or total CP)
+    # 2. Relationship
+    # 3. Aggressiveness
+    
+    sender_power = sum(s.get("count", 0) for f in sender_emp.get("fleets", []) for s in f.get("ships", []))
+    recipient_power = sum(s.get("count", 0) for f in recipient_emp.get("fleets", []) for s in f.get("ships", []))
+    
+    power_ratio = sender_power / max(1, recipient_power)
+    rel = game_state["diplomacy"]["relations"].get(_make_relation_key(sender, recipient), {"value": 0})
+    rel_val = rel.get("value", 0)
+    
+    # Acceptance chance: higher if sender is much stronger
+    chance = (power_ratio * 20) + (rel_val / 2)
+    
+    accept = random.randint(1, 100) <= chance or recipient == "player"
+    
+    if accept:
+        res = gift(game_state, recipient, sender, payload)
+        _adjust_relation(game_state, sender, recipient, -20) # Relations worsen even if accepted
+        return {"accepted": True, "details": res}
+    else:
+        # Rejected -> War!
+        declare_war(game_state, sender, recipient)
+        return {"accepted": False, "reason": "Ultimatum rejected. War declared!", "war": True}
 
 
 def blackmail(game_state: dict, sender: str, recipient: str, leverage: dict) -> dict:

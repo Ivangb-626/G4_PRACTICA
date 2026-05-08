@@ -31,7 +31,7 @@ def _bundle_power(bundle: dict, ship_types: dict) -> float:
     return total
 
 
-def _apply_losses(bundle: dict, loss_ratio: float, ship_types: dict) -> list:
+def apply_losses(bundle: dict, loss_ratio: float, ship_types: dict) -> list:
     if loss_ratio <= 0:
         return list(bundle.get("ships", []))
     remaining = []
@@ -70,14 +70,16 @@ def resolve_combat(attacker_bundle: dict, defender_bundle: dict, defender_orbita
         loss_atk = 1.0
         loss_def = min(0.6, atk_roll / max(def_roll, 1.0) * 0.7)
 
-    atk_remaining = _apply_losses(attacker_bundle, loss_atk, types)
-    def_remaining = _apply_losses(defender_bundle, loss_def, types)
+    atk_remaining = apply_losses(attacker_bundle, loss_atk, types)
+    def_remaining = apply_losses(defender_bundle, loss_def, types)
     log.append(f"Winner: {winner}. Atk losses {loss_atk*100:.0f}%, Def losses {loss_def*100:.0f}%.")
 
     return {
         "winner": winner,
         "attacker_remaining": atk_remaining,
         "defender_remaining": def_remaining,
+        "attacker_loss_ratio": loss_atk,
+        "defender_loss_ratio": loss_def,
         "log": log,
     }
 

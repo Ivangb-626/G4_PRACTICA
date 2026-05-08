@@ -20,7 +20,7 @@ export const useGameStore = defineStore('game', {
     spies: [] as AnyObj[],
     council: null as AnyObj | null,
     score: null as AnyObj | null,
-    events: [] as AnyObj[],
+    lastTurnEvents: [] as AnyObj[],
     aiActions: [] as AnyObj[],
     lastTurnResult: null as AnyObj | null,
   }),
@@ -96,7 +96,7 @@ export const useGameStore = defineStore('game', {
       if (!this.gameId) throw new Error('No active game')
       const res = await api.game.endTurn(this.gameId)
       this.lastTurnResult = res
-      this.events = res.events || []
+      this.lastTurnEvents = res.events || []
       this.aiActions = res.ai_actions || []
       this.game = res.game_state || this.game
       await Promise.all([this.fetchGalaxy(), this.fetchColonies(), this.fetchFleets(), this.fetchResearch()])

@@ -1,8 +1,8 @@
+import asyncio
 from flask import Blueprint, request, jsonify, g
 from app.auth.middleware import token_required
 from app.models.game import GameModel, HallOfFameModel
-from app.services.game_service import generate_game_state, list_scenarios, _normalize_difficulty
-from app.services.turn_engine import TurnEngine
+from app.services.game_service import generate_game_state, list_scenarios, _normalize_difficulty, end_turn
 from app.services.score_service import calculate_final_score
 
 game_bp = Blueprint('game', __name__)
@@ -71,11 +71,11 @@ def delete_user_game(game_id):
 
 @game_bp.route('/<game_id>/end-turn', methods=['POST'])
 @token_required
-def process_end_turn(game_id):
+async def process_end_turn(game_id):
     entry, error = _game_entry_or_error(game_id)
     if error: return error
     game_state = entry['game_state']
-    result = TurnEngine.execute_turn(game_state)
+    result = await end_turn(game_state)
     GameModel.save_game(g.user_id, game_id, game_state)
     return jsonify(result), 200
 

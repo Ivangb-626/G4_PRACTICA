@@ -28,12 +28,24 @@
           <td :style="getRelationStyle(rel.value)">{{ rel.value }}</td>
           <td :style="styles.td">{{ rel.state.toUpperCase() }}</td>
           <td :style="styles.td">
-            <button :style="styles.btnSmall" @click="proposeTreaty(rel.other, 'non_aggression_pact')">NAP</button>
-            <button :style="styles.btnSmall" @click="proposeTreaty(rel.other, 'trade_treaty')">COMERCIO</button>
-            <button :style="styles.btnSmall" @click="proposeTreaty(rel.other, 'alliance')">ALIANZA</button>
-            <button :style="styles.btnSmall" @click="giftBC(rel.other)">REGALO 50 BC</button>
-            <button :style="styles.btnDanger" @click="declareWar(rel.other)">GUERRA</button>
-            <button :style="styles.btnDanger" @click="surrender(rel.other)">RENDIRSE</button>
+            <Tooltip title="Pacto de No Agresion" description="Acuerdo de no atacarse mutuamente.">
+              <button :style="styles.btnSmall" @click="proposeTreaty(rel.other, 'non_aggression_pact')">NAP</button>
+            </Tooltip>
+            <Tooltip title="Tratado Comercial" description="Establece rutas comerciales para ingresos extra.">
+              <button :style="styles.btnSmall" @click="proposeTreaty(rel.other, 'trade_treaty')">COMERCIO</button>
+            </Tooltip>
+            <Tooltip title="Alianza" description="Pacto militar: defensa mutua en caso de ataque.">
+              <button :style="styles.btnSmall" @click="proposeTreaty(rel.other, 'alliance')">ALIANZA</button>
+            </Tooltip>
+            <Tooltip title="Regalar BC" description="Mejora relaciones.">
+              <button :style="styles.btnSmall" @click="giftBC(rel.other)">REGALO 50 BC</button>
+            </Tooltip>
+            <Tooltip title="Declarar Guerra" description="Inicia hostilidades.">
+              <button :style="styles.btnDanger" @click="declareWar(rel.other)">GUERRA</button>
+            </Tooltip>
+            <Tooltip title="Rendirse" description="Termina la partida si estas en guerra.">
+              <button :style="styles.btnDanger" @click="surrender(rel.other)">RENDIRSE</button>
+            </Tooltip>
           </td>
         </tr>
       </tbody>
@@ -69,6 +81,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useGameStore } from '../store/gameStore'
 import { api } from '../api/client'
 import { Theme, createPanelStyle, btnStyle } from '../styles/styleSystem'
+import Tooltip from '../components/Tooltip.vue' // Import the Tooltip component
 
 const gameStore = useGameStore()
 const error = ref('')

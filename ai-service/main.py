@@ -17,9 +17,10 @@ async def ai_turn(request: Request):
     try:
         data = await request.json()
         actions = decide_turn(
-            data.get("state"),
+            data.get("game_state"),
             data.get("personality"),
             data.get("difficulty"),
+            data.get("available_actions"),
         )
         return {"actions": actions}
     except Exception as e:

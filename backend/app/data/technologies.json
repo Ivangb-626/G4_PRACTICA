@@ -69,8 +69,10 @@
   {"id":"nuclear_missile","field":"chemistry","level":2,"name":"Nuclear Missile","description":"Misil basico.","research_cost":150,"unlocks":{"weapons":["nuclear_missile"],"bombs":["nuclear_bomb"]}},
   {"id":"merculite_missile","field":"chemistry","level":3,"name":"Merculite Missile","description":"Misil intermedio.","research_cost":300,"unlocks":{"weapons":["merculite_missile"]}},
   {"id":"pulson_missile","field":"chemistry","level":4,"name":"Pulson Missile","description":"Misil pulson.","research_cost":500,"unlocks":{"weapons":["pulson_missile"]}},
+  {"id":"pollution_processor_tech","field":"chemistry","level":4,"name":"Pollution Processor","description":"Reduce la contaminacion en un 50%.","research_cost":500,"unlocks":{"buildings":["pollution_processor"]}},
   {"id":"anti_matter_torpedo","field":"chemistry","level":5,"name":"Anti-Matter Torpedo","description":"Torpedo de antimateria.","research_cost":750,"unlocks":{"weapons":["anti_matter_torpedo"]}},
   {"id":"zeon_missile","field":"chemistry","level":6,"name":"Zeon Missile","description":"Misil avanzado.","research_cost":1100,"unlocks":{"weapons":["zeon_missile"]}},
+  {"id":"atmospheric_renovator_tech","field":"chemistry","level":6,"name":"Atmospheric Renovator","description":"Elimina completamente la contaminacion.","research_cost":1100,"unlocks":{"buildings":["atmospheric_renovator"]}},
   {"id":"plasma_torpedo","field":"chemistry","level":7,"name":"Plasma Torpedo","description":"Torpedo de plasma.","research_cost":1600,"unlocks":{"weapons":["plasma_torpedo"]}},
   {"id":"scatter_pack_v","field":"chemistry","level":8,"name":"Scatter Pack V","description":"Misil multicabezas.","research_cost":2400,"unlocks":{"weapons":["scatter_pack_v"]}},
 

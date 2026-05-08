@@ -179,7 +179,7 @@ def calculate_colony_production(arg_a, arg_b, arg_c=None):
     research_per_scientist = 1 + traits.get("research_per_scientist_extra", 0)
     bc_per_pop = traits.get("bc_per_capita", 0)
 
-    # Climate penalty for food
+    # Climate penalty for food (per farmer)
     climate_food_pen = {
         "toxic": -3, "barren": -2, "radiated": -3, "desert": -1, "tundra": -1,
         "arid": 0, "swamp": 0, "ocean": 1, "terran": 1, "gaia": 2,
@@ -189,7 +189,8 @@ def calculate_colony_production(arg_a, arg_b, arg_c=None):
     if flags.get("aquatic") and climate == "ocean":
         climate_food_pen = max(climate_food_pen, 2)
 
-    food = farmers * food_per_farmer + climate_food_pen
+    food_per_farmer_effective = max(0, food_per_farmer + climate_food_pen)
+    food = farmers * food_per_farmer_effective
     industry = workers * industry_per_worker * rich_mult
     research = scientists * research_per_scientist
     bc = (workers // 2) + total_pop * bc_per_pop
@@ -201,7 +202,8 @@ def calculate_colony_production(arg_a, arg_b, arg_c=None):
     # Building effects
     bonuses = {"production_bonus": 0, "research_bonus": 0, "food_bonus": 0, "bc_bonus": 0,
                "morale_bonus": 0, "ship_production_bonus": 0, "research_per_scientist_bonus": 0,
-               "food_per_farmer_bonus": 0, "bc_per_pop_bonus": 0, "trade_treaty_bonus": 0}
+               "food_per_farmer_bonus": 0, "bc_per_pop_bonus": 0, "trade_treaty_bonus": 0,
+               "pollution_multiplier": 1.0, "pollution_flat": 0}
     has_robotic = False
     has_imperial_palace = False
     has_autolab = False
@@ -211,7 +213,11 @@ def calculate_colony_production(arg_a, arg_b, arg_c=None):
             continue
         eff = record.get("effects", {})
         for k in list(bonuses.keys()):
-            bonuses[k] += eff.get(k, 0)
+            if k in eff:
+                if k == "pollution_multiplier":
+                    bonuses[k] *= eff[k]
+                else:
+                    bonuses[k] += eff[k]
         if eff.get("production_bonus_by_richness"):
             has_robotic = True
         if bid == "imperial_palace":
@@ -273,13 +279,33 @@ def calculate_colony_production(arg_a, arg_b, arg_c=None):
         research *= production_mult
         bc *= production_mult
 
+    # --- Pollution Calculation ---
+    # Tolerance based on planet size
+    size_tolerance = {"tiny": 2, "small": 4, "medium": 6, "large": 8, "huge": 10}.get(planet.get("size", "medium"), 6)
+    
+    # Tolerant races have 4x tolerance
+    if flags.get("tolerant"):
+        size_tolerance *= 4
+
+    # Apply tech/building multiplier (Pollution Processor, Atmospheric Renovator)
+    tolerance = size_tolerance / max(0.001, bonuses["pollution_multiplier"])
+    
+    # Calculate pollution units
+    pollution = max(0, industry - tolerance)
+    
+    # Final industry is reduced by pollution
+    industry_effective = max(0, industry - pollution)
+    # -----------------------------
+
     # Cybernetic: cost 1 PP per pop, but no food consumption
     if flags.get("cybernetic"):
-        industry -= total_pop * 0.5
+        industry_effective -= total_pop * 0.5
 
     # Persist
     colony["food_output"] = max(0, round(food, 2))
-    colony["industry_output"] = max(0, round(industry, 2))
+    colony["industry_output"] = max(0, round(industry_effective, 2))
+    colony["industry_gross"] = max(0, round(industry, 2))
+    colony["pollution"] = max(0, round(pollution, 2))
     colony["research_output"] = max(0, round(research, 2))
     colony["bc_output"] = max(0, round(bc, 2))
     consumption = total_pop if not flags.get("lithovore") and not flags.get("cybernetic") else 0
@@ -289,10 +315,50 @@ def calculate_colony_production(arg_a, arg_b, arg_c=None):
     return {
         "food": colony["food_output"],
         "industry": colony["industry_output"],
+        "industry_gross": colony["industry_gross"],
+        "pollution": colony["pollution"],
         "research": colony["research_output"],
         "bc": colony["bc_output"],
         "production": colony["industry_output"],
     }
+
+
+def _add_ship_to_system_fleet(game_state, colony, ship_type):
+    empire = _empire_for_colony(game_state, colony)
+    if not empire:
+        return
+    
+    system_id = colony.get("star_system_id")
+    owner_id = colony.get("owner") or "player"
+    
+    # Find existing fleet in this system (stationary)
+    target_fleet = next((f for f in empire.get("fleets", []) if f.get("star_system_id") == system_id and f.get("destination") is None), None)
+    
+    if target_fleet:
+        # Merge into existing fleet
+        found = False
+        for s in target_fleet.get("ships", []):
+            if s["type"] == ship_type:
+                s["count"] = s.get("count", 0) + 1
+                found = True
+                break
+        if not found:
+            target_fleet.setdefault("ships", []).append({"type": ship_type, "count": 1})
+    else:
+        # Create new fleet
+        import time
+        new_id = f"fleet_{int(time.time() * 1000) % 1000000}"
+        new_fleet = {
+            "id": new_id,
+            "name": f"Flota de {system_id}",
+            "owner": owner_id,
+            "star_system_id": system_id,
+            "ships": [{"type": ship_type, "count": 1}],
+            "destination": None,
+            "eta_turns": None,
+            "command_points_used": 0
+        }
+        empire.setdefault("fleets", []).append(new_fleet)
 
 
 def process_colony_construction(arg_a, arg_b=None, arg_c=None, arg_d=None):
@@ -313,20 +379,41 @@ def process_colony_construction(arg_a, arg_b=None, arg_c=None, arg_d=None):
     if not queue:
         return events
 
-    # Spaceport ship production bonus only for ships
-    head = queue[0]
-    effective_prod = production
-    if head.get("item_type") == "ship":
-        spb = colony.get("ship_production_bonus", 0)
-        if spb:
-            effective_prod = production * (1 + spb / 100.0)
+    while queue and production > 0:
+        head = queue[0]
+        cost = head.get("cost", 0)
+        progress = head.get("progress", 0)
+        needed = max(0, cost - progress)
 
-    head["progress"] = head.get("progress", 0) + effective_prod
-    if head["progress"] >= head.get("cost", 0):
-        completed = queue.pop(0)
-        if completed["item_type"] == "building":
-            colony.setdefault("buildings", []).append(completed["item_id"])
-        events.append({"type": "construction_complete", "colony_id": colony.get("id"), "item": completed})
+        # Spaceport ship production bonus only for ships
+        eff_factor = 1.0
+        if head.get("item_type") == "ship":
+            spb = colony.get("ship_production_bonus", 0)
+            if spb:
+                eff_factor = (1 + spb / 100.0)
+
+        # How much gross production to consume?
+        needed_gross = needed / eff_factor
+        consume_gross = min(production, needed_gross)
+        
+        head["progress"] = head.get("progress", 0) + (consume_gross * eff_factor)
+        production -= consume_gross
+
+        if head["progress"] >= cost - 0.001: # float precision
+            completed = queue.pop(0)
+            if completed["item_type"] == "building":
+                colony.setdefault("buildings", []).append(completed["item_id"])
+            elif completed["item_type"] == "ship":
+                ship_data = SHIPS.get(completed["item_id"], {})
+                if ship_data.get("is_freighter"):
+                    empire = _empire_for_colony(_game_state, colony)
+                    if empire:
+                        count = ship_data.get("freighter_count", 5)
+                        empire["freighters_total"] = empire.get("freighters_total", 0) + count
+                        empire["freighters_available"] = empire.get("freighters_available", 0) + count
+                else:
+                    _add_ship_to_system_fleet(_game_state, colony, completed["item_id"])
+            events.append({"type": "construction_complete", "colony_id": colony.get("id"), "item": completed})
 
     return events
 

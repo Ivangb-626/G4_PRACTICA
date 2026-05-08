@@ -22,9 +22,11 @@
         <label :style="styles.label">CASCO</label>
         <select v-model="form.hull" :style="styles.input">
           <option value="">selecciona casco</option>
-          <option v-for="h in hulls" :key="h.type" :value="h.type">
-            {{ h.name }} (espacio {{ h.hull_space }}, coste {{ h.cost }})
-          </option>
+          <template v-for="h in hulls" :key="h.type">
+            <Tooltip :title="h.name" :description="h.description" :details="{ 'Espacio': h.hull_space, 'Coste': h.cost }">
+              <option :value="h.type">{{ h.name }} (espacio {{ h.hull_space }}, coste {{ h.cost }})</option>
+            </Tooltip>
+          </template>
         </select>
 
         <label :style="styles.label">ARMAS</label>
@@ -32,7 +34,11 @@
           <select v-model="weaponDraft.id" :style="styles.input">
             <option value="">arma</option>
             <optgroup v-for="(group, name) in weapons" :key="name" :label="String(name).toUpperCase()">
-              <option v-for="w in group" :key="w.id" :value="w.id">{{ w.name }} ({{ w.size }} sp)</option>
+              <template v-for="w in group" :key="w.id">
+                <Tooltip :title="w.name" :description="w.description" :details="{ 'Espacio': w.size }">
+                  <option :value="w.id">{{ w.name }} ({{ w.size }} sp)</option>
+                </Tooltip>
+              </template>
             </optgroup>
           </select>
           <input v-model.number="weaponDraft.count" :style="styles.inputSmall" type="number" min="1" />
@@ -49,9 +55,11 @@
         <div :style="styles.weaponPicker">
           <select v-model="systemDraft" :style="styles.input">
             <option value="">sistema</option>
-            <option v-for="s in shipSystems" :key="s.id" :value="s.id">
-              {{ s.name }} ({{ s.size }} sp)
-            </option>
+            <template v-for="s in shipSystems" :key="s.id">
+              <Tooltip :title="s.name" :description="s.description" :details="{ 'Espacio': s.size }">
+                <option :value="s.id">{{ s.name }} ({{ s.size }} sp)</option>
+              </Tooltip>
+            </template>
           </select>
           <button :style="styles.btnSmall" @click="addSystem">+</button>
         </div>
@@ -97,6 +105,13 @@ import { computed, onMounted, ref } from 'vue'
 import { useGameStore } from '../store/gameStore'
 import { api } from '../api/client'
 import { Theme, createPanelStyle, btnStyle } from '../styles/styleSystem'
+import Tooltip from '../components/Tooltip.vue' // Import the Tooltip component
+import Tooltip from '../components/Tooltip.vue' // Import the Tooltip component
+import Tooltip from '../components/Tooltip.vue' // Import the Tooltip component
+import Tooltip from '../components/Tooltip.vue' // Import the Tooltip component
+import Tooltip from '../components/Tooltip.vue' // Import the Tooltip component
+import Tooltip from '../components/Tooltip.vue' // Import the Tooltip component
+import Tooltip from '../components/Tooltip.vue' // Import the Tooltip component
 
 const gameStore = useGameStore()
 const error = ref('')

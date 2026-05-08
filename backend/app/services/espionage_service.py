@@ -12,10 +12,19 @@ DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 with (DATA_DIR / "governments.json").open("r", encoding="utf-8") as f:
     GOVERNMENTS = {item["id"]: item for item in json.load(f)}
 
+with (DATA_DIR / "technologies.json").open("r", encoding="utf-8") as f:
+    TECHS = {item["id"]: item for item in json.load(f)}
+
 
 SPY_BASE_COST = 75
 SPY_BASE_UPKEEP = 2
-MISSIONS = ("steal_tech", "sabotage", "incite_rebellion", "frame")
+SPY_LEVELS = {
+    0: "rookie",
+    1: "trained",
+    2: "veteran",
+    3: "master"
+}
+MISSIONS = ("steal_tech", "sabotage", "incite_rebellion", "frame", "sabotage_industry", "sabotage_science")
 
 
 def _find_empire(game_state: dict, owner_id: str):
@@ -130,8 +139,14 @@ def _execute_mission(game_state: dict, attacker_emp: dict, spy: dict) -> dict:
         if not candidates:
             return {"type": "spy_no_tech", "spy_id": spy["id"]}
         stolen = random.choice(candidates)
+        tech_data = TECHS.get(stolen, {})
         attacker_emp.setdefault("technologies", {}).setdefault("researched", []).append(
-            {"tech_id": stolen, "field": "", "level": 1, "status": "researched"}
+            {
+                "tech_id": stolen,
+                "field": tech_data.get("field", ""),
+                "level": tech_data.get("level", 1),
+                "status": "researched",
+            }
         )
         return {"type": "tech_stolen", "spy_id": spy["id"], "tech_id": stolen, "from": target_id}
 
@@ -168,6 +183,22 @@ def _execute_mission(game_state: dict, attacker_emp: dict, spy: dict) -> dict:
         except Exception:
             pass
         return {"type": "frame_success", "spy_id": spy["id"], "target": target_id, "framed_against": third}
+
+    if mission == "sabotage_industry":
+        if not target_emp.get("colonies"):
+            return {"type": "spy_no_target", "spy_id": spy["id"]}
+        colony = random.choice(target_emp["colonies"])
+        old_val = colony.get("industry_output", 0)
+        colony["industry_output"] = max(0, old_val * 0.5)
+        return {"type": "espionage_sabotage_industry", "spy_id": spy["id"], "colony_id": colony["id"], "loss": old_val - colony["industry_output"]}
+
+    if mission == "sabotage_science":
+        cur = target_emp.get("technologies", {}).get("current_research")
+        if not cur:
+            return {"type": "spy_no_target", "spy_id": spy["id"]}
+        loss = 150 # Fixed loss for simplicity or a percentage
+        cur["progress"] = max(0, cur.get("progress", 0) - loss)
+        return {"type": "espionage_sabotage_science", "spy_id": spy["id"], "loss": loss}
 
     return {"type": "spy_idle", "spy_id": spy["id"]}
 

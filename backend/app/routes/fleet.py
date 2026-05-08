@@ -9,6 +9,7 @@ from app.services.game_service import (
     reachable_systems,
     find_fleet,
     get_empire,
+    transfer_ships,
 )
 from app.services.fleet_service import split_fleet, merge_fleets, disband_fleet
 
@@ -138,6 +139,24 @@ def merge(game_id):
     if res.get('success'):
         GameModel.save_game(g.user_id, game_id, entry['game_state'])
     return jsonify(res), 200 if res.get('success') else 400
+
+
+@fleet_bp.route('/transfer', methods=['POST'])
+@token_required
+def transfer(game_id):
+    entry = _entry(game_id)
+    if not entry:
+        return jsonify({"error": "Game not found"}), 404
+    data = request.get_json() or {}
+    from_fleet = data.get('from_fleet')
+    to_fleet = data.get('to_fleet')
+    ships = data.get('ships', [])
+    try:
+        result = transfer_ships(entry['game_state'], 'player', from_fleet, to_fleet, ships)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    GameModel.save_game(g.user_id, game_id, entry['game_state'])
+    return jsonify(result), 200
 
 
 @fleet_bp.route('/<fleet_id>', methods=['DELETE'])

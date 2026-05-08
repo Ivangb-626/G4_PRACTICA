@@ -16,7 +16,7 @@ from app.services.colony_service import (
     has_technology,
     process_colony_construction,
 )
-from app.services.combat_service import resolve_combat, resolve_ground_combat
+from app.services.combat_service import resolve_combat, resolve_ground_combat, apply_losses
 from app.services.diplomacy_service import check_galactic_council, get_relation_key, initialize_diplomacy
 
 
@@ -759,6 +759,18 @@ def colonize_planet(game_state, owner_or_fleet_id, fleet_id=None, planet_index=N
     planet = system["planets"][planet_index]
     if planet["colonized_by"] is not None:
         raise ValueError("Planet already colonized")
+
+    # PLAN — Blockade: cannot colonize if hostile fleets present
+    for ai in game_state.get("ai_players", []):
+        for f in ai.get("fleets", []):
+            if f.get("star_system_id") == system["id"] and f.get("destination") is None:
+                if _factions_hostile(game_state, owner_id, ai["id"]):
+                    raise ValueError("Cannot colonize: Hostile fleet in system")
+    
+    # Check for Space Monsters/Guardians
+    if system.get("guardian", {}).get("active") or (system.get("space_monster") and not system["space_monster"].get("defeated")):
+        raise ValueError("Cannot colonize: System is guarded by a hostile entity")
+
     # Tolerant or Silicoid-like: can colonize anything except destroyed
     empire = get_empire(game_state, owner_id)
     flags = (empire or {}).get("race", {}).get("traits", {}).get("flags", {})
@@ -772,7 +784,37 @@ def colonize_planet(game_state, owner_or_fleet_id, fleet_id=None, planet_index=N
     fleet["command_points_used"] = _fleet_command_points(fleet)
 
     new_colony = make_colony(system["id"], planet_index, owner_id, planet)
-    get_empire(game_state, owner_id)["colonies"].append(new_colony)
+    empire = get_empire(game_state, owner_id)
+    empire["colonies"].append(new_colony)
+
+    # PLAN - Special Planet effects
+    if planet.get("special") == "artifacts":
+        # Grant a research bonus (e.g., a free tech or RP boost)
+        if empire:
+            if empire["technologies"].get("current_research"):
+                empire["technologies"]["current_research"]["progress"] += 500 # Instant RP boost
+            else:
+                # Grant a random available tech
+                from app.services.research_service import get_available_research
+                available = get_available_research(game_state, empire)
+                if available:
+                    chosen_tech = random.choice(available)
+                    empire["technologies"]["researched"].append({"field": chosen_tech["field"], "level": chosen_tech["level"], "tech_id": chosen_tech["id"], "status": "researched"})
+        
+        return {"new_colony": new_colony, "fleet": fleet, "event": {"type": "artifacts_found", "colony_id": new_colony["id"]}}
+    elif planet.get("special") == "natives":
+        # Add a permanent food bonus to the colony
+        new_colony.setdefault("bonus_effects", {}).setdefault("food", 0)
+        new_colony["bonus_effects"]["food"] += 5 # Permanent +5 food
+        return {"new_colony": new_colony, "fleet": fleet, "event": {"type": "natives_met", "colony_id": new_colony["id"]}}
+    elif planet.get("special") == "splinter_colony":
+        # Automatically annex, possibly with existing population
+        new_colony["population"]["total"] += 5 # Start with some population
+        new_colony["population"]["farmers"] += 2
+        new_colony["population"]["workers"] += 2
+        new_colony["population"]["scientists"] += 1
+        return {"new_colony": new_colony, "fleet": fleet, "event": {"type": "splinter_annexed", "colony_id": new_colony["id"]}}
+
     _reveal_for_owner(game_state, owner_id, system["id"])
     return {"new_colony": new_colony, "fleet": fleet}
 
@@ -831,40 +873,126 @@ def _apply_research(game_state, owner_id):
     return None
 
 
+def _auto_rebalance_ai_population(colony):
+    """Distribute AI colony population sensibly across roles.
+    Without this, _normalize_population dumps everything into farmers."""
+    pop = colony.get("population", {})
+    total = max(1, int(round(pop.get("total", 1))))
+
+    if total <= 1:
+        pop["farmers"] = 1
+        pop["workers"] = 0
+        pop["scientists"] = 0
+        return
+
+    # Ensure at least 1 farmer for food, then split rest between workers and scientists
+    # Ratio: ~30% farmers (min 1), ~40% workers, ~30% scientists
+    farmers = max(1, int(math.ceil(total * 0.30)))
+    remaining = total - farmers
+    workers = max(0, int(round(remaining * 0.55)))
+    scientists = max(0, remaining - workers)
+
+    pop["farmers"] = farmers
+    pop["workers"] = workers
+    pop["scientists"] = scientists
+    pop["total"] = total
+
+
 def _compute_empire_economy(game_state, owner_id):
     empire = get_empire(game_state, owner_id)
+
+    # Auto-rebalance AI population before economy pass
+    if owner_id != "player":
+        for colony in empire.get("colonies", []):
+            _auto_rebalance_ai_population(colony)
+
     total_bc = 0
     total_research = 0
     total_production = 0
-    total_food = 0
+    total_food_surplus = 0
 
+    surplus_pool = 0
+    deficit_colonies = []
+
+    # 1. Production Pass
     for colony in empire.get("colonies", []):
         _normalize_population(colony)
         calculate_colony_production(game_state, colony)
+        
+        surplus = colony.get("food_surplus", 0)
+        if surplus > 0:
+            surplus_pool += surplus
+        elif surplus < 0:
+            deficit_colonies.append(colony)
+        
         total_bc += colony.get("bc_output", 0)
         total_research += colony.get("research_output", 0)
         total_production += colony.get("industry_output", 0)
-        total_food += colony.get("food_surplus", 0)
 
+    # 2. Food Redistribution Pass
+    total_freighters = empire.get("freighters_total", 0)
+    used_freighters = 0
+
+    for colony in deficit_colonies:
+        deficit = abs(colony.get("food_surplus", 0))
+        # Each freighter carries 1 unit of food
+        capacity = total_freighters - used_freighters
+        can_import = min(deficit, surplus_pool, capacity)
+        
+        if can_import > 0:
+            colony["food_surplus"] += can_import
+            surplus_pool -= can_import
+            used_freighters += int(math.ceil(can_import))
+            
+    empire["freighters_used"] = used_freighters
+    total_food_surplus = surplus_pool - sum(abs(c.get("food_surplus", 0)) for c in deficit_colonies if c.get("food_surplus", 0) < 0)
+
+    # 3. Growth and Starvation Pass
+    for colony in empire.get("colonies", []):
         if colony.get("food_surplus", 0) < 0:
+            # Starvation
             colony["population"]["total"] = max(1, colony["population"]["total"] - 1)
         else:
-            growth_bonus = empire["race"]["traits"].get("population_growth_bonus", 0) / 100
-            growth = 0.5 * (1 + growth_bonus) * (
-                1 - colony["population"]["total"] / max(colony["population"]["max"], 1)
-            )
-            if growth > 0:
-                colony["population"]["total"] = min(
-                    colony["population"]["max"],
-                    colony["population"]["total"] + int(max(1, round(growth))),
-                )
+            # Growth
+            traits = empire.get("race", {}).get("traits", {})
+            growth_bonus = traits.get("population_growth_bonus", 0) / 100.0
+            
+            # Lithovore growth is slower? (Standard MOO2 is no, but some implementations do)
+            # Default MOO2 growth formula: 0.5 * pop * (1 - pop/max)
+            # Simplified here:
+            max_pop = max(colony["population"].get("max", 1), 1)
+            current_pop = colony["population"]["total"]
+            
+            base_growth = 0.5 * (1 + growth_bonus)
+            # Penalty if close to max
+            growth_factor = 1.0 - (current_pop / max_pop)
+            if growth_factor > 0:
+                new_pop = current_pop + (base_growth * growth_factor)
+                colony["population"]["total"] = min(max_pop, round(new_pop, 2))
+        
         _normalize_population(colony)
+
+    # 4. Final Totals
+    # Freighter maintenance
+    freighter_maintenance = total_freighters * 0.5
+    total_bc -= freighter_maintenance
+
+    # Command Point penalty: 10 BC per point of deficit
+    cp_deficit = max(0, total_cp_used - total_cp)
+    cp_penalty = cp_deficit * 10
+    total_bc -= cp_penalty
 
     empire["resources"]["total_bc"] = round(total_bc, 2)
     empire["resources"]["total_research"] = round(total_research, 2)
     empire["resources"]["total_production"] = round(total_production, 2)
-    empire["resources"]["total_food_surplus"] = round(total_food, 2)
+    empire["resources"]["total_food_surplus"] = round(total_food_surplus, 2)
     empire["resources"]["bc"] = round(empire["resources"].get("bc", 0) + total_bc, 2)
+    empire["resources"]["freighters_total"] = total_freighters
+    empire["resources"]["freighters_used"] = used_freighters
+    empire["resources"]["freighter_maintenance"] = round(freighter_maintenance, 2)
+    empire["resources"]["command_points"] = total_cp
+    empire["resources"]["command_points_used"] = total_cp_used
+    empire["resources"]["command_points_penalty"] = cp_penalty
 
 
 def process_fleet_movements(game_state):
@@ -929,15 +1057,15 @@ def resolve_space_combats(game_state):
         result = resolve_combat(attacker_bundle, defender_bundle)
 
         if attacker_fleets:
-            attacker_fleets[0]["ships"] = result["attacker_remaining"]
-            attacker_fleets[0]["command_points_used"] = _fleet_command_points(attacker_fleets[0])
-            for fleet in attacker_fleets[1:]:
-                fleet["ships"] = []
+            loss_ratio = result.get("attacker_loss_ratio", 1.0)
+            for fleet in attacker_fleets:
+                fleet["ships"] = apply_losses(fleet, loss_ratio, SHIP_TYPES)
+                fleet["command_points_used"] = _fleet_command_points(fleet)
         if defender_fleets:
-            defender_fleets[0]["ships"] = result["defender_remaining"]
-            defender_fleets[0]["command_points_used"] = _fleet_command_points(defender_fleets[0])
-            for fleet in defender_fleets[1:]:
-                fleet["ships"] = []
+            loss_ratio = result.get("defender_loss_ratio", 1.0)
+            for fleet in defender_fleets:
+                fleet["ships"] = apply_losses(fleet, loss_ratio, SHIP_TYPES)
+                fleet["command_points_used"] = _fleet_command_points(fleet)
 
         events.append(
             {
@@ -1151,7 +1279,7 @@ def attack_antaran_homeworld(game_state, owner_id="player", fleet_id=None):
     return {"success": False, "result": result}
 
 
-def end_turn(game_state):
+async def end_turn(game_state):
     events = []
 
     # 1) Empire economy
@@ -1196,8 +1324,7 @@ def end_turn(game_state):
     ai_reports = []
     for ai_player in game_state.get("ai_players", []):
         try:
-            response = asyncio.run(
-                ai_service.get_ai_turn(
+            response = await ai_service.get_ai_turn(
                     {
                         "game_state": {"turn": game_state.get("turn"), "ai_player": ai_player},
                         "personality": ai_player.get("personality", "balanced"),
@@ -1228,17 +1355,26 @@ def end_turn(game_state):
         })
 
     # 8) Diplomacy maintenance
-    from app.services.diplomacy_service import process_turn_diplomacy
-    events.extend(process_turn_diplomacy(game_state))
+    try:
+        from app.services.diplomacy_service import process_turn_diplomacy
+        events.extend(process_turn_diplomacy(game_state))
+    except Exception as e:
+        events.append({"type": "diplomacy_error", "error": str(e)})
 
     # 9) Espionage missions
-    from app.services.espionage_service import process_turn_espionage
-    events.extend(process_turn_espionage(game_state))
+    try:
+        from app.services.espionage_service import process_turn_espionage
+        events.extend(process_turn_espionage(game_state))
+    except Exception as e:
+        events.append({"type": "espionage_error", "error": str(e)})
 
     # 10) Galactic Council
-    council_event = check_galactic_council(game_state)
-    if council_event:
-        events.append(council_event)
+    try:
+        council_event = check_galactic_council(game_state)
+        if council_event:
+            events.append(council_event)
+    except Exception as e:
+        events.append({"type": "council_error", "error": str(e)})
 
     # 11) Antaran activation/attacks
     if game_state.get("antaran_attacks_enabled", True):
@@ -1284,6 +1420,51 @@ def end_turn(game_state):
     game_state["is_autosave"] = (game_state["turn"] % 4 == 0)
 
     return {"game_state": game_state, "events": events, "ai_actions": ai_reports, "turn": game_state["turn"]}
+
+
+def transfer_ships(game_state, owner_id, from_fleet_id, to_fleet_id, ships_to_move):
+    """
+    Mueve naves de una flota a otra si ambas estan en el mismo sistema y pertenecen al mismo owner.
+    ships_to_move: lista de {"type": "ship_type", "count": N}
+    """
+    from_fleet = find_fleet(game_state, owner_id, from_fleet_id)
+    to_fleet = find_fleet(game_state, owner_id, to_fleet_id)
+
+    if not from_fleet or not to_fleet:
+        raise ValueError("One or both fleets not found")
+    if from_fleet["star_system_id"] != to_fleet["star_system_id"]:
+        raise ValueError("Fleets must be in the same system")
+    if from_fleet.get("destination") or to_fleet.get("destination"):
+        raise ValueError("Fleets in transit cannot transfer ships")
+
+    for move in ships_to_move:
+        stype = move["type"]
+        mcount = move["count"]
+        
+        # Find in source
+        source_ship = next((s for s in from_fleet["ships"] if s["type"] == stype), None)
+        if not source_ship or source_ship.get("count", 0) < mcount:
+            raise ValueError(f"Not enough ships of type {stype} in source fleet")
+        
+        # Remove from source
+        source_ship["count"] -= mcount
+        
+        # Add to target
+        target_ship = next((s for s in to_fleet["ships"] if s["type"] == stype), None)
+        if target_ship:
+            target_ship["count"] = target_ship.get("count", 0) + mcount
+        else:
+            to_fleet["ships"].append({"type": stype, "count": mcount})
+
+    # Clean up empty ships and update CP
+    from_fleet["ships"] = [s for s in from_fleet["ships"] if s.get("count", 0) > 0]
+    from_fleet["command_points_used"] = _fleet_command_points(from_fleet)
+    to_fleet["command_points_used"] = _fleet_command_points(to_fleet)
+    
+    # If source is empty, it will be cleaned up in end_turn or we can do it now
+    # Let's keep it for now, end_turn handles it.
+
+    return {"from_fleet": from_fleet, "to_fleet": to_fleet}
 
 
 def apply_cheat(game_state, cheat_code, target=None):
@@ -1427,6 +1608,25 @@ def ground_assault(game_state, owner_id, fleet_id, colony_id):
         raise ValueError("Fleet has no transports")
     if target_colony["star_system_id"] != fleet["star_system_id"]:
         raise ValueError("Fleet not in colony system")
+
+    # PLAN — Blockade: cannot assault if hostile fleets (other than those being assaulted) are present?
+    # Standard MOO2: You must defeat the orbital defenses and fleets first.
+    # So if there are ANY hostile fleets in the system, block.
+    for ai in game_state.get("ai_players", []):
+        if ai["id"] == owner_id: continue
+        for f in ai.get("fleets", []):
+            if f.get("star_system_id") == fleet["star_system_id"] and f.get("destination") is None:
+                if _factions_hostile(game_state, owner_id, ai["id"]):
+                     # If the fleet belongs to the target owner, it's definitely a blockade.
+                     # If it belongs to a third party hostile to us, it's also a blockade.
+                     raise ValueError("Cannot assault colony: Star system is under orbital blockade")
+    
+    # Check for player fleet if AI is assaulting
+    if owner_id != "player":
+        for f in game_state["player"].get("fleets", []):
+            if f.get("star_system_id") == fleet["star_system_id"] and f.get("destination") is None:
+                if _factions_hostile(game_state, owner_id, "player"):
+                    raise ValueError("Cannot assault colony: Star system is under orbital blockade")
 
     attacker_bonus = get_empire(game_state, owner_id)["race"]["traits"].get("ground_combat_bonus", 0)
     defender_bonus = get_empire(game_state, target_owner)["race"]["traits"].get("ground_combat_bonus", 0)

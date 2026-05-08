@@ -55,12 +55,48 @@ def _fallback(state: dict, unit_uid: str, personality: str) -> dict:
     me = next((u for u in units if u.get("uid") == unit_uid), None)
     if not me:
         return {"type": "wait"}
+    
     enemies = [u for u in units if u.get("alive") and u.get("owner") != me.get("owner")]
     if not enemies:
         return {"type": "wait"}
-    # Aggressive personalities: target weakest. Defensive: kite.
-    target = min(enemies, key=lambda u: u.get("hp", 0) + u.get("armor", 0) + u.get("shields", 0))
-    if personality == "defensive" and me.get("hp", 0) < me.get("max_hp", 1) * 0.30:
-        new_pos = max(0, me.get("position", 5) - me.get("speed", 1))
-        return {"type": "move", "position": new_pos}
-    return {"type": "fire", "target_uid": target["uid"]}
+
+    my_pos = me.get("position", 0)
+    my_speed = me.get("speed", 1)
+    
+    # Prioritize targets:
+    # Aggressive: closest, then weakest
+    # Balanced: closest
+    # Defensive: furthest, then weakest (if low HP)
+    
+    target_enemy = None
+    if personality == "aggressive":
+        target_enemy = min(enemies, key=lambda u: (abs(u.get("position", 0) - my_pos), u.get("hp", 0)))
+    elif personality == "defensive":
+        if me.get("hp", 0) < me.get("max_hp", 1) * 0.5: # If damaged, try to retreat
+            # Move away from closest enemy
+            closest_enemy = min(enemies, key=lambda u: abs(u.get("position", 0) - my_pos))
+            if closest_enemy.get("position", 0) < my_pos: # Enemy is to my left
+                new_pos = min(11, my_pos + my_speed) # Move right
+            else: # Enemy is to my right
+                new_pos = max(0, my_pos - my_speed) # Move left
+            return {"type": "move", "position": new_pos}
+        else: # Not damaged, act balanced
+            target_enemy = min(enemies, key=lambda u: abs(u.get("position", 0) - my_pos))
+    else: # Balanced
+        target_enemy = min(enemies, key=lambda u: abs(u.get("position", 0) - my_pos))
+
+    if target_enemy:
+        target_pos = target_enemy.get("position", 0)
+        
+        # If in range, fire
+        # Simplified range: assume all weapons have a range, just check adjacency or close enough for now
+        if abs(target_pos - my_pos) <= me.get("range", 1): # Assume 'range' property exists for simplification
+            return {"type": "fire", "target_uid": target_enemy["uid"]}
+        else: # Not in range, move closer
+            if target_pos > my_pos:
+                new_pos = min(11, my_pos + my_speed)
+            else:
+                new_pos = max(0, my_pos - my_speed)
+            return {"type": "move", "position": new_pos}
+
+    return {"type": "wait"}

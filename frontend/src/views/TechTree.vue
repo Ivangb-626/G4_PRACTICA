@@ -27,11 +27,13 @@
           <div :style="styles.levelLabel">NIVEL {{ level.level }}</div>
           <div :style="styles.optionGrid">
             <div v-for="opt in level.options" :key="opt.tech_id" :style="getOptionStyle(opt.status)">
+              <Tooltip :title="opt.name?.toUpperCase()" :description="opt.description" :details="{ 'Coste': (opt.research_cost ?? opt.base_cost) + ' RP' }">
               <div :style="{ flex: 1 }">
                 <strong :style="{ color: '#fff' }">{{ opt.name?.toUpperCase() }}</strong>
                 <p :style="styles.subtitle">{{ opt.description }}</p>
                 <small :style="{ color: '#8888aa', fontSize: '0.7rem' }">COSTE: {{ opt.research_cost ?? opt.base_cost }} RP</small>
               </div>
+            </Tooltip>
               <button v-if="opt.status === 'available'" :style="styles.btnSmall" @click="selectTech(opt)">INVESTIGAR</button>
               <span v-else :style="styles.statusBadge">{{ opt.status?.toUpperCase() }}</span>
             </div>
@@ -46,6 +48,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useGameStore } from '../store/gameStore'
 import { Theme, createPanelStyle, btnStyle } from '../styles/styleSystem'
+import Tooltip from '../components/Tooltip.vue' // Import the Tooltip component
 
 const gameStore = useGameStore()
 const error = ref('')
