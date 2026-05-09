@@ -106,12 +106,6 @@ import { useGameStore } from '../store/gameStore'
 import { api } from '../api/client'
 import { Theme, createPanelStyle, btnStyle } from '../styles/styleSystem'
 import Tooltip from '../components/Tooltip.vue' // Import the Tooltip component
-import Tooltip from '../components/Tooltip.vue' // Import the Tooltip component
-import Tooltip from '../components/Tooltip.vue' // Import the Tooltip component
-import Tooltip from '../components/Tooltip.vue' // Import the Tooltip component
-import Tooltip from '../components/Tooltip.vue' // Import the Tooltip component
-import Tooltip from '../components/Tooltip.vue' // Import the Tooltip component
-import Tooltip from '../components/Tooltip.vue' // Import the Tooltip component
 
 const gameStore = useGameStore()
 const error = ref('')

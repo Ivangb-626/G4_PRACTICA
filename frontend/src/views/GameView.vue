@@ -12,21 +12,127 @@
         </div>
 
         <div class="hud-actions">
+          <button class="retro-btn secondary" type="button" @click="goBack" title="Atajo: B">
+            Volver
+          </button>
           <button class="retro-btn" type="button" @click="reloadGame" :disabled="loading">
             {{ loading ? 'Cargando...' : 'Recargar' }}
           </button>
-          <button class="retro-btn" type="button" @click="runEndTurn" :disabled="endingTurn">
-            {{ endingTurn ? 'Procesando...' : 'Fin de turno' }}
+          <button class="retro-btn" type="button" @click="uiStore.openEventLog" title="Atajo: O">
+            Log
+          </button>
+          <button class="retro-btn" type="button" @click="uiStore.toggleShortcuts" title="Atajo: ?">
+            Ayuda
+          </button>
+          <label class="speed-control" title="Atajos: 1 lenta, 2 normal, 3 rapida">
+            Velocidad
+            <select v-model="uiStore.gameSpeed">
+              <option value="lenta">Lenta</option>
+              <option value="normal">Normal</option>
+              <option value="rapida">Rapida</option>
+            </select>
+          </label>
+          <button
+            class="retro-btn end-turn-btn"
+            :class="{ 'is-ready': turnReady, 'is-blocked': !canEndTurn }"
+            type="button"
+            @click="requestEndTurn"
+            :disabled="endingTurn || !canEndTurn"
+            :title="endTurnTitle"
+          >
+            {{ endingTurn ? 'Procesando...' : endTurnButtonLabel }}
           </button>
         </div>
       </header>
 
+      <nav class="quick-nav" aria-label="Accesos rapidos">
+        <div class="quick-nav-group tactical-group">
+          <span class="nav-group-label">Prioridad tactica</span>
+        <router-link
+          v-for="item in primaryNavItems"
+          :key="item.to"
+          :to="item.to"
+          class="quick-nav-item"
+          :class="navAttentionClass(item.id)"
+          :title="`Atajo: ${item.key}`"
+        >
+          <span>{{ item.label }}</span>
+          <kbd>{{ item.key }}</kbd>
+        </router-link>
+        <button
+          type="button"
+          class="quick-nav-item"
+          :class="navAttentionClass('construction')"
+          @click="showColoniesModal = true"
+          title="Atajo: C"
+        >
+          <span>Colonias</span>
+          <kbd>C</kbd>
+        </button>
+        </div>
+        <div class="quick-nav-group advanced-group">
+          <span class="nav-group-label">Avanzado</span>
+          <router-link
+            v-for="item in advancedNavItems"
+            :key="item.to"
+            :to="item.to"
+            class="quick-nav-item advanced-item"
+            :class="navAttentionClass(item.id)"
+            :title="`Atajo: ${item.key}`"
+          >
+            <span>{{ item.label }}</span>
+            <kbd>{{ item.key }}</kbd>
+          </router-link>
+        </div>
+      </nav>
+
       <p v-if="error" class="error">{{ error }}</p>
+
+      <section class="turn-readiness" :class="{ 'is-ready': turnReady, 'is-blocked': !canEndTurn }">
+        <header class="readiness-head">
+          <div>
+            <p class="side-kicker">Estado del turno</p>
+            <strong>{{ readinessTitle }}</strong>
+          </div>
+          <button class="retro-btn small-btn" type="button" @click="refreshTurnStatus" :disabled="loading">
+            Verificar
+          </button>
+        </header>
+
+        <div v-if="turnBlockers.length" class="readiness-list blockers">
+          <strong>Bloqueos</strong>
+          <p v-for="item in turnBlockers" :key="item">{{ item }}</p>
+        </div>
+
+        <div class="readiness-grid">
+          <div class="readiness-list">
+            <strong>Acciones disponibles</strong>
+            <p v-for="action in prioritizedActions" :key="`${action.type}-${action.label}`">
+              {{ action.label }} <span v-if="action.count">({{ action.count }})</span>
+              <small>{{ action.reason }}</small>
+            </p>
+            <p v-if="!prioritizedActions.length" class="muted-line">No hay acciones criticas pendientes.</p>
+          </div>
+
+          <div class="readiness-list">
+            <strong>Log previsto al pasar turno</strong>
+            <p v-for="item in turnPreviewLog" :key="item.message">{{ item.message }}</p>
+          </div>
+        </div>
+
+        <div v-if="turnWarnings.length" class="readiness-list warnings">
+          <strong>Avisos</strong>
+          <p v-for="item in turnWarnings.slice(0, 4)" :key="item">{{ item }}</p>
+        </div>
+      </section>
 
       <section v-if="turnEvents.length || aiActions.length" class="turn-report">
         <header class="turn-report-head">
           <h3>Ultimo turno resuelto</h3>
-          <button class="retro-btn" type="button" @click="clearTurnReport">Ocultar</button>
+          <div class="turn-report-actions">
+            <button class="retro-btn" type="button" @click="uiStore.openEventLog">Ver log completo</button>
+            <button class="retro-btn" type="button" @click="clearTurnReport">Ocultar</button>
+          </div>
         </header>
 
         <div v-if="turnEvents.length" class="event-list">
@@ -55,15 +161,10 @@
       <router-view :key="refreshKey" />
 
       <nav class="tabs">
-        <router-link :to="`/game/${gameId}/galaxy`" class="tab-btn">Mapa</router-link>
-        <router-link :to="`/game/${gameId}/tech`" class="tab-btn">Tech</router-link>
-        <router-link :to="`/game/${gameId}/fleets`" class="tab-btn">Flotas</router-link>
+        <router-link v-for="item in navItems" :key="`tab-${item.to}`" :to="item.to" class="tab-btn">
+          {{ item.label }}
+        </router-link>
         <button type="button" class="tab-btn" @click="showColoniesModal = true">Colonias</button>
-        <router-link :to="`/game/${gameId}/ships`" class="tab-btn">Disenador</router-link>
-        <router-link :to="`/game/${gameId}/diplomacy`" class="tab-btn">Diplomacia</router-link>
-        <router-link :to="`/game/${gameId}/espionage`" class="tab-btn">Espionaje</router-link>
-        <router-link :to="`/game/${gameId}/leaders`" class="tab-btn">Lideres</router-link>
-        <router-link :to="`/game/${gameId}/council`" class="tab-btn">Senado</router-link>
         <router-link
           v-if="gameStore.isGameOver"
           :to="`/game/${gameId}/score`"
@@ -106,6 +207,43 @@
           <strong>{{ gameState?.victory_condition || 'En curso' }}</strong>
         </article>
       </section>
+
+      <section class="side-panel" v-if="selectedSystem">
+        <p class="side-kicker">Seleccionado</p>
+        <strong>{{ selectedSystem.name }}</strong>
+        <small>{{ selectedSystem.star_type }} · {{ selectedSystem.planets?.length || 0 }} planeta(s)</small>
+        <router-link class="side-link" :to="`/game/${gameId}/system/${selectedSystem.id}`">Abrir sistema</router-link>
+      </section>
+
+      <section class="side-panel">
+        <p class="side-kicker">Imperio vs rival</p>
+        <div class="compare-row">
+          <span>Colonias</span>
+          <strong>{{ empireComparison.playerColonies }}</strong>
+          <strong>{{ empireComparison.enemyColonies }}</strong>
+        </div>
+        <div class="compare-row">
+          <span>Flotas</span>
+          <strong>{{ empireComparison.playerFleets }}</strong>
+          <strong>{{ empireComparison.enemyFleets }}</strong>
+        </div>
+        <div class="compare-row">
+          <span>Poblacion</span>
+          <strong>{{ empireComparison.playerPopulation }}</strong>
+          <strong>{{ empireComparison.enemyPopulation }}</strong>
+        </div>
+        <small class="side-note">Izquierda: tu imperio. Derecha: rival mas fuerte detectado.</small>
+      </section>
+
+      <section class="side-panel tutorial-card" v-if="showTutorial">
+        <p class="side-kicker">Tutorial rapido</p>
+        <strong>{{ tutorialStep.title }}</strong>
+        <p>{{ tutorialStep.body }}</p>
+        <div class="tutorial-actions">
+          <button class="retro-btn small-btn" type="button" @click="nextTutorialStep">Siguiente</button>
+          <button class="retro-btn small-btn" type="button" @click="dismissTutorial">Ocultar</button>
+        </div>
+      </section>
     </aside>
 
     <!-- Modal Colonias -->
@@ -116,29 +254,87 @@
           <button class="close-btn" @click="showColoniesModal = false">×</button>
         </header>
 
-        <ul class="colonies-list" v-if="gameState?.player?.colonies?.length">
-          <li v-for="col in gameState.player.colonies" :key="col.id" class="colony-item">
+        <input
+          v-model.trim="colonyQuery"
+          class="modal-search"
+          placeholder="Filtrar por nombre, sistema o poblacion..."
+          type="search"
+        />
+
+        <ul class="colonies-list" v-if="filteredColonies.length">
+          <li v-for="col in filteredColonies" :key="col.id" class="colony-item">
             <div class="colony-info">
               <strong>{{ colonyLabel(col) }}</strong>
+              <small>Industria {{ col.industry_output || 0 }} · Ciencia {{ col.research_output || 0 }}</small>
               <small v-if="col.population">Población: {{ col.population.total }} / {{ col.population.max }}</small>
             </div>
             <router-link :to="`/game/${gameId}/colony/${col.id}`" class="retro-btn small-btn" @click="showColoniesModal = false">Gestionar</router-link>
           </li>
         </ul>
-        <p v-else class="empty">No tienes colonias actualmente.</p>
+        <p v-else class="empty">No hay colonias que coincidan con el filtro.</p>
       </div>
     </div>
+
+    <div v-if="endingTurn" class="turn-overlay">
+      <div class="turn-pulse"></div>
+      <strong>Procesando turno {{ gameState?.turn || '-' }}</strong>
+      <span>{{ turnPhaseLabel }}</span>
+    </div>
+
+    <div v-if="confirmEndTurnOpen" class="modal-overlay">
+      <div class="modal-content retro-panel confirm-modal">
+        <header class="modal-header">
+          <h3>Confirmar fin de turno</h3>
+          <button class="close-btn" type="button" @click="confirmEndTurnOpen = false">Ã—</button>
+        </header>
+        <p class="confirm-copy">{{ turnReady ? 'Todo listo. Consecuencias inmediatas:' : 'Puedes avanzar, pero quedan avisos tacticos:' }}</p>
+        <div v-if="turnWarnings.length" class="confirm-warning">
+          <strong>Avisos activos</strong>
+          <p v-for="item in turnWarnings.slice(0, 3)" :key="item">{{ item }}</p>
+        </div>
+        <ul class="impact-list">
+          <li v-for="impact in endTurnPreview" :key="impact">{{ impact }}</li>
+        </ul>
+        <div class="confirm-actions">
+          <button class="retro-btn secondary" type="button" @click="confirmEndTurnOpen = false">Cancelar</button>
+          <button class="retro-btn end-turn-btn" type="button" @click="runEndTurn" :disabled="endingTurn">
+            Avanzar turno
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="uiStore.shortcutsOpen" class="modal-overlay">
+      <div class="modal-content retro-panel shortcuts-modal">
+        <header class="modal-header">
+          <h3>Atajos y controles</h3>
+          <button class="close-btn" type="button" @click="uiStore.closeShortcuts">Ã—</button>
+        </header>
+        <div class="shortcut-grid">
+          <span v-for="shortcut in shortcuts" :key="shortcut.key" class="shortcut-row">
+            <kbd>{{ shortcut.key }}</kbd>
+            <strong>{{ shortcut.label }}</strong>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <EventLogPanel />
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '../store/gameStore'
+import { useUIStore } from '../store/uiStore'
+import EventLogPanel from './EventLogPanel.vue'
 import type { AIActionSummary, TurnEvent } from '../types/game'
 
 const route = useRoute()
+const router = useRouter()
 const gameStore = useGameStore()
+const uiStore = useUIStore()
 const gameId = computed(() => String(route.params.id || ''))
 
 const gameState = computed<any>(() => gameStore.game)
@@ -149,6 +345,32 @@ const loading = ref(false)
 const endingTurn = ref(false)
 const error = ref('')
 const showColoniesModal = ref(false)
+const colonyQuery = ref('')
+const confirmEndTurnOpen = ref(false)
+const tutorialIndex = ref(0)
+const tutorialDismissed = ref(localStorage.getItem('moo2_ux_tutorial_dismissed') === '1')
+const isDev = import.meta.env.DEV
+const turnStatus = computed<any>(() => gameStore.turnStatus || {})
+const turnBlockers = computed<string[]>(() => turnStatus.value?.blockers || [])
+const turnWarnings = computed<string[]>(() => turnStatus.value?.warnings || [])
+const turnReady = computed(() => Boolean(turnStatus.value?.ready))
+const canEndTurn = computed(() => turnStatus.value?.can_end_turn !== false)
+const prioritizedActions = computed<any[]>(() => turnStatus.value?.tactical_actions || [])
+const turnPreviewLog = computed<any[]>(() => turnStatus.value?.preview_events || [])
+const endTurnButtonLabel = computed(() => {
+  if (!canEndTurn.value) return 'Turno bloqueado'
+  return turnReady.value ? 'Pasar turno' : 'Pasar turno con avisos'
+})
+const endTurnTitle = computed(() => {
+  if (turnBlockers.value.length) return turnBlockers.value[0]
+  if (turnWarnings.value.length) return turnWarnings.value[0]
+  return 'Todo listo para pasar turno'
+})
+const readinessTitle = computed(() => {
+  if (!canEndTurn.value) return 'No se puede avanzar'
+  if (turnReady.value) return 'Todo listo para pasar turno'
+  return 'Turno jugable con avisos pendientes'
+})
 
 const totalPopulation = computed(() => {
   const cols = gameState.value?.player?.colonies || []
@@ -156,9 +378,120 @@ const totalPopulation = computed(() => {
   return total || '-'
 })
 
+const primaryNavItems = computed(() => [
+  { id: 'diplomacy', label: 'Diplomacia', key: 'D', to: `/game/${gameId.value}/diplomacy` },
+  { id: 'combat', label: 'Combate', key: 'F', to: `/game/${gameId.value}/fleets` },
+  { id: 'map', label: 'Mapa', key: 'M', to: `/game/${gameId.value}/galaxy` },
+  { id: 'research', label: 'Tech', key: 'R', to: `/game/${gameId.value}/tech` },
+])
+
+const advancedNavItems = computed(() => [
+  { id: 'ship-design', label: 'Disenador', key: 'S', to: `/game/${gameId.value}/ships` },
+  { id: 'espionage', label: 'Espionaje', key: 'E', to: `/game/${gameId.value}/espionage` },
+  { id: 'leaders', label: 'Lideres', key: 'L', to: `/game/${gameId.value}/leaders` },
+  { id: 'council', label: 'Senado', key: '-', to: `/game/${gameId.value}/council` },
+])
+
+const navItems = computed(() => [...primaryNavItems.value, ...advancedNavItems.value])
+
+const shortcuts = [
+  { key: 'M', label: 'Abrir mapa galactico' },
+  { key: 'C', label: 'Abrir lista de colonias' },
+  { key: 'F', label: 'Gestionar flotas' },
+  { key: 'R', label: 'Investigacion' },
+  { key: 'D/E/L/S', label: 'Diplomacia, espionaje, lideres, disenador' },
+  { key: 'T', label: 'Confirmar fin de turno' },
+  { key: 'O', label: 'Abrir log del turno' },
+  { key: 'B', label: 'Volver atras' },
+  { key: '1/2/3', label: 'Velocidad lenta, normal o rapida' },
+  { key: 'Esc', label: 'Cerrar paneles y modales' },
+]
+
+const selectedSystem = computed(() => {
+  const id = uiStore.selectedSystemId
+  const systems = gameState.value?.galaxy?.star_systems || gameStore.galaxy?.star_systems || []
+  return id ? systems.find((system: any) => system.id === id) || null : null
+})
+
+const filteredColonies = computed(() => {
+  const colonies = gameState.value?.player?.colonies || []
+  const query = colonyQuery.value.toLowerCase()
+  if (!query) return colonies
+  return colonies.filter((colony: any) => {
+    const system = (gameState.value?.galaxy?.star_systems || []).find((s: any) => s.id === colony?.star_system_id)
+    const haystack = [
+      colonyLabel(colony),
+      colony?.id,
+      colony?.name,
+      system?.name,
+      String(colony?.population?.total || ''),
+    ].join(' ').toLowerCase()
+    return haystack.includes(query)
+  })
+})
+
+const empireComparison = computed(() => {
+  const aiPlayers = gameState.value?.ai_players || gameState.value?.aiPlayers || []
+  const enemies = Array.isArray(aiPlayers) ? aiPlayers : []
+  const strongest = [...enemies].sort((a: any, b: any) => {
+    const aScore = (a?.colonies?.length || 0) * 3 + (a?.fleets?.length || 0)
+    const bScore = (b?.colonies?.length || 0) * 3 + (b?.fleets?.length || 0)
+    return bScore - aScore
+  })[0] || {}
+  const player = gameState.value?.player || {}
+  return {
+    playerColonies: player?.colonies?.length ?? '-',
+    enemyColonies: strongest?.colonies?.length ?? '-',
+    playerFleets: player?.fleets?.length ?? '-',
+    enemyFleets: strongest?.fleets?.length ?? '-',
+    playerPopulation: totalPopulation.value,
+    enemyPopulation: populationTotal(strongest?.colonies || []),
+  }
+})
+
+const endTurnPreview = computed(() => {
+  const impacts = turnPreviewLog.value.map((item: any) => item.message).filter(Boolean)
+  if (!impacts.length) {
+    impacts.push('Se procesaran produccion, investigacion, movimientos de flotas y acciones de IA.')
+  }
+  impacts.push(`Colonias activas: ${gameState.value?.player?.colonies?.length || 0}. Flotas activas: ${gameState.value?.player?.fleets?.length || 0}.`)
+  return impacts
+})
+
+const turnPhaseLabel = computed(() => {
+  const speed = uiStore.gameSpeed
+  if (speed === 'lenta') return 'Animacion lenta: mostrando movimientos y resoluciones.'
+  if (speed === 'rapida') return 'Animacion rapida: saltando pausas no esenciales.'
+  return 'Resolviendo economia, IA y eventos importantes.'
+})
+
+const tutorialSteps = [
+  {
+    title: '1. Empieza por el mapa',
+    body: 'Pulsa M, selecciona una estrella y revisa planetas, flotas y rango antes de mover nada.',
+  },
+  {
+    title: '2. Revisa colonias',
+    body: 'Pulsa C para abrir la lista filtrable. En cada colonia puedes previsualizar comida, industria y ciencia antes de aplicar.',
+  },
+  {
+    title: '3. Avanza con control',
+    body: 'Pulsa T para abrir la confirmacion de fin de turno. El log O resume consecuencias y acciones rivales.',
+  },
+]
+
+const showTutorial = computed(() => !tutorialDismissed.value && Number(gameState.value?.turn || 1) <= 2)
+const tutorialStep = computed(() => tutorialSteps[tutorialIndex.value] || tutorialSteps[0])
+
 function formatNumber(value?: number) {
   if (value === undefined || value === null) return '-'
   return Number(value).toLocaleString()
+}
+
+function populationTotal(colonies: any[]) {
+  if (!Array.isArray(colonies) || !colonies.length) return '-'
+  const total = colonies.reduce((acc: number, colony: any) => acc + (colony?.population?.total || 0), 0)
+  return total || '-'
 }
 
 function colonyLabel(colony: any) {
@@ -286,6 +619,50 @@ function clearTurnReport() {
   aiActions.value = []
 }
 
+function navAttentionClass(id: string) {
+  const actionTypes = new Set(prioritizedActions.value.map((action: any) => String(action.type || '')))
+  const map: Record<string, string[]> = {
+    diplomacy: ['diplomacy'],
+    construction: ['construction', 'colonize'],
+    combat: ['combat', 'colonize'],
+    research: ['research'],
+    map: ['colonize'],
+  }
+  return {
+    'is-attention': (map[id] || []).some((type) => actionTypes.has(type)),
+  }
+}
+
+async function refreshTurnStatus() {
+  if (!gameStore.gameId) return
+  try {
+    await gameStore.fetchTurnStatus()
+  } catch {
+    /* status panel is advisory; keep the last known state */
+  }
+}
+
+function requestEndTurn() {
+  if (!canEndTurn.value) {
+    error.value = turnBlockers.value[0] || 'No se puede pasar el turno.'
+    return
+  }
+  confirmEndTurnOpen.value = true
+}
+
+function goBack() {
+  router.back()
+}
+
+function nextTutorialStep() {
+  tutorialIndex.value = (tutorialIndex.value + 1) % tutorialSteps.length
+}
+
+function dismissTutorial() {
+  tutorialDismissed.value = true
+  localStorage.setItem('moo2_ux_tutorial_dismissed', '1')
+}
+
 async function reloadGame() {
   loading.value = true
   error.value = ''
@@ -300,16 +677,22 @@ async function reloadGame() {
 }
 
 async function runEndTurn() {
+  confirmEndTurnOpen.value = false
   endingTurn.value = true
   error.value = ''
+  const startedAt = Date.now()
   try {
     const response = await gameStore.endTurn()
     turnEvents.value = Array.isArray(response?.events) ? response.events : []
     aiActions.value = Array.isArray(response?.ai_actions) ? response.ai_actions : []
     refreshKey.value += 1
+    uiStore.openEventLog()
   } catch (err) {
     error.value = (err as Error).message || 'No se pudo finalizar el turno.'
   } finally {
+    const minDelay = uiStore.gameSpeed === 'lenta' ? 700 : uiStore.gameSpeed === 'rapida' ? 80 : 300
+    const remaining = minDelay - (Date.now() - startedAt)
+    if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining))
     endingTurn.value = false
   }
 }
@@ -322,13 +705,32 @@ watch(
   },
 )
 
+const handleRequestEndTurn = () => requestEndTurn()
+const handleOpenColonies = () => {
+  showColoniesModal.value = true
+}
+const handleEscape = () => {
+  showColoniesModal.value = false
+  confirmEndTurnOpen.value = false
+}
+
 onMounted(async () => {
+  window.addEventListener('ux:request-end-turn', handleRequestEndTurn)
+  window.addEventListener('ux:open-colonies', handleOpenColonies)
+  window.addEventListener('ux:escape', handleEscape)
   // Skip reload if store already has this game cached (avoids hammering the backend on tab navigation).
   if (gameStore.gameId === gameId.value && gameStore.game) {
     refreshKey.value += 1
+    await refreshTurnStatus()
     return
   }
   await reloadGame()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('ux:request-end-turn', handleRequestEndTurn)
+  window.removeEventListener('ux:open-colonies', handleOpenColonies)
+  window.removeEventListener('ux:escape', handleEscape)
 })
 </script>
 
@@ -382,6 +784,188 @@ onMounted(async () => {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.retro-btn.secondary {
+  border-color: rgba(141, 255, 159, 0.62);
+}
+
+.end-turn-btn {
+  border-color: #ffeb66;
+  color: #ffeb66;
+  min-width: 154px;
+  font-weight: 700;
+}
+
+.end-turn-btn.is-ready {
+  background: rgba(255, 235, 102, 0.14);
+  box-shadow: 0 0 1rem rgba(255, 235, 102, 0.22);
+}
+
+.end-turn-btn.is-blocked {
+  border-color: #777;
+  color: #aaa;
+}
+
+.speed-control {
+  display: grid;
+  gap: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.speed-control select,
+.modal-search {
+  background: var(--bg-0);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  padding: 0.4rem 0.55rem;
+  font-family: var(--font-mono);
+}
+
+.quick-nav {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.75fr);
+  gap: 0.65rem;
+  margin: 0.9rem 0;
+}
+
+.quick-nav-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+  gap: 0.45rem;
+  padding: 0.55rem;
+  border: 1px solid rgba(51, 255, 102, 0.16);
+  background: rgba(3, 18, 10, 0.45);
+}
+
+.nav-group-label {
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.62rem;
+}
+
+.quick-nav-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(51, 255, 102, 0.35);
+  background: rgba(3, 18, 10, 0.78);
+  color: var(--text);
+  font-family: var(--font-mono);
+  cursor: pointer;
+  text-align: left;
+}
+
+.quick-nav-item.is-attention {
+  border-color: #ffeb66;
+  background: rgba(80, 60, 8, 0.72);
+  color: #ffeb66;
+}
+
+.quick-nav-item.advanced-item {
+  opacity: 0.78;
+}
+
+.quick-nav-item:hover,
+.quick-nav-item.router-link-active {
+  border-color: var(--primary);
+  background: rgba(51, 255, 102, 0.16);
+}
+
+.turn-readiness {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 235, 102, 0.28);
+  background: rgba(20, 18, 8, 0.62);
+}
+
+.turn-readiness.is-ready {
+  border-color: rgba(51, 255, 102, 0.38);
+  background: rgba(5, 24, 12, 0.62);
+}
+
+.turn-readiness.is-blocked {
+  border-color: rgba(255, 85, 119, 0.55);
+  background: rgba(42, 6, 12, 0.56);
+}
+
+.readiness-head,
+.readiness-grid {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.readiness-head {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.readiness-head strong {
+  color: var(--primary-strong);
+}
+
+.readiness-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.readiness-list {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.55rem;
+  border: 1px solid rgba(141, 255, 159, 0.16);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.readiness-list strong {
+  color: #ffeb66;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.readiness-list p {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.readiness-list small {
+  display: block;
+  margin-top: 0.1rem;
+  color: var(--text-muted);
+}
+
+.readiness-list.blockers strong,
+.readiness-list.blockers p {
+  color: #ff7799;
+}
+
+.readiness-list.warnings strong {
+  color: #ffb266;
+}
+
+.muted-line {
+  color: var(--text-muted) !important;
+}
+
+kbd {
+  min-width: 1.4rem;
+  padding: 0.1rem 0.3rem;
+  border: 1px solid rgba(141, 255, 159, 0.45);
+  color: var(--primary-strong);
+  background: rgba(0, 0, 0, 0.45);
+  text-align: center;
+  font-family: var(--font-pixel);
+  font-size: 0.55rem;
 }
 
 .summary-grid {
@@ -432,6 +1016,65 @@ onMounted(async () => {
   text-transform: uppercase;
   font-size: 0.72rem;
   letter-spacing: 0.08em;
+}
+
+.side-panel {
+  margin-top: 0.7rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(51, 255, 102, 0.28);
+  background: rgba(2, 14, 8, 0.74);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.side-panel strong {
+  color: var(--primary-strong);
+}
+
+.side-panel small,
+.side-note {
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.side-kicker {
+  margin: 0;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.66rem;
+}
+
+.side-link {
+  width: fit-content;
+  border-bottom: 1px dashed currentColor;
+}
+
+.compare-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.25rem 0;
+  border-bottom: 1px dashed rgba(51, 255, 102, 0.16);
+}
+
+.compare-row span {
+  color: var(--text-muted);
+}
+
+.tutorial-card p:not(.side-kicker) {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.tutorial-actions,
+.turn-report-actions,
+.confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .tabs {
@@ -605,11 +1248,117 @@ onMounted(async () => {
   overflow-y: auto;
   box-shadow: 0 4px 20px rgba(0,255,255,0.2);
 }
+
+.confirm-modal,
+.shortcuts-modal {
+  max-width: 640px;
+}
+
+.modal-search {
+  width: 100%;
+  margin-bottom: 0.75rem;
+}
+
+.confirm-copy {
+  margin: 0 0 0.7rem;
+  color: var(--text);
+}
+
+.confirm-warning {
+  margin-bottom: 0.75rem;
+  padding: 0.55rem;
+  border: 1px solid rgba(255, 178, 102, 0.35);
+  background: rgba(64, 34, 6, 0.28);
+}
+
+.confirm-warning strong {
+  color: #ffb266;
+}
+
+.confirm-warning p {
+  margin: 0.25rem 0 0;
+  color: var(--text);
+}
+
+.impact-list {
+  margin: 0 0 1rem;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.35rem;
+  color: var(--text);
+}
+
+.impact-list li::marker {
+  color: #ffeb66;
+}
+
+.shortcut-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.45rem;
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem;
+  border: 1px solid rgba(51, 255, 102, 0.22);
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.shortcut-row strong {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.turn-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.75rem;
+  background:
+    radial-gradient(circle, rgba(51, 255, 102, 0.12), rgba(0, 0, 0, 0.86) 55%),
+    rgba(0, 0, 0, 0.72);
+  color: var(--primary-strong);
+  text-align: center;
+}
+
+.turn-overlay strong {
+  font-family: var(--font-pixel);
+  letter-spacing: 0.08em;
+}
+
+.turn-overlay span {
+  color: var(--text-muted);
+}
+
+.turn-pulse {
+  width: 72px;
+  height: 72px;
+  border: 2px solid var(--primary);
+  box-shadow: 0 0 24px rgba(51, 255, 102, 0.45), inset 0 0 24px rgba(51, 255, 102, 0.24);
+  animation: turn-pulse 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes turn-pulse {
+  from {
+    transform: scale(0.85) rotate(0deg);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(1.08) rotate(45deg);
+    opacity: 1;
+  }
+}
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--panel-border);
   padding-bottom: 0.5rem;
   margin-bottom: 1rem;
 }
@@ -663,6 +1412,11 @@ onMounted(async () => {
 @media (max-width: 1080px) {
   .game-layout-wrapper {
     flex-direction: column;
+  }
+
+  .quick-nav,
+  .readiness-grid {
+    grid-template-columns: 1fr;
   }
 
   .sidebar-column {

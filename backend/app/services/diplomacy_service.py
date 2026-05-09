@@ -13,7 +13,11 @@ from __future__ import annotations
 
 import os
 import random
+import json
+from pathlib import Path
 from typing import List, Optional
+
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
 
 with (DATA_DIR / "technologies.json").open("r", encoding="utf-8") as f:

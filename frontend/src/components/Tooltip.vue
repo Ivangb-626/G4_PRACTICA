@@ -1,10 +1,17 @@
 // components/Tooltip.vue
 <template>
-  <div class="tooltip-container" @mouseenter="showTooltip" @mouseleave="hideTooltip">
+  <div
+    class="tooltip-container"
+    tabindex="0"
+    @mouseenter="showTooltip"
+    @mouseleave="hideTooltip"
+    @focusin="showTooltip"
+    @focusout="hideTooltip"
+  >
     <slot></slot>
-    <div v-if="visible" class="tooltip-content" :style="tooltipStyles">
+    <div v-if="visible" class="tooltip-content" :style="tooltipStyles" role="tooltip">
       <h4 class="tooltip-title">{{ title }}</h4>
-      <p class="tooltip-description">{{ description }}</p>
+      <p class="tooltip-description">{{ description || 'Sin detalles disponibles.' }}</p>
       <div v-if="details" class="tooltip-details">
         <div v-for="(value, key) in details" :key="key">
           <span class="detail-key">{{ key }}:</span>
@@ -39,6 +46,7 @@ const tooltipStyles = computed(() => {
     color: '#e0e0ff',
     fontSize: '0.8rem',
     pointerEvents: 'none' as const,
+    boxShadow: '0 8px 24px rgba(0,0,0,0.55), 0 0 18px rgba(0,255,255,0.18)',
   };
 
   switch (props.position) {
@@ -62,28 +70,36 @@ function hideTooltip() {
 <style scoped>
 .tooltip-container {
   position: relative;
-  display: inline-block; /* Ensure the container wraps the slotted content */
+  display: inline-block;
+  outline: none;
 }
 
 .tooltip-content {
-  opacity: 0;
-  transition: opacity 0.3s ease-in-out;
+  animation: tooltip-in 0.12s ease-out both;
 }
 
-.tooltip-container:hover .tooltip-content {
-  opacity: 1;
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .tooltip-title {
   color: #00ffff;
   font-size: 1rem;
+  margin-top: 0;
   margin-bottom: 0.3rem;
   border-bottom: 1px solid rgba(0, 255, 255, 0.3);
   padding-bottom: 0.2rem;
 }
 
 .tooltip-description {
+  margin-top: 0;
   margin-bottom: 0.5rem;
+  line-height: 1.35;
 }
 
 .tooltip-details {

@@ -26,6 +26,8 @@ export const useUIStore = defineStore('ui', {
     cheatInput: '',
     notification: null as string | null,
     eventLogOpen: false,
+    shortcutsOpen: false,
+    gameSpeed: 'normal' as 'pausa' | 'lenta' | 'normal' | 'rapida',
   }),
   actions: {
     setScreen(screen: ScreenName) {
@@ -54,6 +56,15 @@ export const useUIStore = defineStore('ui', {
     },
     closeEventLog() {
       this.eventLogOpen = false;
+    },
+    toggleShortcuts() {
+      this.shortcutsOpen = !this.shortcutsOpen;
+    },
+    closeShortcuts() {
+      this.shortcutsOpen = false;
+    },
+    setGameSpeed(speed: 'pausa' | 'lenta' | 'normal' | 'rapida') {
+      this.gameSpeed = speed;
     }
   }
 });

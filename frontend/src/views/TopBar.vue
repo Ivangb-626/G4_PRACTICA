@@ -114,7 +114,6 @@ onMounted(refreshGames)
   box-shadow: 0 2px 12px rgba(0, 255, 255, 0.12);
   backdrop-filter: blur(6px);
   font-family: monospace;
-  position: relative;
 }
 .brand {
   font-weight: bold;

@@ -11,6 +11,24 @@
       :style="styles.canvas"
     ></canvas>
 
+    <div :style="styles.mapToolbar">
+      <input
+        v-model.trim="systemQuery"
+        :style="styles.searchInput"
+        list="galaxy-systems"
+        placeholder="Buscar sistema..."
+        type="search"
+        @keydown.enter="selectFirstMatch"
+      />
+      <datalist id="galaxy-systems">
+        <option v-for="system in allSystems" :key="system.id" :value="system.name" />
+      </datalist>
+      <button class="retro-btn map-btn" type="button" @click="selectFirstMatch">Ir</button>
+      <button class="retro-btn map-btn" type="button" @click="zoomOut">-</button>
+      <button class="retro-btn map-btn" type="button" @click="resetView">Reset</button>
+      <button class="retro-btn map-btn" type="button" @click="zoomIn">+</button>
+    </div>
+
     <!-- Selected system overlay -->
     <div v-if="selectedInfo" :style="styles.systemPanel">
       <div :style="styles.systemTitle">{{ selectedInfo.name }}</div>
@@ -48,10 +66,19 @@
         </div>
         <p v-else :style="styles.warn">Ninguna flota tuya alcanza este sistema.</p>
         <button class="retro-btn" type="button" :disabled="!chosenFleetId || launching" @click="launchTravel">
-          {{ launching ? 'EN MARCHA...' : 'INICIAR VIAJE' }}
+          {{ launching ? 'EN MARCHA...' : 'PREVISUALIZAR VIAJE' }}
         </button>
+        <p v-if="chosenFleetId" :style="styles.travelImpact">{{ travelPreview }}</p>
         <p v-if="travelMessage" :style="styles.travelMsg">{{ travelMessage }}</p>
       </div>
+    </div>
+
+    <div v-if="hoveredInfo" :style="hoverTooltipStyle">
+      <strong>{{ hoveredInfo.name }}</strong>
+      <span>{{ hoveredInfo.star_type }} · {{ hoveredInfo.planets?.length || 0 }} planeta(s)</span>
+      <span v-if="hoveredInfo.has_player_colony">Colonia propia detectada</span>
+      <span v-else-if="hoveredInfo.has_enemy_fleet">Actividad hostil detectada</span>
+      <span v-else>Click para seleccionar</span>
     </div>
 
     <!-- Zoom indicator (overrides parent zoom indicator visually) -->
@@ -61,6 +88,24 @@
 
     <div v-if="error" :style="styles.error">{{ error }}</div>
     <div v-if="loading" :style="styles.loading">SCANNING SECTOR...</div>
+
+    <div v-if="confirmTravelOpen" class="map-modal">
+      <div class="map-modal-card">
+        <header>
+          <strong>Confirmar movimiento</strong>
+          <button type="button" @click="confirmTravelOpen = false">×</button>
+        </header>
+        <p>{{ travelPreview }}</p>
+        <ul>
+          <li>La flota quedara en transito y no podra actuar hasta llegar.</li>
+          <li>El destino puede activar combate si hay fuerzas hostiles.</li>
+        </ul>
+        <div class="map-modal-actions">
+          <button class="retro-btn" type="button" @click="confirmTravelOpen = false">Cancelar</button>
+          <button class="retro-btn" type="button" :disabled="launching" @click="confirmLaunchTravel">Confirmar</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -91,6 +136,10 @@ const travelMode = ref(false)
 const chosenFleetId = ref('')
 const launching = ref(false)
 const travelMessage = ref('')
+const confirmTravelOpen = ref(false)
+const systemQuery = ref('')
+const hoveredInfo = ref<any | null>(null)
+const hoverPos = ref({ x: 0, y: 0 })
 
 const isDragging = ref(false)
 const wasDragging = ref(false)
@@ -109,6 +158,25 @@ const styles = {
     borderRadius: '8px',
   },
   canvas: { display: 'block', cursor: 'crosshair' },
+  mapToolbar: {
+    position: 'absolute' as const,
+    top: '0.6rem',
+    right: '0.6rem',
+    display: 'flex',
+    gap: '0.35rem',
+    flexWrap: 'wrap' as const,
+    justifyContent: 'flex-end' as const,
+    maxWidth: 'min(520px, calc(100% - 1.2rem))',
+    pointerEvents: 'auto' as const,
+  },
+  searchInput: {
+    minWidth: '180px',
+    background: 'rgba(0, 0, 0, 0.72)',
+    border: '1px solid #00ffff',
+    color: '#00ffff',
+    padding: '0.35rem 0.5rem',
+    fontFamily: 'monospace',
+  },
   zoomOverlay: {
     position: 'absolute' as const,
     bottom: '0.6rem',
@@ -142,6 +210,7 @@ const styles = {
   travelTitle: { color: '#88ff88', margin: '0 0 0.3rem', fontSize: '0.8rem' },
   fleetOption: { display: 'flex', gap: '0.4rem', alignItems: 'flex-start', fontSize: '0.78rem', padding: '0.2rem 0', cursor: 'pointer' },
   travelMsg: { color: '#88ff88', fontSize: '0.75rem', marginTop: '0.35rem' },
+  travelImpact: { color: '#ffeb66', fontSize: '0.74rem', margin: '0.4rem 0 0', lineHeight: 1.3 },
   error: {
     position: 'absolute' as const,
     top: '1rem',
@@ -170,6 +239,33 @@ const selectedInfo = computed(() => {
 
 const allSystems = computed<any[]>(() => gameStore.galaxy?.star_systems || [])
 const playerFleets = computed<any[]>(() => gameStore.fleets || [])
+const selectedFleetForTravel = computed(() => playerFleets.value.find((fleet) => fleet.id === chosenFleetId.value) || null)
+const filteredSystems = computed(() => {
+  const query = systemQuery.value.toLowerCase()
+  if (!query) return allSystems.value
+  return allSystems.value.filter((system) => String(system?.name || system?.id || '').toLowerCase().includes(query))
+})
+const hoverTooltipStyle = computed(() => ({
+  position: 'absolute' as const,
+  left: `${hoverPos.value.x + 14}px`,
+  top: `${hoverPos.value.y + 14}px`,
+  display: 'grid',
+  gap: '0.15rem',
+  background: 'rgba(3, 12, 24, 0.94)',
+  border: '1px solid #00ffff',
+  color: '#cfffd4',
+  padding: '0.45rem 0.55rem',
+  fontSize: '0.75rem',
+  pointerEvents: 'none' as const,
+  zIndex: 20,
+  boxShadow: '0 8px 22px rgba(0, 0, 0, 0.55)',
+}))
+const travelPreview = computed(() => {
+  const fleet = selectedFleetForTravel.value
+  const target = selectedInfo.value
+  if (!fleet || !target) return 'Selecciona una flota para ver el impacto.'
+  return `${fleet.name} viajara de ${getSystemName(fleet.star_system_id)} a ${target.name}. Rango actual: ${rangeLabel.value}.`
+})
 
 /** Sistema donde el jugador tiene su capital (planeta colonizado) — fallback. */
 const originSystemId = computed<string | null>(() => {
@@ -221,7 +317,37 @@ function getSystemName(id: string) {
   return allSystems.value.find((s) => s.id === id)?.name || id
 }
 
-async function launchTravel() {
+function zoomIn() {
+  zoom.value = Math.min(6, zoom.value * 1.18)
+  requestRender()
+}
+
+function zoomOut() {
+  zoom.value = Math.max(0.3, zoom.value / 1.18)
+  requestRender()
+}
+
+function resetView() {
+  zoom.value = 1
+  panX.value = 0
+  panY.value = 0
+  requestRender()
+}
+
+function selectFirstMatch() {
+  const match = filteredSystems.value[0]
+  if (!match?.id) return
+  uiStore.selectSystem(match.id)
+  systemQuery.value = match.name || match.id
+  requestRender()
+}
+
+function launchTravel() {
+  if (!chosenFleetId.value || !uiStore.selectedSystemId) return
+  confirmTravelOpen.value = true
+}
+
+async function confirmLaunchTravel() {
   if (!chosenFleetId.value || !uiStore.selectedSystemId || !gameStore.gameId) return
   launching.value = true
   travelMessage.value = ''
@@ -230,6 +356,7 @@ async function launchTravel() {
     travelMessage.value = `Flota ${chosenFleetId.value} en transito`
     chosenFleetId.value = ''
     travelMode.value = false
+    confirmTravelOpen.value = false
     await gameStore.fetchFleets()
     requestRender()
   } catch (err: any) {
@@ -243,6 +370,7 @@ watch(() => uiStore.selectedSystemId, () => {
   travelMode.value = false
   chosenFleetId.value = ''
   travelMessage.value = ''
+  confirmTravelOpen.value = false
 })
 
 const handleMouseDown = (e: MouseEvent) => {
@@ -264,24 +392,23 @@ const handleMouseMove = (e: MouseEvent) => {
     lastMouseX.value = e.clientX
     lastMouseY.value = e.clientY
     requestRender()
+    hoveredInfo.value = null
+    return
   }
+  const canvas = canvasRef.value
+  if (!canvas) return
+  const rect = canvas.getBoundingClientRect()
+  hoverPos.value = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+  hoveredInfo.value = findSystemAt(hoverPos.value.x, hoverPos.value.y, 18)
 }
 
 const handleMouseUp = () => {
   isDragging.value = false
 }
 
-const handleClick = (e: MouseEvent) => {
-  if (wasDragging.value) {
-    wasDragging.value = false
-    return
-  }
+function findSystemAt(cx: number, cy: number, radius = 14) {
   const canvas = canvasRef.value
-  if (!canvas || !gameStore.galaxy) return
-  const rect = canvas.getBoundingClientRect()
-  const cx = e.clientX - rect.left
-  const cy = e.clientY - rect.top
-
+  if (!canvas || !gameStore.galaxy) return null
   const w = canvas.width
   const h = canvas.height
   const padX = 40
@@ -289,11 +416,9 @@ const handleClick = (e: MouseEvent) => {
   const drawW = w - padX * 2
   const drawH = h - padY * 2
 
-  const systems = gameStore.galaxy.star_systems || []
   let nearest: any = null
-  let bestDist = 14 * 14
-
-  for (const sys of systems) {
+  let bestDist = radius * radius
+  for (const sys of gameStore.galaxy.star_systems || []) {
     if (!sys?.position) continue
     const sx = padX + (sys.position.x / 100) * drawW
     const sy = padY + (sys.position.y / 100) * drawH
@@ -307,6 +432,20 @@ const handleClick = (e: MouseEvent) => {
       nearest = sys
     }
   }
+  return nearest
+}
+
+const handleClick = (e: MouseEvent) => {
+  if (wasDragging.value) {
+    wasDragging.value = false
+    return
+  }
+  const canvas = canvasRef.value
+  if (!canvas || !gameStore.galaxy) return
+  const rect = canvas.getBoundingClientRect()
+  const cx = e.clientX - rect.left
+  const cy = e.clientY - rect.top
+  const nearest = findSystemAt(cx, cy)
   if (nearest) {
     uiStore.selectSystem(nearest.id)
     requestRender()
@@ -383,3 +522,62 @@ watch(() => gameStore.galaxy, requestRender, { deep: true })
 watch(() => gameStore.fleets, requestRender, { deep: true })
 watch(() => uiStore.selectedSystemId, requestRender)
 </script>
+
+<style scoped>
+.map-btn {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.58rem;
+}
+
+.map-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.map-modal-card {
+  width: min(92%, 460px);
+  padding: 0.85rem;
+  border: 1px solid #00ffff;
+  background: rgba(4, 8, 26, 0.96);
+  color: #cfffd4;
+  box-shadow: 0 0 28px rgba(0, 255, 255, 0.24);
+}
+
+.map-modal-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px dashed rgba(0, 255, 255, 0.35);
+  padding-bottom: 0.45rem;
+  margin-bottom: 0.55rem;
+}
+
+.map-modal-card header button {
+  background: transparent;
+  border: 1px solid #ff5577;
+  color: #ff5577;
+  cursor: pointer;
+}
+
+.map-modal-card p {
+  margin: 0 0 0.5rem;
+  color: #ffeb66;
+}
+
+.map-modal-card ul {
+  margin: 0 0 0.8rem;
+  padding-left: 1.1rem;
+  color: #aaaacc;
+}
+
+.map-modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+</style>

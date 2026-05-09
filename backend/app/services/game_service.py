@@ -136,6 +136,117 @@ def _fleet_command_points(fleet):
     )
 
 
+def _owner_ids(game_state):
+    return ["player", *[ai["id"] for ai in game_state.get("ai_players", [])]]
+
+
+def _building_ids(colony):
+    out = []
+    for building in colony.get("buildings", []):
+        out.append(building if isinstance(building, str) else building.get("id"))
+    return [bid for bid in out if bid]
+
+
+def _researched_tech_ids(empire):
+    if not empire:
+        return set()
+    return {
+        item.get("tech_id")
+        for item in empire.get("technologies", {}).get("researched", [])
+        if item.get("status") != "discarded"
+    }
+
+
+def _tech_label(tech_id):
+    tech = TECHS.get(tech_id)
+    return tech.get("name", tech_id) if tech else tech_id
+
+
+def _ship_label(ship_type):
+    ship = SHIP_TYPES.get(ship_type)
+    return ship.get("name", ship_type) if ship else ship_type
+
+
+def _empire_command_points(empire):
+    if not empire:
+        return 0, 0
+    total = 4
+    for colony in empire.get("colonies", []):
+        for building_id in _building_ids(colony):
+            total += BUILDINGS.get(building_id, {}).get("effects", {}).get("command_points", 0)
+    used = sum(_fleet_command_points(fleet) for fleet in empire.get("fleets", []))
+    return total, used
+
+
+def _project_lock_reasons(project, built, techs, empire=None, colony=None):
+    reasons = []
+    prereqs = project.get("prerequisites", {})
+    for tech_id in prereqs.get("tech", []) or []:
+        if tech_id not in techs:
+            reasons.append(f"Investiga {_tech_label(tech_id)}")
+    for building_id in prereqs.get("buildings", []) or []:
+        if building_id not in built:
+            reasons.append(f"Construye {BUILDINGS.get(building_id, {}).get('name', building_id)}")
+    if project.get("unique_per_empire") and empire and colony is not None:
+        already = any(
+            project["id"] in _building_ids(other)
+            for other in empire.get("colonies", [])
+            if other is not colony
+        )
+        if already:
+            reasons.append("Ya existe en otra colonia")
+    return reasons
+
+
+def get_building_projects(game_state, colony):
+    built = set(_building_ids(colony))
+    empire = get_empire(game_state, colony.get("owner") or "player")
+    techs = _researched_tech_ids(empire)
+    projects = []
+    for building in BUILDINGS.values():
+        item = dict(building)
+        if item["id"] in built:
+            item["status"] = "built"
+            item["locked_reason"] = "Ya esta construido en esta colonia"
+        else:
+            reasons = _project_lock_reasons(item, built, techs, empire, colony)
+            item["status"] = "locked" if reasons else "available"
+            item["locked_reason"] = "; ".join(reasons)
+            item["requirements_missing"] = reasons
+        projects.append(item)
+    return projects
+
+
+def get_ship_projects(game_state, colony):
+    empire = get_empire(game_state, colony.get("owner") or "player")
+    techs = _researched_tech_ids(empire)
+    projects = []
+    for ship in SHIPS.values():
+        if ship.get("category") in ("antaran", "orion"):
+            continue
+        item = dict(ship)
+        reasons = []
+        req = item.get("tech_required")
+        if req and req not in techs:
+            reasons.append(f"Investiga {_tech_label(req)}")
+        limit = item.get("limit_per_empire")
+        if limit and empire:
+            owned = sum(
+                s.get("count", 0)
+                for fleet in empire.get("fleets", [])
+                for s in fleet.get("ships", [])
+                if s.get("type") == item["type"]
+            )
+            if owned >= limit:
+                reasons.append(f"Limite imperial alcanzado ({limit})")
+        item["id"] = item["type"]
+        item["status"] = "locked" if reasons else "available"
+        item["locked_reason"] = "; ".join(reasons)
+        item["requirements_missing"] = reasons
+        projects.append(item)
+    return projects
+
+
 def _normalize_population(colony):
     total = max(1, int(round(colony["population"].get("total", 1))))
     max_pop = max(1, int(round(colony["population"].get("max", total))))
@@ -900,6 +1011,8 @@ def _auto_rebalance_ai_population(colony):
 
 def _compute_empire_economy(game_state, owner_id):
     empire = get_empire(game_state, owner_id)
+    if not empire:
+        return
 
     # Auto-rebalance AI population before economy pass
     if owner_id != "player":
@@ -910,6 +1023,7 @@ def _compute_empire_economy(game_state, owner_id):
     total_research = 0
     total_production = 0
     total_food_surplus = 0
+    total_cp, total_cp_used = _empire_command_points(empire)
 
     surplus_pool = 0
     deficit_colonies = []
@@ -1081,6 +1195,225 @@ def resolve_space_combats(game_state):
         empire = get_empire(game_state, owner_id)
         empire["fleets"] = [fleet for fleet in empire.get("fleets", []) if fleet.get("ships")]
     return events
+
+
+def _pending_space_combats(game_state):
+    fleets_by_system = {}
+    for owner_id in _owner_ids(game_state):
+        empire = get_empire(game_state, owner_id)
+        if not empire:
+            continue
+        for fleet in empire.get("fleets", []):
+            if fleet.get("destination") is None and fleet.get("ships"):
+                fleets_by_system.setdefault(fleet.get("star_system_id"), set()).add(owner_id)
+    combats = []
+    for system_id, owners in fleets_by_system.items():
+        owners.discard(None)
+        owners = sorted(owners)
+        hostile = any(
+            _factions_hostile(game_state, owner_a, owner_b)
+            for index, owner_a in enumerate(owners)
+            for owner_b in owners[index + 1:]
+        )
+        if hostile:
+            combats.append({"system_id": system_id, "owners": owners})
+    return combats
+
+
+def validate_end_turn(game_state):
+    blockers = []
+    warnings = []
+    highlights = []
+    preview_events = []
+    tactical_actions = []
+
+    if not isinstance(game_state, dict):
+        return {
+            "can_end_turn": False,
+            "ready": False,
+            "blockers": ["Estado de partida invalido."],
+            "warnings": [],
+            "highlights": [],
+            "preview_events": [],
+            "tactical_actions": [],
+        }
+
+    player = game_state.get("player")
+    galaxy = game_state.get("galaxy", {})
+    systems = {s.get("id"): s for s in galaxy.get("star_systems", []) if s.get("id")}
+
+    if game_state.get("victory_condition"):
+        blockers.append(f"La partida ya termino: {game_state.get('victory_condition')}.")
+    if not player:
+        blockers.append("No existe el imperio del jugador en el estado de partida.")
+    if not systems:
+        blockers.append("La galaxia no tiene sistemas validos.")
+    if not isinstance(game_state.get("turn"), int) or game_state.get("turn", 0) < 1:
+        blockers.append("El contador de turno esta corrupto.")
+
+    for owner_id in _owner_ids(game_state):
+        empire = get_empire(game_state, owner_id)
+        if not empire:
+            blockers.append(f"No se encontro el imperio {owner_id}.")
+            continue
+        for fleet in empire.get("fleets", []):
+            fleet_name = fleet.get("name") or fleet.get("id") or "Flota sin nombre"
+            ships = fleet.get("ships", [])
+            if not ships:
+                warnings.append(f"{fleet_name} no tiene naves y sera ignorada en combate.")
+            for ship in ships:
+                if ship.get("type") not in SHIP_TYPES:
+                    blockers.append(f"{fleet_name} contiene una nave desconocida: {ship.get('type')}.")
+            if fleet.get("star_system_id") not in systems:
+                blockers.append(f"{fleet_name} esta en un sistema inexistente: {fleet.get('star_system_id')}.")
+            destination = fleet.get("destination")
+            eta = fleet.get("eta_turns")
+            if destination:
+                if destination not in systems:
+                    blockers.append(f"{fleet_name} tiene destino inexistente: {destination}.")
+                if not isinstance(eta, int) or eta < 1:
+                    blockers.append(f"{fleet_name} esta en transito pero su ETA no es valida.")
+                elif eta == 1:
+                    preview_events.append({
+                        "type": "fleet_arrival",
+                        "priority": "combat",
+                        "message": f"{fleet_name} llegara a {systems.get(destination, {}).get('name', destination)}.",
+                    })
+            elif eta is not None:
+                blockers.append(f"{fleet_name} tiene ETA pero no tiene destino.")
+
+    if player:
+        colonies = player.get("colonies", [])
+        fleets = player.get("fleets", [])
+        if not colonies and not fleets:
+            blockers.append("No quedan colonias ni flotas del jugador.")
+
+        idle_colonies = []
+        unassigned_colonies = []
+        construction_finishes = []
+        for colony in colonies:
+            name = colony.get("name") or colony.get("id") or "Colonia"
+            population = colony.get("population", {})
+            assigned = sum(population.get(k, 0) for k in ("farmers", "workers", "scientists"))
+            total = population.get("total", assigned)
+            if round(assigned) != round(total):
+                unassigned_colonies.append(name)
+            queue = colony.get("build_queue", [])
+            if not queue:
+                idle_colonies.append(name)
+            else:
+                head = queue[0]
+                remaining = max(0, head.get("cost", 0) - head.get("progress", 0))
+                if remaining <= colony.get("industry_output", 0):
+                    construction_finishes.append(f"{name}: {head.get('name') or head.get('item_id')}")
+
+        if idle_colonies:
+            warnings.append(f"{len(idle_colonies)} colonia(s) sin cola de construccion.")
+            tactical_actions.append({
+                "type": "construction",
+                "label": "Asignar construccion",
+                "priority": 20,
+                "count": len(idle_colonies),
+                "reason": f"Primera colonia sin cola: {idle_colonies[0]}.",
+            })
+        if unassigned_colonies:
+            warnings.append(f"{len(unassigned_colonies)} colonia(s) tienen poblacion sin asignar.")
+        for item in construction_finishes[:5]:
+            preview_events.append({
+                "type": "construction_complete",
+                "priority": "construction",
+                "message": f"Se completara {item}.",
+            })
+
+        food = player.get("resources", {}).get("total_food_surplus", 0)
+        if food < 0:
+            warnings.append(f"Deficit de comida ({food}); puede perderse poblacion al resolver el turno.")
+
+        total_cp, total_cp_used = _empire_command_points(player)
+        if total_cp_used > total_cp:
+            warnings.append(f"Deficit de mando naval: {total_cp_used}/{total_cp} CP. Penalizacion economica prevista.")
+
+        current = player.get("technologies", {}).get("current_research")
+        if current:
+            total_research = player.get("resources", {}).get("total_research", 0)
+            if current.get("progress", 0) + total_research >= current.get("total_cost", 1):
+                preview_events.append({
+                    "type": "research_complete",
+                    "priority": "research",
+                    "message": f"Se completara {_tech_label(current.get('tech_id'))}.",
+                })
+        else:
+            warnings.append("No hay investigacion activa; el turno avanzara sin acumular progreso tecnologico.")
+            tactical_actions.append({
+                "type": "research",
+                "label": "Elegir investigacion",
+                "priority": 45,
+                "count": 1,
+                "reason": "No hay proyecto tecnologico en curso.",
+            })
+
+        idle_fleets = [fleet for fleet in fleets if not fleet.get("destination") and fleet.get("ships")]
+        colonizer_ready = []
+        for fleet in idle_fleets:
+            system = systems.get(fleet.get("star_system_id"))
+            has_colony_ship = any(s.get("type") == "colony_ship" and s.get("count", 0) > 0 for s in fleet.get("ships", []))
+            if has_colony_ship and system and any(not p.get("colonized_by") for p in system.get("planets", [])):
+                colonizer_ready.append(fleet.get("name") or fleet.get("id"))
+        if idle_fleets:
+            highlights.append(f"{len(idle_fleets)} flota(s) listas para recibir ordenes.")
+        if colonizer_ready:
+            tactical_actions.append({
+                "type": "colonize",
+                "label": "Colonizar planeta",
+                "priority": 30,
+                "count": len(colonizer_ready),
+                "reason": f"{colonizer_ready[0]} puede fundar una colonia este turno.",
+            })
+
+        if game_state.get("ai_players"):
+            tactical_actions.append({
+                "type": "diplomacy",
+                "label": "Revisar diplomacia",
+                "priority": 10,
+                "count": len(game_state.get("ai_players", [])),
+                "reason": "Hay imperios rivales activos.",
+            })
+
+    combats = _pending_space_combats(game_state)
+    for combat in combats:
+        system = systems.get(combat["system_id"], {})
+        preview_events.append({
+            "type": "combat_resolved",
+            "priority": "combat",
+            "message": f"Se resolvera combate en {system.get('name', combat['system_id'])}.",
+        })
+    if combats:
+        tactical_actions.append({
+            "type": "combat",
+            "label": "Resolver combate",
+            "priority": 25,
+            "count": len(combats),
+            "reason": "Hay flotas enemigas en el mismo sistema.",
+        })
+
+    if not preview_events:
+        preview_events.append({
+            "type": "economy",
+            "priority": "economy",
+            "message": "Se recalcularan economia, crecimiento, IA, diplomacia y eventos aleatorios.",
+        })
+
+    tactical_actions.sort(key=lambda item: item.get("priority", 99))
+    ready = not blockers and not warnings
+    return {
+        "can_end_turn": not blockers,
+        "ready": ready,
+        "blockers": blockers,
+        "warnings": warnings,
+        "highlights": highlights,
+        "preview_events": preview_events,
+        "tactical_actions": tactical_actions,
+    }
 
 
 def _available_research(technologies):
@@ -1332,7 +1665,7 @@ async def end_turn(game_state):
                         "available_actions": _ai_actions(game_state, ai_player),
                     }
                 )
-            )
+
         except Exception as e:
             response = {"actions": [{"type": "endTurn"}], "reasoning": f"AI error: {e}"}
 
@@ -1419,7 +1752,13 @@ async def end_turn(game_state):
     game_state["last_saved"] = datetime.utcnow().isoformat()
     game_state["is_autosave"] = (game_state["turn"] % 4 == 0)
 
-    return {"game_state": game_state, "events": events, "ai_actions": ai_reports, "turn": game_state["turn"]}
+    return {
+        "game_state": game_state,
+        "events": events,
+        "ai_actions": ai_reports,
+        "turn": game_state["turn"],
+        "turn_status": validate_end_turn(game_state),
+    }
 
 
 def transfer_ships(game_state, owner_id, from_fleet_id, to_fleet_id, ships_to_move):
@@ -1653,10 +1992,14 @@ def get_colony_detail(game_state, colony_id):
         raise ValueError("Colony not found")
     _normalize_population(colony)
     calculate_colony_production(game_state, colony)
+    building_projects = get_building_projects(game_state, colony)
+    ship_projects = get_ship_projects(game_state, colony)
     return {
         "colony": colony,
-        "available_buildings": get_available_buildings(game_state, colony),
-        "available_ships": get_available_ships(game_state, colony),
+        "available_buildings": [item for item in building_projects if item.get("status") == "available"],
+        "available_ships": [item for item in ship_projects if item.get("status") == "available"],
+        "building_projects": building_projects,
+        "ship_projects": ship_projects,
     }
 
 
@@ -1673,22 +2016,39 @@ def get_tech_tree(game_state):
     for field_name, techs in fields.items():
         levels = {}
         for tech in sorted(techs, key=lambda item: (item["level"], item["id"])):
+            locked_reason = ""
+            requirements_missing = []
             if current and current["tech_id"] == tech["id"]:
                 status = "current"
             elif tech["id"] in researched:
                 status = "researched"
             elif tech["id"] in discarded:
                 status = "discarded"
+                locked_reason = "Descartada porque ya se eligio otra tecnologia de este nivel."
             elif tech["level"] > 1 and not any(
                 item["field"] == tech["field"] and item["level"] == tech["level"] - 1 and item.get("status") != "discarded"
                 for item in technologies.get("researched", [])
             ):
                 status = "locked"
+                previous = f"{tech['field']} nivel {tech['level'] - 1}"
+                requirements_missing.append(previous)
+                locked_reason = f"Investiga primero {previous}."
             elif any(
                 item["field"] == tech["field"] and item["level"] == tech["level"] and item.get("status") != "discarded"
                 for item in technologies.get("researched", [])
             ):
                 status = "locked"
+                chosen = next(
+                    (
+                        item
+                        for item in technologies.get("researched", [])
+                        if item["field"] == tech["field"] and item["level"] == tech["level"] and item.get("status") != "discarded"
+                    ),
+                    None,
+                )
+                chosen_name = _tech_label(chosen.get("tech_id")) if chosen else "otra tecnologia"
+                requirements_missing.append(chosen_name)
+                locked_reason = f"Ya elegiste {chosen_name} en este nivel."
             else:
                 status = "available"
             levels.setdefault(tech["level"], []).append(
@@ -1701,6 +2061,8 @@ def get_tech_tree(game_state):
                     "field": tech["field"],
                     "level": tech["level"],
                     "unlocks": tech.get("unlocks", {}),
+                    "locked_reason": locked_reason,
+                    "requirements_missing": requirements_missing,
                 }
             )
         response.append({"field": field_name, "levels": [{"level": level, "options": levels[level]} for level in sorted(levels)]})

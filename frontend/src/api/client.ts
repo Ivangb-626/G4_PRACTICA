@@ -17,6 +17,7 @@ export const api = {
     get: flatApi.loadGame,
     delete: flatApi.deleteGame,
     endTurn: flatApi.endTurn,
+    turnStatus: flatApi.getTurnStatus,
     score: flatApi.getScore,
     getTopHallOfFame: flatApi.getHallOfFame,
     scenarios: flatApi.getScenarios,

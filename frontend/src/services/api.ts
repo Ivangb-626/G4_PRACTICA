@@ -44,6 +44,10 @@ export const api = {
     const res = await httpClient.post(`/api/game/${gameId}/end-turn`, {})
     return res.data
   },
+  getTurnStatus: async (gameId: string) => {
+    const res = await httpClient.get(`/api/game/${gameId}/turn-status`)
+    return res.data
+  },
   getScore: async (gameId: string) => {
     const res = await httpClient.get(`/api/game/${gameId}/score`)
     return res.data

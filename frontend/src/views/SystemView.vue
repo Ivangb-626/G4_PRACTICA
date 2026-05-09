@@ -63,6 +63,10 @@
           <div v-else-if="!playerColonyShipFleet" class="warn">No hay nave colonizadora en este sistema.</div>
         </div>
 
+        <ul class="impact-preview" v-if="selectedImpact.length">
+          <li v-for="impact in selectedImpact" :key="impact">{{ impact }}</li>
+        </ul>
+
         <div class="actions">
           <button
             class="retro-btn ok"
@@ -77,7 +81,7 @@
             type="button"
             :disabled="!canColonizeThisPlanet || busy"
             v-if="!selected.colonized_by"
-            @click="colonize"
+            @click="requestSystemAction('colonize')"
           >
             {{ busy ? 'COLONIZANDO...' : 'COLONIZAR' }}
           </button>
@@ -86,7 +90,7 @@
             type="button"
             :disabled="!canAssault || busy"
             v-if="selected.colonized_by && selected.colonized_by !== 'player'"
-            @click="assault"
+            @click="requestSystemAction('assault')"
           >
             ASALTAR
           </button>
@@ -121,10 +125,24 @@
             {{ f.name }} ({{ getSystemName(f.star_system_id) }})
           </option>
         </select>
-        <button class="retro-btn" type="button" :disabled="!moveDraft.fleetId" @click="moveHere">SALTAR AQUI</button>
+        <button class="retro-btn" type="button" :disabled="!moveDraft.fleetId" @click="requestSystemAction('move')">SALTAR AQUI</button>
       </div>
       <p v-else class="empty">Ninguna flota tuya alcanza este sistema con tu tecnologia actual.</p>
     </section>
+
+    <div v-if="pendingAction" class="system-modal">
+      <div class="system-modal-card">
+        <header>
+          <strong>{{ pendingAction.title }}</strong>
+          <button type="button" @click="pendingAction = null">×</button>
+        </header>
+        <p>{{ pendingAction.body }}</p>
+        <div class="system-modal-actions">
+          <button class="retro-btn" type="button" @click="pendingAction = null">CANCELAR</button>
+          <button class="retro-btn" type="button" :disabled="busy" @click="confirmSystemAction">CONFIRMAR</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -146,6 +164,7 @@ const info = ref('')
 const loading = ref(false)
 const busy = ref(false)
 const moveDraft = ref<{ fleetId: string }>({ fleetId: '' })
+const pendingAction = ref<null | { type: 'colonize' | 'assault' | 'move'; title: string; body: string }>(null)
 
 const sysId = computed(() => String(route.params.sysId || ''))
 const gameId = computed(() => String(route.params.id || gameStore.gameId || ''))
@@ -185,6 +204,24 @@ const rangeLabel = computed(() => {
   const j = gameStore.maxJumps
   if (!Number.isFinite(j)) return 'ilimitado'
   return `${j} salto${j === 1 ? '' : 's'}`
+})
+
+const selectedImpact = computed(() => {
+  const planet = selected.value
+  if (!planet) return []
+  if (!planet.colonized_by && canColonizeThisPlanet.value) {
+    return [
+      'Se consumira una nave colonizadora.',
+      'La nueva colonia empezara con cola vacia y requerira asignar poblacion.',
+    ]
+  }
+  if (planet.colonized_by && planet.colonized_by !== 'player' && canAssault.value) {
+    return [
+      'Se usaran transportes en orbita.',
+      'El resultado puede capturar, danar o dejar intacta la colonia enemiga.',
+    ]
+  }
+  return []
 })
 
 function isPlanetHabitable(planet: any) {
@@ -248,6 +285,43 @@ async function reload() {
   } finally {
     loading.value = false
   }
+}
+
+function requestSystemAction(type: 'colonize' | 'assault' | 'move') {
+  if (type === 'colonize' && selected.value) {
+    pendingAction.value = {
+      type,
+      title: 'Confirmar colonizacion',
+      body: `${selected.value.name} sera colonizado por ${playerColonyShipFleet.value?.name || 'una flota colonizadora'}.`,
+    }
+    return
+  }
+  if (type === 'assault' && selected.value) {
+    pendingAction.value = {
+      type,
+      title: 'Confirmar asalto',
+      body: `Atacar ${selected.value.name}. Esta accion puede iniciar combate terrestre y consumir transportes.`,
+    }
+    return
+  }
+  if (type === 'move') {
+    const fleet = movableFleets.value.find((f) => f.id === moveDraft.value.fleetId)
+    if (!fleet) return
+    pendingAction.value = {
+      type,
+      title: 'Confirmar salto',
+      body: `${fleet.name} viajara desde ${getSystemName(fleet.star_system_id)} a ${system.value?.name || sysId.value}.`,
+    }
+  }
+}
+
+async function confirmSystemAction() {
+  const action = pendingAction.value
+  if (!action) return
+  pendingAction.value = null
+  if (action.type === 'colonize') await colonize()
+  if (action.type === 'assault') await assault()
+  if (action.type === 'move') await moveHere()
 }
 
 async function colonize() {
@@ -541,6 +615,15 @@ onMounted(reload)
 .ok-hint  { color: #44ee88; font-size: 0.72rem; }
 .warn     { color: #ffaa66; font-size: 0.72rem; }
 .actions  { margin-top: 0.4rem; display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.impact-preview {
+  margin: 0.2rem 0 0;
+  padding-left: 1rem;
+  color: #ffeb66;
+  font-size: 0.68rem;
+  display: grid;
+  gap: 0.16rem;
+}
+.impact-preview li::marker { color: #ffaa44; }
 
 /* Fleets section */
 .fleets-here {
@@ -570,6 +653,51 @@ onMounted(reload)
   padding: 0.25rem 0.4rem;
   font-family: 'Courier New', monospace;
   font-size: 0.7rem;
+}
+
+.system-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.68);
+}
+
+.system-modal-card {
+  width: min(92%, 500px);
+  padding: 0.8rem;
+  border: 2px solid #ffeb66;
+  background: #04081a;
+  color: #cfffd4;
+  box-shadow: 0 0 24px rgba(255, 235, 102, 0.24);
+}
+
+.system-modal-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.45rem;
+  border-bottom: 1px dashed #aa7711;
+}
+
+.system-modal-card header button {
+  background: transparent;
+  color: #ff5577;
+  border: 1px solid #ff5577;
+  cursor: pointer;
+}
+
+.system-modal-card p {
+  margin: 0 0 0.7rem;
+}
+
+.system-modal-actions {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 1024px) {

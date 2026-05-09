@@ -91,6 +91,17 @@ body::after {
   99% { opacity: 0.95; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Headings — chunky pixel font */
 h1, h2, h3, h4, h5, h6,
 .brand,
@@ -122,6 +133,21 @@ a {
 a:hover {
   color: var(--primary-strong);
   text-shadow: 0 0 0.6rem rgba(141, 255, 159, 0.7);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #ffeb66;
+  outline-offset: 2px;
+}
+
+button,
+a,
+input,
+select {
+  touch-action: manipulation;
 }
 
 /* Pixel scrollbar */

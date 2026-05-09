@@ -23,6 +23,7 @@ export const useGameStore = defineStore('game', {
     lastTurnEvents: [] as AnyObj[],
     aiActions: [] as AnyObj[],
     lastTurnResult: null as AnyObj | null,
+    turnStatus: null as AnyObj | null,
   }),
   getters: {
     /** True si el imperio investigo Interphased Drive (rango ilimitado). */
@@ -84,6 +85,11 @@ export const useGameStore = defineStore('game', {
       this.gameId = id
       this.game = await api.game.get(id)
       await Promise.all([this.fetchGalaxy(), this.fetchColonies(), this.fetchFleets()])
+      try {
+        await this.fetchTurnStatus()
+      } catch {
+        this.turnStatus = null
+      }
     },
     async deleteGame(id: string) {
       await api.game.delete(id)
@@ -99,8 +105,18 @@ export const useGameStore = defineStore('game', {
       this.lastTurnEvents = res.events || []
       this.aiActions = res.ai_actions || []
       this.game = res.game_state || this.game
+      this.turnStatus = res.turn_status || this.turnStatus
       await Promise.all([this.fetchGalaxy(), this.fetchColonies(), this.fetchFleets(), this.fetchResearch()])
+      try {
+        await this.fetchTurnStatus()
+      } catch {
+        // Older backend images do not expose /turn-status; end-turn already returned the new game state.
+      }
       return res
+    },
+    async fetchTurnStatus() {
+      if (!this.gameId) return
+      this.turnStatus = await api.game.turnStatus(this.gameId)
     },
     async fetchScore() {
       if (!this.gameId) return

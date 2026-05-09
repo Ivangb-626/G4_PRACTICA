@@ -73,6 +73,16 @@
             <input v-model.number="pop.scientists" type="range" min="0" :max="colony.population?.total || 0" @input="rebalance('scientists')" />
           </div>
 
+          <div class="automation-row">
+            <button class="retro-btn" type="button" @click="autoAssign('food')">AUTO COMIDA</button>
+            <button class="retro-btn" type="button" @click="autoAssign('industry')">AUTO INDUSTRIA</button>
+            <button class="retro-btn" type="button" @click="autoAssign('research')">AUTO CIENCIA</button>
+          </div>
+
+          <p v-if="popDirty" class="preview-note">
+            Previsualizacion: comida {{ previewDelta.food }}, industria {{ previewDelta.industry }}, ciencia {{ previewDelta.research }}.
+          </p>
+
           <div class="meta-row">
             <small>Moral: <strong>{{ moraleLabel }}</strong></small>
             <small>Defensa: <strong>{{ colony.ground_defense || 0 }}</strong></small>
@@ -125,46 +135,55 @@
           <header class="panel-head">
             <h3>PROYECTOS</h3>
           </header>
-          <div class="bld-grid" v-if="availableBuildings.length">
+          <input v-model.trim="projectQuery" class="project-search" type="search" placeholder="Filtrar edificios o naves..." />
+          <div class="bld-grid" v-if="filteredBuildingProjects.length">
             <Tooltip
-              v-for="b in availableBuildings"
+              v-for="b in filteredBuildingProjects"
               :key="b.id"
               :title="b.name"
-              :description="b.description"
+              :description="projectDescription(b)"
+              :details="projectDetails(b)"
             >
               <button
                 class="bld-card"
+                :class="{ locked: b.status !== 'available' }"
                 type="button"
+                :disabled="b.status !== 'available'"
                 @click="addBuilding(b.id)"
               >
                 <strong>{{ b.name }}</strong>
-                <small>{{ b.cost }} PP</small>
+                <small v-if="b.status !== 'available'" class="locked-reason">{{ projectStatusLabel(b) }}</small>
+                <small>{{ b.cost }} PP · {{ projectTurns(b.cost) }}</small>
               </button>
             </Tooltip>
           </div>
-          <p v-else class="empty">No hay edificios desbloqueados.</p>
+          <p v-else class="empty">No hay edificios que coincidan con el filtro.</p>
 
           <header class="panel-head" style="margin-top: 0.6rem;">
             <h3>NAVES</h3>
           </header>
-          <div class="bld-grid" v-if="availableShips.length">
+          <div class="bld-grid" v-if="filteredShipProjects.length">
             <Tooltip
-              v-for="s in availableShips"
+              v-for="s in filteredShipProjects"
               :key="s.type"
               :title="s.name || s.type"
-              :description="s.description"
+              :description="projectDescription(s)"
+              :details="projectDetails(s)"
             >
               <button
                 class="bld-card"
+                :class="{ locked: s.status !== 'available' }"
                 type="button"
+                :disabled="s.status !== 'available'"
                 @click="addShip(s.type)"
               >
                 <strong>{{ s.name || s.type }}</strong>
-                <small>{{ s.cost }} PP</small>
+                <small v-if="s.status !== 'available'" class="locked-reason">{{ projectStatusLabel(s) }}</small>
+                <small>{{ s.cost }} PP · {{ projectTurns(s.cost) }}</small>
               </button>
             </Tooltip>
           </div>
-          <p v-else class="empty">No hay naves disponibles.</p>
+          <p v-else class="empty">No hay naves que coincidan con el filtro.</p>
         </section>
       </div>
     </div>
@@ -191,6 +210,7 @@ const info = ref('')
 const loading = ref(false)
 const saving = ref(false)
 const popDirty = ref(false)
+const projectQuery = ref('')
 
 const pop = reactive<Record<PopKey, number>>({ farmers: 0, workers: 0, scientists: 0 })
 
@@ -229,9 +249,108 @@ const builtBuildings = computed(() => {
   })
 })
 
+const filteredBuildingProjects = computed(() => filterProjects(sortProjects(availableBuildings.value.filter((p: any) => p.status !== 'built'))))
+const filteredShipProjects = computed(() => filterProjects(sortProjects(availableShips.value)))
+
+const previewDelta = computed(() => {
+  const preview = previewStats.value
+  if (!preview || !colony.value) return { food: '+0', industry: '+0', research: '+0' }
+  return {
+    food: signedDelta(preview.food - (colony.value.food_output || 0)),
+    industry: signedDelta(preview.industry - (colony.value.industry_output || 0)),
+    research: signedDelta(preview.research - (colony.value.research_output || 0)),
+  }
+})
+
 function queuePercent(item: any) {
   if (!item || !item.cost) return 0
   return Math.min(100, ((item.progress || 0) / item.cost) * 100)
+}
+
+function filterProjects(projects: any[]) {
+  const query = projectQuery.value.toLowerCase()
+  if (!query) return projects
+  return projects.filter((project) => {
+    const haystack = [
+      project?.name,
+      project?.id,
+      project?.type,
+      project?.description,
+      String(project?.cost || ''),
+    ].join(' ').toLowerCase()
+    return haystack.includes(query)
+  })
+}
+
+function projectPriority(project: any) {
+  if (project.status === 'available') {
+    if (project.type === 'colony_ship' || project.id === 'star_base') return 5
+    if (project.category === 'warship' || project.effects?.orbital_defense) return 10
+    if (project.effects?.production_bonus || project.effects?.production_bonus_by_richness) return 20
+    if (project.effects?.research_bonus || project.effects?.research_per_scientist_bonus) return 30
+    if (project.effects?.food_bonus || project.effects?.food_per_farmer_bonus) return 40
+    if (project.effects?.bc_bonus || project.effects?.bc_per_pop_bonus || project.type === 'freighter') return 50
+    return 60
+  }
+  return project.status === 'locked' ? 100 : 120
+}
+
+function sortProjects(projects: any[]) {
+  return [...projects].sort((a, b) => projectPriority(a) - projectPriority(b) || Number(a.cost || 0) - Number(b.cost || 0))
+}
+
+function projectStatusLabel(project: any) {
+  if (project.status === 'available') return 'Disponible'
+  if (project.status === 'built') return 'Construido'
+  return project.locked_reason || 'Faltan requisitos'
+}
+
+function projectDescription(project: any) {
+  const base = project.description || ''
+  if (project.status === 'available') return base
+  return `${base} Bloqueado: ${projectStatusLabel(project)}`
+}
+
+function projectDetails(project: any) {
+  const details: Record<string, string> = {
+    Coste: `${project.cost} PP`,
+    Turnos: project.status === 'available' ? projectTurns(project.cost) : '-',
+    Estado: project.status || 'available',
+  }
+  if (project.status !== 'available') details.Requisito = projectStatusLabel(project)
+  return details
+}
+
+function signedDelta(value: number) {
+  if (!Number.isFinite(value) || value === 0) return '+0'
+  return value > 0 ? `+${Math.round(value)}` : String(Math.round(value))
+}
+
+function projectTurns(cost: number) {
+  const production = Math.max(previewStats.value?.industry ?? colony.value?.industry_output ?? 0, 1)
+  return `${Math.max(1, Math.ceil(Number(cost || 0) / production))}T`
+}
+
+function autoAssign(mode: 'food' | 'industry' | 'research') {
+  const total = colony.value?.population?.total || 0
+  if (!total) return
+  pop.farmers = 0
+  pop.workers = 0
+  pop.scientists = 0
+  if (mode === 'food') {
+    pop.farmers = Math.ceil(total * 0.5)
+    pop.workers = Math.floor(total * 0.35)
+    pop.scientists = total - pop.farmers - pop.workers
+  } else if (mode === 'industry') {
+    pop.workers = Math.ceil(total * 0.7)
+    pop.farmers = Math.floor(total * 0.2)
+    pop.scientists = total - pop.farmers - pop.workers
+  } else {
+    pop.scientists = Math.ceil(total * 0.65)
+    pop.farmers = Math.floor(total * 0.2)
+    pop.workers = total - pop.farmers - pop.scientists
+  }
+  popDirty.value = true
 }
 
 function syncPop() {
@@ -288,8 +407,8 @@ async function reload() {
   try {
     const detail = await api.colony.get(gameId.value, colId.value)
     colony.value = detail.colony || detail
-    availableBuildings.value = detail.available_buildings || []
-    availableShips.value = detail.available_ships || []
+    availableBuildings.value = detail.building_projects || detail.available_buildings || []
+    availableShips.value = detail.ship_projects || detail.available_ships || []
     syncPop()
   } catch (err: any) {
     error.value = err?.message || 'No se pudo cargar la colonia'
@@ -317,6 +436,11 @@ async function savePopulation() {
 
 async function addBuilding(id: string) {
   if (!gameStore.gameId || !colId.value) return
+  const project = availableBuildings.value.find((item: any) => item.id === id)
+  if (project && project.status !== 'available') {
+    error.value = projectStatusLabel(project)
+    return
+  }
   error.value = ''
   info.value = ''
   try {
@@ -330,6 +454,11 @@ async function addBuilding(id: string) {
 
 async function addShip(shipType: string) {
   if (!gameStore.gameId || !colId.value) return
+  const project = availableShips.value.find((item: any) => item.type === shipType)
+  if (project && project.status !== 'available') {
+    error.value = projectStatusLabel(project)
+    return
+  }
   error.value = ''
   info.value = ''
   try {
@@ -511,6 +640,22 @@ onMounted(reload)
   border: 2px solid #04081a;
   cursor: pointer;
 }
+.automation-row {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  margin-top: 0.45rem;
+}
+.automation-row .retro-btn {
+  padding: 0.25rem 0.45rem;
+  font-size: 0.62rem;
+}
+.preview-note {
+  margin: 0.45rem 0 0;
+  color: #ffeb66;
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
 .meta-row {
   display: flex;
   gap: 0.6rem;
@@ -576,6 +721,16 @@ onMounted(reload)
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 0.35rem;
 }
+.project-search {
+  width: 100%;
+  margin-bottom: 0.45rem;
+  padding: 0.3rem 0.45rem;
+  background: #02060f;
+  color: #44ee44;
+  border: 2px solid #1a3a1a;
+  font-family: 'Courier New', monospace;
+  font-size: 0.72rem;
+}
 .bld-card {
   display: flex;
   flex-direction: column;
@@ -592,7 +747,7 @@ onMounted(reload)
   box-shadow: 2px 2px 0 #002200;
   transition: transform 0.06s, background 0.1s;
 }
-.bld-card:hover {
+.bld-card:hover:not(:disabled) {
   background: #44ee44;
   color: #04081a;
   box-shadow: 0 0 0 #002200;
@@ -600,7 +755,19 @@ onMounted(reload)
 }
 .bld-card strong { font-size: 0.74rem; }
 .bld-card small { color: #6cc26c; }
-.bld-card:hover small { color: #04081a; }
+.bld-card:hover:not(:disabled) small { color: #04081a; }
+.bld-card.locked,
+.bld-card:disabled {
+  border-color: #555566;
+  color: #8d8da6;
+  opacity: 0.58;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.bld-card.locked small,
+.locked-reason {
+  color: #ffaa66;
+}
 
 .empty { color: #5b8a5b; font-style: italic; font-size: 0.72rem; }
 

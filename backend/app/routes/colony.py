@@ -73,6 +73,15 @@ def update_build_queue(game_id, colony_id):
     data = request.get_json() or {}
     item_id = data.get('item_id')
     item_type = data.get('item_type', 'building')
+    detail = get_colony_detail(entry['game_state'], colony_id)
+    catalog_key = 'building_projects' if item_type == 'building' else 'ship_projects'
+    lookup_key = 'id' if item_type == 'building' else 'type'
+    project = next((item for item in detail.get(catalog_key, []) if item.get(lookup_key) == item_id), None)
+    if not project:
+        return jsonify({"error": f"Proyecto desconocido: {item_id}"}), 400
+    if project.get("status") != "available":
+        reason = project.get("locked_reason") or "Faltan requisitos para desbloquear este proyecto"
+        return jsonify({"error": f"No disponible: {reason}"}), 400
     success, error = add_to_build_queue(colony, item_type, item_id, entry['game_state'])
     if not success:
         return jsonify({"error": error}), 400

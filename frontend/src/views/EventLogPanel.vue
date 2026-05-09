@@ -2,14 +2,15 @@
   <Transition name="fade">
     <div v-if="isVisible" :style="styles.overlay">
       <div :style="styles.modal">
-        <h2 :style="styles.title">EVENT LOG - Turn {{ turn }}</h2>
+        <h2 :style="styles.title">LOG DEL TURNO {{ turn }}</h2>
         <div :style="styles.eventList">
+          <div v-if="!events.length" :style="styles.empty">No hay eventos registrados aun.</div>
           <div v-for="(event, index) in events" :key="index" :style="styles.eventItem">
-            <span :style="styles.eventType">{{ formatEventType(event.type) }}:</span>
+            <span :style="styles.eventType">{{ formatEventType(String(event.type || 'evento')) }}:</span>
             <span :style="styles.eventDetails">{{ formatEventDetails(event) }}</span>
           </div>
         </div>
-        <button :style="styles.button" @click="uiStore.closeEventLog()">CONTINUE</button>
+        <button :style="styles.button" @click="uiStore.closeEventLog()">CERRAR</button>
       </div>
     </div>
   </Transition>
@@ -23,9 +24,9 @@ import { useGameStore } from '../store/gameStore';
 const uiStore = useUIStore();
 const gameStore = useGameStore();
 
-const isVisible = computed(() => uiStore.isEventLogVisible);
+const isVisible = computed(() => uiStore.eventLogOpen);
 const events = computed(() => gameStore.lastTurnEvents);
-const turn = computed(() => gameStore.game?.turn ? gameStore.game.turn -1 : 0); // Display previous turn's number
+const turn = computed(() => gameStore.game?.turn ? Math.max(1, gameStore.game.turn - 1) : 0); // Display previous turn's number
 
 const formatEventType = (type: string) => {
   switch (type) {
@@ -75,7 +76,7 @@ const formatEventDetails = (event: any) => {
     case 'antaran_error':
     case 'assimilation_error':
     case 'event_error': return `An error occurred: ${event.error}`;
-    default: return JSON.stringify(event);
+    default: return event.message || JSON.stringify(event);
   }
 };
 
@@ -114,6 +115,12 @@ const styles = {
   },
   eventList: {
     marginBottom: '1.5rem',
+  },
+  empty: {
+    color: '#8888aa',
+    padding: '0.8rem',
+    border: '1px dashed rgba(0, 255, 255, 0.25)',
+    borderRadius: '4px',
   },
   eventItem: {
     backgroundColor: '#071536',
