@@ -349,7 +349,7 @@ const colonyQuery = ref('')
 const confirmEndTurnOpen = ref(false)
 const tutorialIndex = ref(0)
 const tutorialDismissed = ref(localStorage.getItem('moo2_ux_tutorial_dismissed') === '1')
-const isDev = import.meta.env.DEV
+const isDev = true  // Cheats enabled
 const turnStatus = computed<any>(() => gameStore.turnStatus || {})
 const turnBlockers = computed<string[]>(() => turnStatus.value?.blockers || [])
 const turnWarnings = computed<string[]>(() => turnStatus.value?.warnings || [])
