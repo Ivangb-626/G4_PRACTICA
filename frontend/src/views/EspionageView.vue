@@ -42,7 +42,7 @@
           <label :style="styles.label">IMPERIO OBJETIVO</label>
           <select v-model="targetEmpire" :style="styles.input">
             <option value="">selecciona</option>
-            <option v-for="ai in aiTargets" :key="ai" :value="ai">{{ ai }}</option>
+            <option v-for="ai in aiTargets" :key="ai.id" :value="ai.id">{{ ai.name }}</option>
           </select>
 
           <label :style="styles.label">OPERACION</label>
@@ -75,10 +75,9 @@ const selectedMission = ref<string>('steal_tech')
 const missionTypes = ['steal_tech', 'sabotage', 'incite_rebellion', 'frame']
 
 const spies = computed<any[]>(() => gameStore.spies || [])
-const aiTargets = computed<string[]>(() => {
+const aiTargets = computed<Array<{ id: string; name: string }>>(() => {
   const game = gameStore.game as any
-  const ais = (game?.ai_players || []).map((ai: any) => ai.id)
-  return ais
+  return (game?.ai_players || []).map((ai: any) => ({ id: ai.id, name: ai.name || ai.id }))
 })
 
 const styles = {

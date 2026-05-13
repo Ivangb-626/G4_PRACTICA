@@ -59,7 +59,6 @@
         </div>
         <div v-else>
           <div v-if="canColonizeThisPlanet" class="ok-hint">Tu nave colonizadora esta aqui.</div>
-          <div v-else-if="!isHabitable" class="warn">Inhabitable sin tecnologia "Tolerante".</div>
           <div v-else-if="!playerColonyShipFleet" class="warn">No hay nave colonizadora en este sistema.</div>
         </div>
 
@@ -180,12 +179,9 @@ const playerTransportFleet = computed<any | null>(() =>
   fleetsHere.value.find((f) => (f.ships || []).some((s: any) => s.type === 'transport' && s.count > 0)) || null,
 )
 
-const playerFlags = computed<any>(() => gameStore.game?.player?.race?.traits?.flags || {})
-const isHabitable = computed(() => isPlanetHabitable(selected.value))
 const canColonizeThisPlanet = computed(() => {
   if (!selected.value) return false
   if (selected.value.colonized_by) return false
-  if (!isPlanetHabitable(selected.value)) return false
   return !!playerColonyShipFleet.value
 })
 const canAssault = computed(() => !!playerTransportFleet.value && selected.value?.colonized_by && selected.value.colonized_by !== 'player')
@@ -223,13 +219,6 @@ const selectedImpact = computed(() => {
   }
   return []
 })
-
-function isPlanetHabitable(planet: any) {
-  if (!planet) return false
-  const inhospitable = ['toxic', 'radiated', 'barren']
-  if (playerFlags.value?.tolerant) return planet.type !== 'asteroid_belt' && planet.type !== 'gas_giant'
-  return !inhospitable.includes(planet.type)
-}
 
 function planetStateClass(planet: any) {
   if (planet.colonized_by === 'player') return 'is-mine'

@@ -150,8 +150,8 @@ const styles = {
   container: {
     position: 'relative' as const,
     width: '100%',
-    height: '60vh',
-    minHeight: '420px',
+    height: '78vh',
+    minHeight: '560px',
     overflow: 'hidden',
     backgroundColor: '#000',
     border: '1px solid rgba(89, 170, 255, 0.25)',

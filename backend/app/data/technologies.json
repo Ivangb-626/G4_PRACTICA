@@ -38,7 +38,7 @@
   {"id":"galactic_unification","field":"sociology","level":7,"name":"Galactic Unification","description":"Unificacion galactica.","research_cost":1600,"unlocks":{}},
 
   {"id":"engineering_1","field":"engineering","level":1,"name":"Cement","description":"Construccion basica.","research_cost":50,"unlocks":{}},
-  {"id":"armor_plate","field":"engineering","level":2,"name":"Armor Plate","description":"Armadura mejorada.","research_cost":150,"unlocks":{"ship_systems":["heavy_armor"]}},
+  {"id":"armor_plate","field":"engineering","level":2,"name":"Armor Plate","description":"Armadura mejorada.","research_cost":150,"unlocks":{}},
   {"id":"auto_repair","field":"engineering","level":3,"name":"Auto Repair","description":"Reparacion automatica.","research_cost":300,"unlocks":{"ship_systems":["automated_repair"]}},
   {"id":"emission_guidance","field":"engineering","level":4,"name":"Emissions Guidance","description":"Misiles guiados.","research_cost":500,"unlocks":{"ship_systems":["emission_guidance"]}},
   {"id":"adv_damage_control","field":"engineering","level":5,"name":"Advanced Damage Control","description":"Reparacion completa post-combate.","research_cost":750,"unlocks":{"ship_systems":["advanced_damage_ctrl"]}},
@@ -66,7 +66,7 @@
   {"id":"galactic_networking","field":"computers","level":8,"name":"Galactic Networking","description":"Red galactica.","research_cost":2400,"unlocks":{}},
 
   {"id":"chemistry_1","field":"chemistry","level":1,"name":"Fuel Cells","description":"Celulas de combustible.","research_cost":50,"unlocks":{"buildings":["missile_base"]}},
-  {"id":"nuclear_missile","field":"chemistry","level":2,"name":"Nuclear Missile","description":"Misil basico.","research_cost":150,"unlocks":{"weapons":["nuclear_missile"],"bombs":["nuclear_bomb"]}},
+  {"id":"nuclear_missile","field":"chemistry","level":2,"name":"Nuclear Missile","description":"Misil basico.","research_cost":150,"unlocks":{"weapons":["nuclear_missile"]}},
   {"id":"merculite_missile","field":"chemistry","level":3,"name":"Merculite Missile","description":"Misil intermedio.","research_cost":300,"unlocks":{"weapons":["merculite_missile"]}},
   {"id":"pulson_missile","field":"chemistry","level":4,"name":"Pulson Missile","description":"Misil pulson.","research_cost":500,"unlocks":{"weapons":["pulson_missile"]}},
   {"id":"pollution_processor_tech","field":"chemistry","level":4,"name":"Pollution Processor","description":"Reduce la contaminacion en un 50%.","research_cost":500,"unlocks":{"buildings":["pollution_processor"]}},

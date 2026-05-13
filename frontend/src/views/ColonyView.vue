@@ -249,8 +249,8 @@ const builtBuildings = computed(() => {
   })
 })
 
-const filteredBuildingProjects = computed(() => filterProjects(sortProjects(availableBuildings.value.filter((p: any) => p.status !== 'built'))))
-const filteredShipProjects = computed(() => filterProjects(sortProjects(availableShips.value)))
+const filteredBuildingProjects = computed(() => filterProjects(sortProjects(availableBuildings.value.filter((p: any) => p.status === 'available'))))
+const filteredShipProjects = computed(() => filterProjects(sortProjects(availableShips.value.filter((p: any) => p.status === 'available'))))
 
 const previewDelta = computed(() => {
   const preview = previewStats.value

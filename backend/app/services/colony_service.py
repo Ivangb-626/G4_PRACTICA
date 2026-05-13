@@ -312,6 +312,11 @@ def calculate_colony_production(arg_a, arg_b, arg_c=None):
     colony["food_consumption"] = consumption
     colony["food_surplus"] = colony["food_output"] - consumption
 
+    if colony.get("owner") == "player" and "recursos_infinitos" in (game_state or {}).get("cheats_used", []):
+        colony["food_output"] = 9999
+        colony["food_consumption"] = 0
+        colony["food_surplus"] = 9999
+
     return {
         "food": colony["food_output"],
         "industry": colony["industry_output"],
@@ -327,38 +332,27 @@ def _add_ship_to_system_fleet(game_state, colony, ship_type):
     empire = _empire_for_colony(game_state, colony)
     if not empire:
         return
-    
+
     system_id = colony.get("star_system_id")
     owner_id = colony.get("owner") or "player"
-    
-    # Find existing fleet in this system (stationary)
-    target_fleet = next((f for f in empire.get("fleets", []) if f.get("star_system_id") == system_id and f.get("destination") is None), None)
-    
-    if target_fleet:
-        # Merge into existing fleet
-        found = False
-        for s in target_fleet.get("ships", []):
-            if s["type"] == ship_type:
-                s["count"] = s.get("count", 0) + 1
-                found = True
-                break
-        if not found:
-            target_fleet.setdefault("ships", []).append({"type": ship_type, "count": 1})
-    else:
-        # Create new fleet
-        import time
-        new_id = f"fleet_{int(time.time() * 1000) % 1000000}"
-        new_fleet = {
-            "id": new_id,
-            "name": f"Flota de {system_id}",
-            "owner": owner_id,
-            "star_system_id": system_id,
-            "ships": [{"type": ship_type, "count": 1}],
-            "destination": None,
-            "eta_turns": None,
-            "command_points_used": 0
-        }
-        empire.setdefault("fleets", []).append(new_fleet)
+
+    import time
+    fleets = empire.setdefault("fleets", [])
+    new_id = f"fleet_{int(time.time() * 1_000_000) % 1_000_000_000}_{len(fleets)}"
+    system_name = next(
+        (s.get("name") for s in game_state.get("galaxy", {}).get("star_systems", []) if s.get("id") == system_id),
+        system_id,
+    )
+    fleets.append({
+        "id": new_id,
+        "name": f"{ship_type.replace('_', ' ').title()} en {system_name}",
+        "owner": owner_id,
+        "star_system_id": system_id,
+        "ships": [{"type": ship_type, "count": 1}],
+        "destination": None,
+        "eta_turns": None,
+        "command_points_used": 0,
+    })
 
 
 def process_colony_construction(arg_a, arg_b=None, arg_c=None, arg_d=None):

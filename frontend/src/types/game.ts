@@ -107,6 +107,7 @@ export type PlayerEmpire = {
 
 export type AIPlayer = PlayerEmpire & {
   id: string
+  name?: string
   personality: string
 }
 

@@ -168,3 +168,23 @@ def disband(game_id, fleet_id):
     res = disband_fleet(entry['game_state']['player'], fleet_id)
     GameModel.save_game(g.user_id, game_id, entry['game_state'])
     return jsonify(res), 200
+
+
+@fleet_bp.route('/<fleet_id>/rename', methods=['POST'])
+@token_required
+def rename(game_id, fleet_id):
+    entry = _entry(game_id)
+    if not entry:
+        return jsonify({"error": "Game not found"}), 404
+    data = request.get_json() or {}
+    new_name = str(data.get('name', '')).strip()
+    if not new_name:
+        return jsonify({"error": "Name required"}), 400
+    if len(new_name) > 60:
+        return jsonify({"error": "Name too long"}), 400
+    fleet = find_fleet(entry['game_state'], 'player', fleet_id)
+    if not fleet:
+        return jsonify({"error": "Fleet not found"}), 404
+    fleet['name'] = new_name
+    GameModel.save_game(g.user_id, game_id, entry['game_state'])
+    return jsonify({"success": True, "fleet": fleet}), 200

@@ -95,7 +95,7 @@ def defeat_monster(system: dict, empire: dict) -> dict:
     drop_chance = monster_data.get("tech_drop_chance", 0)
     if random.random() < drop_chance:
         # Random tech bonus pool
-        tech_drop = random.choice(["heavy_armor", "battle_scanner", "auto_repair", "structural_analyzer"])
+        tech_drop = random.choice(["armor_plate", "battle_scanner", "auto_repair", "structural_analyzer"])
         empire.setdefault("technologies", {}).setdefault("researched", []).append(
             {"tech_id": tech_drop, "field": "engineering", "level": 3, "status": "researched"}
         )

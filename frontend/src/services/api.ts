@@ -130,8 +130,25 @@ export const api = {
     const res = await httpClient.post(`/api/game/${gameId}/fleet/merge`, { fleet_a: fleetA, fleet_b: fleetB })
     return res.data
   },
+  transferShips: async (
+    gameId: string,
+    fromFleet: string,
+    toFleet: string,
+    ships: Array<{ type: string; count: number }>,
+  ) => {
+    const res = await httpClient.post(`/api/game/${gameId}/fleet/transfer`, {
+      from_fleet: fromFleet,
+      to_fleet: toFleet,
+      ships,
+    })
+    return res.data
+  },
   disbandFleet: async (gameId: string, fleetId: string) => {
     const res = await httpClient.delete(`/api/game/${gameId}/fleet/${fleetId}`)
+    return res.data
+  },
+  renameFleet: async (gameId: string, fleetId: string, name: string) => {
+    const res = await httpClient.post(`/api/game/${gameId}/fleet/${fleetId}/rename`, { name })
     return res.data
   },
 

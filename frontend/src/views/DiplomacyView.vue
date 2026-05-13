@@ -24,7 +24,7 @@
       </thead>
       <tbody>
         <tr v-for="rel in relationRows" :key="rel.other">
-          <td :style="styles.td"><strong :style="{ color: '#88ff88' }">{{ rel.other.toUpperCase() }}</strong></td>
+          <td :style="styles.td"><strong :style="{ color: '#88ff88' }">{{ rel.label.toUpperCase() }}</strong></td>
           <td :style="getRelationStyle(rel.value)">{{ rel.value }}</td>
           <td :style="styles.td">{{ rel.state.toUpperCase() }}</td>
           <td :style="styles.td">
@@ -65,14 +65,23 @@
     <!-- Tech trade -->
     <h3 :style="styles.h3">Intercambio de tecnologia</h3>
     <div :style="styles.row">
-      <select v-model="trade.target" :style="styles.select">
+      <select v-model="trade.target" :style="styles.select" @change="trade.requested = ''">
         <option value="">Objetivo</option>
-        <option v-for="rel in relationRows" :key="rel.other" :value="rel.other">{{ rel.other }}</option>
+        <option v-for="rel in relationRows" :key="rel.other" :value="rel.other">{{ rel.label }}</option>
       </select>
-      <input v-model="trade.offered" :style="styles.input" placeholder="tech ofrecida" />
-      <input v-model="trade.requested" :style="styles.input" placeholder="tech solicitada" />
-      <button :style="styles.btnSmall" @click="techTrade">PROPONER</button>
+      <select v-model="trade.offered" :style="styles.select">
+        <option value="">tech ofrecida</option>
+        <option v-for="t in offerableTechs" :key="t.id" :value="t.id">{{ t.label }}</option>
+      </select>
+      <select v-model="trade.requested" :style="styles.select" :disabled="!trade.target">
+        <option value="">tech solicitada</option>
+        <option v-for="t in requestableTechs" :key="t.id" :value="t.id">{{ t.label }}</option>
+      </select>
+      <button :style="styles.btnSmall" @click="techTrade" :disabled="!trade.target || !trade.offered || !trade.requested">PROPONER</button>
     </div>
+    <p v-if="trade.target && !requestableTechs.length" :style="styles.empty">
+      Ese imperio no tiene tecnologias que te falten.
+    </p>
   </div>
 </template>
 
@@ -91,19 +100,60 @@ const trade = ref({ target: '', offered: '', requested: '' })
 const relations = computed<Record<string, any>>(() => gameStore.diplomacy?.relations || {})
 const treaties = computed<any[]>(() => (gameStore.diplomacy?.treaties || []).filter((t: any) => t.active))
 
+function empireLabel(id: string): string {
+  const game = gameStore.game as any
+  const ai = (game?.ai_players || []).find((p: any) => p?.id === id)
+  return ai?.name || id
+}
+
+function ownedTechIds(empire: any): Set<string> {
+  const items = empire?.technologies?.researched || []
+  return new Set(
+    items
+      .filter((t: any) => t?.tech_id && t?.status !== 'discarded')
+      .map((t: any) => t.tech_id as string),
+  )
+}
+
+function prettifyTechId(id: string): string {
+  return id.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+const playerTechIds = computed<Set<string>>(() => ownedTechIds((gameStore.game as any)?.player))
+
+const offerableTechs = computed(() =>
+  Array.from(playerTechIds.value)
+    .map((id) => ({ id, label: prettifyTechId(id) }))
+    .sort((a, b) => a.label.localeCompare(b.label)),
+)
+
+const requestableTechs = computed(() => {
+  const target = trade.value.target
+  if (!target) return []
+  const game = gameStore.game as any
+  const targetEmpire = (game?.ai_players || []).find((p: any) => p?.id === target)
+  if (!targetEmpire) return []
+  const targetTechs = ownedTechIds(targetEmpire)
+  const mine = playerTechIds.value
+  return Array.from(targetTechs)
+    .filter((id) => !mine.has(id))
+    .map((id) => ({ id, label: prettifyTechId(id) }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+})
+
 const relationRows = computed(() => {
   // Solo mostramos la relacion del jugador con cada IA: una entrada por imperio.
   const seen = new Set<string>()
-  const out: Array<{ other: string; value: number; state: string }> = []
+  const out: Array<{ other: string; label: string; value: number; state: string }> = []
   Object.entries(relations.value).forEach(([key, rel]) => {
     const parts = key.split('|')
     if (!parts.includes('player')) return
     const other = parts.find((p) => p !== 'player')
     if (!other || other === 'antaranos' || seen.has(other)) return
     seen.add(other)
-    out.push({ other, value: rel.value ?? 0, state: rel.state ?? 'neutral' })
+    out.push({ other, label: empireLabel(other), value: rel.value ?? 0, state: rel.state ?? 'neutral' })
   })
-  return out.sort((a, b) => a.other.localeCompare(b.other))
+  return out.sort((a, b) => a.label.localeCompare(b.label))
 })
 
 const styles = {

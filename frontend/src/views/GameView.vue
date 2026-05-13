@@ -88,92 +88,9 @@
 
       <p v-if="error" class="error">{{ error }}</p>
 
-      <section class="turn-readiness" :class="{ 'is-ready': turnReady, 'is-blocked': !canEndTurn }">
-        <header class="readiness-head">
-          <div>
-            <p class="side-kicker">Estado del turno</p>
-            <strong>{{ readinessTitle }}</strong>
-          </div>
-          <button class="retro-btn small-btn" type="button" @click="refreshTurnStatus" :disabled="loading">
-            Verificar
-          </button>
-        </header>
-
-        <div v-if="turnBlockers.length" class="readiness-list blockers">
-          <strong>Bloqueos</strong>
-          <p v-for="item in turnBlockers" :key="item">{{ item }}</p>
-        </div>
-
-        <div class="readiness-grid">
-          <div class="readiness-list">
-            <strong>Acciones disponibles</strong>
-            <p v-for="action in prioritizedActions" :key="`${action.type}-${action.label}`">
-              {{ action.label }} <span v-if="action.count">({{ action.count }})</span>
-              <small>{{ action.reason }}</small>
-            </p>
-            <p v-if="!prioritizedActions.length" class="muted-line">No hay acciones criticas pendientes.</p>
-          </div>
-
-          <div class="readiness-list">
-            <strong>Log previsto al pasar turno</strong>
-            <p v-for="item in turnPreviewLog" :key="item.message">{{ item.message }}</p>
-          </div>
-        </div>
-
-        <div v-if="turnWarnings.length" class="readiness-list warnings">
-          <strong>Avisos</strong>
-          <p v-for="item in turnWarnings.slice(0, 4)" :key="item">{{ item }}</p>
-        </div>
-      </section>
-
-      <section v-if="turnEvents.length || aiActions.length" class="turn-report">
-        <header class="turn-report-head">
-          <h3>Ultimo turno resuelto</h3>
-          <div class="turn-report-actions">
-            <button class="retro-btn" type="button" @click="uiStore.openEventLog">Ver log completo</button>
-            <button class="retro-btn" type="button" @click="clearTurnReport">Ocultar</button>
-          </div>
-        </header>
-
-        <div v-if="turnEvents.length" class="event-list">
-          <article v-for="(event, index) in turnEvents" :key="`${String(event.type)}-${index}`" class="event-card">
-            <span class="event-icon">{{ eventIcon(event.type) }}</span>
-            <p class="event-text">{{ describeEvent(event) }}</p>
-          </article>
-        </div>
-
-        <div v-if="aiActions.length" class="ai-actions">
-          <article v-for="report in aiActions" :key="report.ai_id" class="ai-card">
-            <header class="ai-card-head">
-              <strong>{{ aiName(report.ai_id) }}</strong>
-              <span class="ai-personality">{{ personalityLabel(report.personality) }}</span>
-            </header>
-            <p class="reasoning">{{ report.reasoning || 'Sin novedades.' }}</p>
-            <ul v-if="report.actions?.length" class="ai-action-list">
-              <li v-for="(action, index) in report.actions" :key="index">
-                {{ describeAiAction(action) }}
-              </li>
-            </ul>
-          </article>
-        </div>
-      </section>
-
-      <router-view :key="refreshKey" />
-
-      <nav class="tabs">
-        <router-link v-for="item in navItems" :key="`tab-${item.to}`" :to="item.to" class="tab-btn">
-          {{ item.label }}
-        </router-link>
-        <button type="button" class="tab-btn" @click="showColoniesModal = true">Colonias</button>
-        <router-link
-          v-if="gameStore.isGameOver"
-          :to="`/game/${gameId}/score`"
-          class="tab-btn"
-        >
-          Puntuacion
-        </router-link>
-        <router-link v-if="isDev" :to="`/game/${gameId}/cheats`" class="tab-btn">Cheats</router-link>
-      </nav>
+      <div class="view-frame">
+        <router-view :key="refreshKey" />
+      </div>
     </div>
 
     <aside class="sidebar-column">
@@ -248,7 +165,7 @@
 
     <!-- Modal Colonias -->
     <div v-if="showColoniesModal" class="modal-overlay">
-      <div class="modal-content retro-panel">
+      <div class="modal-content retro-panel colonies-modal">
         <header class="modal-header">
           <h3>Mis Colonias</h3>
           <button class="close-btn" @click="showColoniesModal = false">×</button>
@@ -307,9 +224,44 @@
     <div v-if="uiStore.shortcutsOpen" class="modal-overlay">
       <div class="modal-content retro-panel shortcuts-modal">
         <header class="modal-header">
-          <h3>Atajos y controles</h3>
-          <button class="close-btn" type="button" @click="uiStore.closeShortcuts">Ã—</button>
+          <h3>Ayuda y estado del turno</h3>
+          <button class="close-btn" type="button" @click="uiStore.closeShortcuts">×</button>
         </header>
+
+        <section class="turn-readiness" :class="{ 'is-ready': turnReady, 'is-blocked': !canEndTurn }">
+          <header class="readiness-head">
+            <div>
+              <p class="side-kicker">Estado del turno</p>
+              <strong>{{ readinessTitle }}</strong>
+            </div>
+            <button class="retro-btn small-btn" type="button" @click="refreshTurnStatus" :disabled="loading">
+              Verificar
+            </button>
+          </header>
+
+          <div v-if="turnBlockers.length" class="readiness-list blockers">
+            <strong>Bloqueos</strong>
+            <p v-for="item in turnBlockers" :key="item">{{ item }}</p>
+          </div>
+
+          <div class="readiness-grid">
+            <div class="readiness-list">
+              <strong>Acciones disponibles</strong>
+              <p v-for="action in prioritizedActions" :key="`${action.type}-${action.label}`">
+                {{ action.label }} <span v-if="action.count">({{ action.count }})</span>
+                <small>{{ action.reason }}</small>
+              </p>
+              <p v-if="!prioritizedActions.length" class="muted-line">No hay acciones criticas pendientes.</p>
+            </div>
+          </div>
+
+          <div v-if="turnWarnings.length" class="readiness-list warnings">
+            <strong>Avisos</strong>
+            <p v-for="item in turnWarnings.slice(0, 4)" :key="item">{{ item }}</p>
+          </div>
+        </section>
+
+        <h4 class="help-section-title">Atajos y controles</h4>
         <div class="shortcut-grid">
           <span v-for="shortcut in shortcuts" :key="shortcut.key" class="shortcut-row">
             <kbd>{{ shortcut.key }}</kbd>
@@ -329,7 +281,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useGameStore } from '../store/gameStore'
 import { useUIStore } from '../store/uiStore'
 import EventLogPanel from './EventLogPanel.vue'
-import type { AIActionSummary, TurnEvent } from '../types/game'
 
 const route = useRoute()
 const router = useRouter()
@@ -338,8 +289,6 @@ const uiStore = useUIStore()
 const gameId = computed(() => String(route.params.id || ''))
 
 const gameState = computed<any>(() => gameStore.game)
-const turnEvents = ref<TurnEvent[]>([])
-const aiActions = ref<AIActionSummary[]>([])
 const refreshKey = ref(0)
 const loading = ref(false)
 const endingTurn = ref(false)
@@ -359,7 +308,7 @@ const prioritizedActions = computed<any[]>(() => turnStatus.value?.tactical_acti
 const turnPreviewLog = computed<any[]>(() => turnStatus.value?.preview_events || [])
 const endTurnButtonLabel = computed(() => {
   if (!canEndTurn.value) return 'Turno bloqueado'
-  return turnReady.value ? 'Pasar turno' : 'Pasar turno con avisos'
+  return 'Pasar turno'
 })
 const endTurnTitle = computed(() => {
   if (turnBlockers.value.length) return turnBlockers.value[0]
@@ -380,19 +329,23 @@ const totalPopulation = computed(() => {
 
 const primaryNavItems = computed(() => [
   { id: 'diplomacy', label: 'Diplomacia', key: 'D', to: `/game/${gameId.value}/diplomacy` },
-  { id: 'combat', label: 'Combate', key: 'F', to: `/game/${gameId.value}/fleets` },
+  { id: 'combat', label: 'Flotas', key: 'F', to: `/game/${gameId.value}/fleets` },
   { id: 'map', label: 'Mapa', key: 'M', to: `/game/${gameId.value}/galaxy` },
   { id: 'research', label: 'Tech', key: 'R', to: `/game/${gameId.value}/tech` },
 ])
 
-const advancedNavItems = computed(() => [
-  { id: 'ship-design', label: 'Disenador', key: 'S', to: `/game/${gameId.value}/ships` },
-  { id: 'espionage', label: 'Espionaje', key: 'E', to: `/game/${gameId.value}/espionage` },
-  { id: 'leaders', label: 'Lideres', key: 'L', to: `/game/${gameId.value}/leaders` },
-  { id: 'council', label: 'Senado', key: '-', to: `/game/${gameId.value}/council` },
-])
-
-const navItems = computed(() => [...primaryNavItems.value, ...advancedNavItems.value])
+const advancedNavItems = computed(() => {
+  const items = [
+    { id: 'ship-design', label: 'Disenador', key: 'S', to: `/game/${gameId.value}/ships` },
+    { id: 'espionage', label: 'Espionaje', key: 'E', to: `/game/${gameId.value}/espionage` },
+    { id: 'leaders', label: 'Lideres', key: 'L', to: `/game/${gameId.value}/leaders` },
+    { id: 'council', label: 'Senado', key: '-', to: `/game/${gameId.value}/council` },
+  ]
+  if (isDev) {
+    items.push({ id: 'cheats', label: 'Cheats', key: 'X', to: `/game/${gameId.value}/cheats` })
+  }
+  return items
+})
 
 const shortcuts = [
   { key: 'M', label: 'Abrir mapa galactico' },
@@ -503,122 +456,6 @@ function colonyLabel(colony: any) {
   return `Colonia: "${planetName}"`
 }
 
-function ownerLabel(owner: unknown) {
-  if (typeof owner !== 'string' || !owner) return 'Desconocido'
-  if (owner === 'player') return 'Tu imperio'
-  if (owner.startsWith('ai_')) return `IA ${owner.slice(3)}`
-  return owner.charAt(0).toUpperCase() + owner.slice(1)
-}
-
-function aiName(id: unknown) {
-  if (typeof id !== 'string' || !id) return 'Imperio rival'
-  if (id.startsWith('ai_')) return `Imperio rival ${id.slice(3)}`
-  return id
-}
-
-function personalityLabel(personality: unknown) {
-  return ({
-    aggressive: 'Agresivo',
-    defensive: 'Defensivo',
-    expansionist: 'Expansionista',
-    researcher: 'Investigador',
-    balanced: 'Equilibrado',
-  } as Record<string, string>)[String(personality || '')] || 'Equilibrado'
-}
-
-function eventIcon(type: unknown) {
-  return ({
-    building_complete: '[C]',
-    ship_complete: '[N]',
-    research_complete: '[I]',
-    fleet_arrival: '[F]',
-    combat_resolved: '[X]',
-    ai_research_selected: '[i]',
-    ai_colonized: '[c]',
-    ai_fleet_moved: '[f]',
-    ai_build_order: '[p]',
-    tribute_paid: '[$]',
-    peace_expired: '[!]',
-    council_convened: '[*]',
-    antarans_escaped: '[!]',
-    antaran_attack: '[!]',
-  } as Record<string, string>)[String(type || '')] || '[*]'
-}
-
-function describeEvent(event: any) {
-  const type = String(event?.type || '')
-  switch (type) {
-    case 'building_complete':
-      return `Construccion completada: ${event.building_id || 'edificio'} en ${event.colony_id || 'una colonia'}.`
-    case 'ship_complete':
-      return `Nueva nave lista: ${event.ship_type || 'desconocida'} en ${event.colony_id || 'una colonia'}.`
-    case 'research_complete':
-      return `${ownerLabel(event.owner)} ha completado la investigacion ${event.tech_id || 'desconocida'}.`
-    case 'fleet_arrival':
-      return `Flota ${event.fleet_id || ''} de ${ownerLabel(event.owner)} llega al sistema ${event.system_id || ''}.`
-    case 'combat_resolved': {
-      const winner = event.winner ? ownerLabel(event.winner) : 'el ganador'
-      const loc = event.system_id || event.location || 'un sistema'
-      return `Combate resuelto en ${loc}: ${winner} se impone.`
-    }
-    case 'ai_research_selected':
-      return `${ownerLabel(event.owner)} inicia la investigacion ${event.tech_id || 'desconocida'}.`
-    case 'ai_colonized':
-      return `${ownerLabel(event.owner)} funda la colonia ${event.colony_id || ''}.`
-    case 'ai_fleet_moved':
-      return `${ownerLabel(event.owner)} reposiciona la flota ${event.fleet_id || ''}.`
-    case 'ai_build_order':
-      return `${ownerLabel(event.owner)} pone en cola ${event.item_id || 'una unidad'}.`
-    case 'tribute_paid':
-      return `${ownerLabel(event.from)} paga ${event.amount || 0} BC de tributo a ${ownerLabel(event.to)}.`
-    case 'peace_expired': {
-      const a = Array.isArray(event.between) ? event.between.map(ownerLabel).join(' y ') : 'dos imperios'
-      return `Expira el tratado de paz entre ${a}.`
-    }
-    case 'council_convened':
-      return 'El Consejo Galactico se reune.'
-    case 'antarans_escaped':
-      return event.message || 'Los Antaranos han escapado de su dimension.'
-    case 'antaran_attack':
-      return `Ataque antarano sobre ${event.target || 'tu imperio'}.`
-    case 'victory_military':
-      return 'Victoria militar conseguida.'
-    case 'victory_diplomatic':
-      return 'Victoria diplomatica conseguida.'
-    case 'victory_economic':
-      return 'Victoria economica conseguida.'
-    default:
-      if (type.startsWith('victory')) return `Condicion de victoria: ${type.replace('victory_', '')}.`
-      return `Evento: ${type.replaceAll('_', ' ') || 'sin tipo'}.`
-  }
-}
-
-function describeAiAction(action: any) {
-  const type = String(action?.type || '')
-  const d = action?.details || {}
-  switch (type) {
-    case 'colonizePlanet':
-      return `Coloniza el planeta ${d.planetIndex ?? '?'} con la flota ${d.fleetId || '?'}.`
-    case 'selectResearch':
-      return `Selecciona investigacion: ${d.techId || d.field || 'desconocida'}.`
-    case 'addBuildQueue': {
-      const kind = d.itemType === 'ship' ? 'nave' : 'edificio'
-      return `Encola ${kind} ${d.itemId || ''} en ${d.colonyId || 'una colonia'}.`
-    }
-    case 'moveFleet':
-      return `Mueve la flota ${d.fleetId || ''} hacia ${d.destination || 'un sistema'}.`
-    case 'endTurn':
-      return 'Finaliza su turno.'
-    default:
-      return `Accion: ${type.replaceAll('_', ' ') || 'desconocida'}.`
-  }
-}
-
-function clearTurnReport() {
-  turnEvents.value = []
-  aiActions.value = []
-}
-
 function navAttentionClass(id: string) {
   const actionTypes = new Set(prioritizedActions.value.map((action: any) => String(action.type || '')))
   const map: Record<string, string[]> = {
@@ -682,11 +519,8 @@ async function runEndTurn() {
   error.value = ''
   const startedAt = Date.now()
   try {
-    const response = await gameStore.endTurn()
-    turnEvents.value = Array.isArray(response?.events) ? response.events : []
-    aiActions.value = Array.isArray(response?.ai_actions) ? response.ai_actions : []
+    await gameStore.endTurn()
     refreshKey.value += 1
-    uiStore.openEventLog()
   } catch (err) {
     error.value = (err as Error).message || 'No se pudo finalizar el turno.'
   } finally {
@@ -700,7 +534,6 @@ async function runEndTurn() {
 watch(
   () => route.params.id,
   async () => {
-    clearTurnReport()
     await reloadGame()
   },
 )
@@ -751,6 +584,17 @@ onUnmounted(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+
+.view-frame {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 78vh;
+}
+
+.view-frame > * {
+  flex: 1 1 auto;
 }
 
 .sidebar-column {
@@ -972,19 +816,24 @@ kbd {
   margin: 0;
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0.7rem;
+  gap: 0.55rem;
   position: sticky;
   top: 0.5rem;
 }
 
 .summary-card {
-  padding: 0.7rem 0.85rem;
-  border: 1px solid rgba(89, 170, 255, 0.32);
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba(15, 28, 64, 0.78), rgba(6, 13, 34, 0.78));
-  box-shadow: 0 0 0.6rem rgba(79, 180, 255, 0.18) inset;
+  padding: 0.55rem 0.7rem;
+  border: 2px solid var(--primary-strong);
+  border-radius: 0;
+  background: rgba(2, 14, 8, 0.85);
+  box-shadow:
+    inset 0 0 0 2px rgba(0, 0, 0, 0.85),
+    0 0 0.6rem rgba(141, 255, 159, 0.22);
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
 .summary-card::before {
@@ -993,29 +842,32 @@ kbd {
   inset: 0;
   background: repeating-linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.04) 0,
-    rgba(255, 255, 255, 0.04) 1px,
+    rgba(141, 255, 159, 0.05) 0,
+    rgba(141, 255, 159, 0.05) 1px,
     transparent 1px,
-    transparent 4px
+    transparent 3px
   );
   pointer-events: none;
 }
 
 .summary-card strong {
-  font-size: 1.1rem;
+  font-size: 0.85rem;
   color: var(--primary-strong);
-  text-shadow: 0 0 0.45rem rgba(103, 240, 255, 0.55);
-  font-family: monospace;
-  letter-spacing: 0.04em;
+  text-shadow: 0 0 0.5rem rgba(141, 255, 159, 0.75);
+  font-family: var(--font-pixel);
+  letter-spacing: 0.05em;
+  line-height: 1.2;
+  word-break: break-word;
 }
 
 .summary-label {
   display: block;
-  margin-bottom: 0.35rem;
+  margin: 0;
   color: var(--text-muted);
   text-transform: uppercase;
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  font-family: var(--font-pixel);
 }
 
 .side-panel {
@@ -1075,57 +927,6 @@ kbd {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
-}
-
-.tabs {
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  margin-top: 0.8rem;
-  justify-content: center;
-}
-
-.tab-btn {
-  font-family: var(--font-pixel);
-  font-size: 0.65rem;
-  letter-spacing: 0.08em;
-  border: 2px solid var(--primary);
-  background: var(--bg-1);
-  color: var(--primary);
-  padding: 0.6rem 1.1rem;
-  border-radius: 0;
-  text-transform: uppercase;
-  text-decoration: none;
-  text-shadow: 0 0 0.4rem rgba(51, 255, 102, 0.55);
-  box-shadow:
-    0 0 0 2px var(--bg-0),
-    0 0 0.5rem rgba(51, 255, 102, 0.35),
-    inset -2px -2px 0 var(--green-deep),
-    inset 2px 2px 0 rgba(141, 255, 159, 0.18);
-  transition: transform 0.06s steps(2), background 0.1s steps(2), color 0.1s steps(2);
-  image-rendering: pixelated;
-}
-
-.tab-btn:hover {
-  background: var(--primary);
-  color: var(--bg-0);
-  text-shadow: none;
-  box-shadow:
-    0 0 0 2px var(--bg-0),
-    0 0 0.9rem var(--primary-strong),
-    inset -2px -2px 0 var(--green-mid),
-    inset 2px 2px 0 rgba(255, 255, 255, 0.4);
-}
-
-.tab-btn.router-link-active {
-  background: var(--primary);
-  color: var(--bg-0);
-  text-shadow: none;
-  box-shadow:
-    0 0 0 2px var(--bg-0),
-    0 0 0.9rem var(--primary-strong),
-    inset -2px -2px 0 var(--green-mid),
-    inset 2px 2px 0 rgba(255, 255, 255, 0.4);
 }
 
 .turn-report {
@@ -1254,6 +1055,25 @@ kbd {
   max-width: 640px;
 }
 
+.colonies-modal {
+  width: 96vw;
+  max-width: 1400px;
+  height: 92vh;
+  max-height: none;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.colonies-modal .colonies-list {
+  flex: 1 1 auto;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.6rem;
+  align-content: start;
+}
+
 .modal-search {
   width: 100%;
   margin-bottom: 0.75rem;
@@ -1290,6 +1110,18 @@ kbd {
 
 .impact-list li::marker {
   color: #ffeb66;
+}
+
+.help-section-title {
+  margin: 1rem 0 0.5rem;
+  color: var(--primary-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+
+.shortcuts-modal .turn-readiness {
+  margin: 0 0 0.5rem;
 }
 
 .shortcut-grid {

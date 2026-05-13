@@ -36,8 +36,21 @@
         @click="selectedFleetId = fleet.id"
       >
         <div :style="styles.cardHead">
-          <div>
-            <h4 :style="styles.fleetName">{{ fleet.name }}</h4>
+          <div :style="{ flex: 1, minWidth: 0 }">
+            <div v-if="renamingFleetId === fleet.id" :style="{ display: 'flex', gap: '0.3rem' }" @click.stop>
+              <input
+                v-model="renameDraft"
+                :style="styles.input"
+                maxlength="60"
+                @keyup.enter="confirmRename(fleet.id)"
+                @keyup.esc="cancelRename"
+              />
+              <button :style="styles.btnSmall" type="button" @click.stop="confirmRename(fleet.id)">OK</button>
+              <button :style="styles.btnSmall" type="button" @click.stop="cancelRename">×</button>
+            </div>
+            <h4 v-else :style="styles.fleetName" @dblclick.stop="startRename(fleet)" title="Doble clic para renombrar">
+              {{ fleet.name }}
+            </h4>
             <p :style="styles.subtitle">Sistema: {{ getSystemName(fleet.star_system_id) }}</p>
             <p :style="styles.subtitle">Naves: {{ totalShips(fleet) }} · Grupos: {{ fleet.ships?.length || 0 }}</p>
           </div>
@@ -60,8 +73,52 @@
             </option>
           </select>
           <button :style="styles.btnSmall" @click.stop="requestMove(fleet.id)" :disabled="!moves[fleet.id]">SALTAR</button>
+          <button :style="styles.btnSmall" @click.stop="startRename(fleet)">RENOMBRAR</button>
           <button :style="styles.btnSmall" @click.stop="openSystem(fleet.star_system_id)">SISTEMA</button>
+          <button
+            :style="styles.btnSmall"
+            v-if="systemMates(fleet).length"
+            @click.stop="openTransfer(fleet.id)"
+          >TRASPASAR</button>
           <button :style="styles.btnSmall" v-if="canColonize(fleet)" @click.stop="requestColonize(fleet.id)">COLONIZAR</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="transferState" class="fleet-modal">
+      <div class="fleet-modal-card">
+        <header>
+          <strong>Traspasar naves</strong>
+          <button type="button" @click="transferState = null">×</button>
+        </header>
+        <p>Desde <em>{{ transferState.fromFleet?.name }}</em> a:</p>
+        <select v-model="transferState.toFleetId" :style="styles.select">
+          <option value="">Selecciona flota destino</option>
+          <option v-for="mate in systemMates(transferState.fromFleet)" :key="mate.id" :value="mate.id">
+            {{ mate.name }} ({{ totalShips(mate) }} naves)
+          </option>
+        </select>
+
+        <div :style="{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.8rem' }">
+          <div
+            v-for="ship in (transferState.fromFleet?.ships || [])"
+            :key="ship.type"
+            :style="{ display: 'flex', gap: '0.5rem', alignItems: 'center' }"
+          >
+            <span :style="{ flex: 1 }">{{ ship.type }} (max {{ ship.count }})</span>
+            <input
+              type="number"
+              :min="0"
+              :max="ship.count"
+              v-model.number="transferState.amounts[ship.type]"
+              :style="styles.input"
+            />
+          </div>
+        </div>
+
+        <div class="fleet-modal-actions">
+          <button :style="styles.btnSmall" type="button" @click="transferState = null">CANCELAR</button>
+          <button :style="styles.btnSmall" type="button" :disabled="!transferReady" @click="confirmTransfer">CONFIRMAR</button>
         </div>
       </div>
     </div>
@@ -98,6 +155,15 @@ const fleetQuery = ref('')
 const statusFilter = ref<'all' | 'idle' | 'moving' | 'colony'>('all')
 const selectedFleetId = ref('')
 const pendingAction = ref<null | { type: 'move' | 'colonize'; fleetId: string; title: string; body: string }>(null)
+const transferState = ref<null | { fromFleet: any; toFleetId: string; amounts: Record<string, number> }>(null)
+const renamingFleetId = ref<string | null>(null)
+const renameDraft = ref('')
+
+const transferReady = computed(() => {
+  const t = transferState.value
+  if (!t || !t.toFleetId) return false
+  return Object.values(t.amounts).some((n) => Number(n) > 0)
+})
 
 const fleets = computed<any[]>(() => gameStore.fleets || [])
 const systems = computed<any[]>(() => gameStore.galaxy?.star_systems || [])
@@ -146,6 +212,7 @@ const styles = {
   shipItem: { fontSize: '0.85rem', marginBottom: '0.2rem', color: Theme.colors.ok },
   actions: { display: 'flex', gap: '0.4rem', marginTop: '0.6rem', flexWrap: 'wrap' as const },
   select: { flex: 1, minWidth: '120px', backgroundColor: Theme.colors.bgDark, color: Theme.colors.primary, border: `1px solid ${Theme.colors.primary}`, padding: '0.3rem', fontSize: '0.8rem' },
+  input: { width: '80px', backgroundColor: Theme.colors.bgDark, color: Theme.colors.text, border: `1px solid ${Theme.colors.primary}`, padding: '0.25rem 0.35rem', fontSize: '0.8rem' },
   empty: { color: Theme.colors.textMuted, fontStyle: 'italic' as const },
   error: { color: Theme.colors.danger, marginBottom: '0.6rem' },
 }
@@ -246,6 +313,64 @@ async function moveFleet(fleetId: string) {
     await gameStore.fetchFleets()
   } catch (err: any) {
     error.value = err.message || 'No se pudo mover la flota'
+  }
+}
+
+function startRename(fleet: any) {
+  if (!fleet) return
+  renamingFleetId.value = fleet.id
+  renameDraft.value = fleet.name || ''
+}
+
+function cancelRename() {
+  renamingFleetId.value = null
+  renameDraft.value = ''
+}
+
+async function confirmRename(fleetId: string) {
+  const trimmed = renameDraft.value.trim()
+  if (!trimmed || !gameStore.gameId) {
+    cancelRename()
+    return
+  }
+  try {
+    await api.fleet.rename(gameStore.gameId, fleetId, trimmed)
+    await gameStore.fetchFleets()
+  } catch (err: any) {
+    error.value = err.message || 'No se pudo renombrar la flota'
+  } finally {
+    cancelRename()
+  }
+}
+
+function systemMates(fleet: any) {
+  if (!fleet || fleet.destination) return []
+  return fleets.value.filter(
+    (f) => f.id !== fleet.id && f.star_system_id === fleet.star_system_id && !f.destination,
+  )
+}
+
+function openTransfer(fleetId: string) {
+  const fleet = fleets.value.find((f) => f.id === fleetId)
+  if (!fleet) return
+  const amounts: Record<string, number> = {}
+  for (const ship of fleet.ships || []) amounts[ship.type] = 0
+  transferState.value = { fromFleet: fleet, toFleetId: '', amounts }
+}
+
+async function confirmTransfer() {
+  const t = transferState.value
+  if (!t || !t.fromFleet || !t.toFleetId || !gameStore.gameId) return
+  const ships = Object.entries(t.amounts)
+    .filter(([, count]) => Number(count) > 0)
+    .map(([type, count]) => ({ type, count: Number(count) }))
+  if (!ships.length) return
+  try {
+    await api.fleet.transfer(gameStore.gameId, t.fromFleet.id, t.toFleetId, ships)
+    transferState.value = null
+    await gameStore.fetchFleets()
+  } catch (err: any) {
+    error.value = err.message || 'No se pudieron traspasar las naves'
   }
 }
 

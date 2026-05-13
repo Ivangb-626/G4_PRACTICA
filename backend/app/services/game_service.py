@@ -73,6 +73,11 @@ GALAXY_SIZE_COUNTS = {"small": 20, "medium": 30, "large": 40, "huge": 55}
 
 DIFFICULTY_LEVELS = ["gardener", "officer", "commander", "lord", "impossible"]
 
+AI_NAME_POOL = [
+    "Alkari", "Bulrathi", "Darloks", "Humans", "Klackons", "Meklar",
+    "Mrrshan", "Psilon", "Sakkra", "Silicoids", "Elerians", "Gnolams",
+]
+
 SCENARIOS = [
     {
         "id": "default",
@@ -204,6 +209,9 @@ def get_building_projects(game_state, colony):
     techs = _researched_tech_ids(empire)
     projects = []
     for building in BUILDINGS.values():
+        prereq_techs = building.get("prerequisites", {}).get("tech", []) or []
+        if any(t not in TECHS for t in prereq_techs):
+            continue
         item = dict(building)
         if item["id"] in built:
             item["status"] = "built"
@@ -224,9 +232,11 @@ def get_ship_projects(game_state, colony):
     for ship in SHIPS.values():
         if ship.get("category") in ("antaran", "orion"):
             continue
+        req = ship.get("tech_required")
+        if req and req not in TECHS:
+            continue
         item = dict(ship)
         reasons = []
-        req = item.get("tech_required")
         if req and req not in techs:
             reasons.append(f"Investiga {_tech_label(req)}")
         limit = item.get("limit_per_empire")
@@ -437,7 +447,7 @@ def generate_galaxy(size, num_opponents, player_race_id, galaxy_age="average", o
                 "name": "Guardian of Orion",
                 "owner": "antaranos",
                 "star_system_id": orion["id"],
-                "ships": [{"type": "battleship", "count": 1}, {"type": "cruiser", "count": 2}, {"type": "destroyer", "count": 3}],
+                "ships": [{"type": "antaran_battleship", "count": 1}, {"type": "antaran_cruiser", "count": 2}, {"type": "antaran_destroyer", "count": 3}],
                 "destination": None,
                 "eta_turns": None,
                 "command_points_used": 0,
@@ -498,8 +508,9 @@ def make_colony(star_system_id, planet_index, owner, planet=None):
     }
 
 
-def _initial_empire(owner_id, race_id, system, include_id=False, personality=None):
+def _initial_empire(owner_id, race_id, system, include_id=False, personality=None, name=None):
     colony = make_colony(system["id"], 0, owner_id, system["planets"][0])
+    fleet_name = "Initial Fleet" if owner_id == "player" else f"{name or owner_id} Fleet"
     empire = {
         "race": RACES[race_id],
         "resources": {
@@ -514,7 +525,7 @@ def _initial_empire(owner_id, race_id, system, include_id=False, personality=Non
         "fleets": [
             {
                 "id": f"fleet_{owner_id}",
-                "name": "Initial Fleet" if owner_id == "player" else f"AI Fleet {owner_id}",
+                "name": fleet_name,
                 "owner": owner_id,
                 "star_system_id": system["id"],
                 "ships": [{"type": "frigate", "count": 2}, {"type": "colony_ship", "count": 1}],
@@ -527,6 +538,7 @@ def _initial_empire(owner_id, race_id, system, include_id=False, personality=Non
     }
     if include_id:
         empire["id"] = owner_id
+        empire["name"] = name or owner_id
         empire["personality"] = personality or "balanced"
         empire["diplomacy_stance"] = "hostile"
     return empire
@@ -574,6 +586,8 @@ def generate_game_state(name, scenario):
     galaxy["fog_of_war"]["player"] = [player_system["id"], *player_system["connections"]]
 
     ai_players = []
+    # AI races never match the player's race. If only the player's race is defined,
+    # we cannot spawn AI opponents at all rather than reusing it.
     available_races = [race_id for race_id in RACES if race_id != scenario["player_race"]]
     random.shuffle(available_races)
     # Find suitable AI start systems: skip player's, skip black holes, must have a habitable planet
@@ -582,16 +596,24 @@ def generate_game_state(name, scenario):
         if s["id"] != player_system["id"] and not s.get("is_black_hole") and s.get("planets") and any(PLANET_TYPES.get(p.get("type"), {}).get("habitable") for p in s["planets"])
     ]
     random.shuffle(candidate_systems)
-    for index in range(scenario["num_opponents"]):
+    num_opponents = scenario["num_opponents"]
+    name_pool = random.sample(AI_NAME_POOL, k=min(num_opponents, len(AI_NAME_POOL)))
+    if num_opponents > len(name_pool):
+        name_pool += [f"Alien-{i + 1}" for i in range(num_opponents - len(name_pool))]
+    for index in range(num_opponents):
         if index >= len(candidate_systems):
             break
+        if not available_races:
+            break
+        race_id = available_races[index % len(available_races)]
+        if race_id == scenario["player_race"]:
+            continue
         ai_id = f"ai_{index}"
         ai_system = candidate_systems[index]
         ai_system["explored_by"].append(ai_id)
         habitable_idx = next((i for i, p in enumerate(ai_system["planets"]) if PLANET_TYPES.get(p.get("type"), {}).get("habitable")), 0)
         ai_system["planets"][habitable_idx]["colonized_by"] = ai_id
         galaxy["fog_of_war"][ai_id] = [ai_system["id"], *ai_system["connections"]]
-        race_id = available_races[index % len(available_races)] if available_races else scenario["player_race"]
         ai_players.append(
             _initial_empire(
                 ai_id,
@@ -599,6 +621,7 @@ def generate_game_state(name, scenario):
                 ai_system,
                 include_id=True,
                 personality=RACES[race_id].get("ai_personality") or random.choice(["aggressive", "defensive", "expansionist", "researcher", "balanced"]),
+                name=name_pool[index],
             )
         )
 
@@ -882,13 +905,6 @@ def colonize_planet(game_state, owner_or_fleet_id, fleet_id=None, planet_index=N
     if system.get("guardian", {}).get("active") or (system.get("space_monster") and not system["space_monster"].get("defeated")):
         raise ValueError("Cannot colonize: System is guarded by a hostile entity")
 
-    # Tolerant or Silicoid-like: can colonize anything except destroyed
-    empire = get_empire(game_state, owner_id)
-    flags = (empire or {}).get("race", {}).get("traits", {}).get("flags", {})
-    habitable = PLANET_TYPES.get(planet["type"], {}).get("habitable", False)
-    if not habitable and not flags.get("tolerant"):
-        raise ValueError("Planet not colonizable without Tolerant trait")
-
     planet["colonized_by"] = owner_id
     colony_ship["count"] -= 1
     fleet["ships"] = [ship for ship in fleet["ships"] if ship.get("count", 0) > 0]
@@ -1063,27 +1079,25 @@ def _compute_empire_economy(game_state, owner_id):
 
     # 3. Growth and Starvation Pass
     for colony in empire.get("colonies", []):
-        if colony.get("food_surplus", 0) < 0:
-            # Starvation
+        surplus = colony.get("food_surplus", 0)
+        if surplus < 0:
             colony["population"]["total"] = max(1, colony["population"]["total"] - 1)
         else:
-            # Growth
             traits = empire.get("race", {}).get("traits", {})
             growth_bonus = traits.get("population_growth_bonus", 0) / 100.0
-            
-            # Lithovore growth is slower? (Standard MOO2 is no, but some implementations do)
-            # Default MOO2 growth formula: 0.5 * pop * (1 - pop/max)
-            # Simplified here:
             max_pop = max(colony["population"].get("max", 1), 1)
             current_pop = colony["population"]["total"]
-            
-            base_growth = 0.5 * (1 + growth_bonus)
-            # Penalty if close to max
+
+            # MOO2-style growth scaled by food surplus per capita (capped to avoid runaway).
+            consumption = max(1, colony.get("food_consumption", current_pop))
+            food_ratio = min(3.0, surplus / consumption)
+            food_multiplier = 1.0 + food_ratio
+            base_growth = 0.5 * (1 + growth_bonus) * food_multiplier
             growth_factor = 1.0 - (current_pop / max_pop)
             if growth_factor > 0:
                 new_pop = current_pop + (base_growth * growth_factor)
                 colony["population"]["total"] = min(max_pop, round(new_pop, 2))
-        
+
         _normalize_population(colony)
 
     # 4. Final Totals
@@ -1555,7 +1569,7 @@ def defeat_orion_guardian(game_state, owner_id="player"):
             "name": "Avenger",
             "owner": owner_id,
             "star_system_id": orion["id"],
-            "ships": [{"type": "battleship", "count": 1}],
+            "ships": [{"type": "titan", "count": 1}],
             "destination": None,
             "eta_turns": None,
             "is_avenger": True,
@@ -1600,8 +1614,8 @@ def attack_antaran_homeworld(game_state, owner_id="player", fleet_id=None):
     # Resolve combat against an Antaran homeworld defense (very strong)
     antaran_defense = {
         "ships": [
-            {"type": "battleship", "count": 3},
-            {"type": "cruiser", "count": 5},
+            {"type": "antaran_battleship", "count": 3},
+            {"type": "antaran_cruiser", "count": 5},
         ],
     }
     result = resolve_combat(fleet, antaran_defense, defender_orbital_defense=200, ship_types_data=SHIP_TYPES)
@@ -1812,6 +1826,11 @@ def apply_cheat(game_state, cheat_code, target=None):
 
     if cheat_code == "recursos_infinitos":
         game_state["player"]["resources"]["bc"] = 99999
+        game_state["player"]["resources"]["total_food_surplus"] = 99999
+        for colony in game_state["player"].get("colonies", []):
+            colony["food_output"] = 9999
+            colony["food_consumption"] = 0
+            colony["food_surplus"] = 9999
         return {"message": "Infinite resources applied", "game_state": game_state}
     if cheat_code == "revelar_galaxia":
         game_state["galaxy"]["fog_of_war"]["player"] = [system["id"] for system in game_state["galaxy"]["star_systems"]]
@@ -1832,7 +1851,7 @@ def apply_cheat(game_state, cheat_code, target=None):
                 "name": "Invincible Fleet",
                 "owner": "player",
                 "star_system_id": target["id"],
-                "ships": [{"type": "battleship", "count": 10}],
+                "ships": [{"type": "titan", "count": 10}],
                 "destination": None,
                 "eta_turns": None,
                 "command_points_used": 80,
