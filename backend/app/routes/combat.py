@@ -12,6 +12,13 @@ from app.services.antaran_service import build_dimensional_portal as svc_build_p
 from app.services.creature_service import resolve_monster_combat, defeat_monster
 from app.services.tactical_combat import init_combat, auto_resolve, step_action
 from app.services.leader_service import grant_loknar
+from app.services.bombardment_service import (
+    verificar_capacidad_ataque,
+    bombardear_planeta,
+    conquistar_planeta,
+    asaltar_planeta,
+    ejecutar_campaña_automatica
+)
 
 combat_bp = Blueprint('combat', __name__)
 
@@ -32,6 +39,91 @@ def auto(game_id):
     events = resolve_space_combats(entry['game_state'])
     GameModel.save_game(g.user_id, game_id, entry['game_state'])
     return jsonify({"events": events}), 200
+
+
+@combat_bp.route('/planetary/check', methods=['POST'])
+@token_required
+def check_attack_capacity(game_id):
+    entry = _entry(game_id)
+    if not entry:
+        return jsonify({"error": "Game not found"}), 404
+    data = request.get_json() or {}
+    res = verificar_capacidad_ataque(
+        entry['game_state'], 
+        data.get('id_planeta'), 
+        data.get('id_flota_atacante'), 
+        'player'
+    )
+    return jsonify(res), 200
+
+
+@combat_bp.route('/planetary/bombard', methods=['POST'])
+@token_required
+def bombard(game_id):
+    entry = _entry(game_id)
+    if not entry:
+        return jsonify({"error": "Game not found"}), 404
+    data = request.get_json() or {}
+    res = bombardear_planeta(
+        entry['game_state'], 
+        data.get('id_planeta'), 
+        data.get('id_flota'), 
+        data.get('intensidad', 'moderado')
+    )
+    GameModel.save_game(g.user_id, game_id, entry['game_state'])
+    return jsonify(res), 200
+
+
+@combat_bp.route('/planetary/assault', methods=['POST'])
+@token_required
+def assault(game_id):
+    entry = _entry(game_id)
+    if not entry:
+        return jsonify({"error": "Game not found"}), 404
+    data = request.get_json() or {}
+    res = asaltar_planeta(
+        entry['game_state'], 
+        data.get('id_planeta'), 
+        'player',
+        data.get('id_flota')
+    )
+    GameModel.save_game(g.user_id, game_id, entry['game_state'])
+    return jsonify(res), 200
+
+
+@combat_bp.route('/planetary/conquer', methods=['POST'])
+@token_required
+def conquer(game_id):
+    entry = _entry(game_id)
+    if not entry:
+        return jsonify({"error": "Game not found"}), 404
+    data = request.get_json() or {}
+    res = conquistar_planeta(
+        entry['game_state'], 
+        data.get('id_planeta'), 
+        'player',
+        data.get('id_flota')
+    )
+    GameModel.save_game(g.user_id, game_id, entry['game_state'])
+    return jsonify(res), 200
+
+
+@combat_bp.route('/planetary/campaign', methods=['POST'])
+@token_required
+def campaign(game_id):
+    entry = _entry(game_id)
+    if not entry:
+        return jsonify({"error": "Game not found"}), 404
+    data = request.get_json() or {}
+    res = ejecutar_campaña_automatica(
+        entry['game_state'], 
+        'player',
+        data.get('id_flota'),
+        data.get('lista_objetivos', []),
+        data.get('intervalo', 5)
+    )
+    GameModel.save_game(g.user_id, game_id, entry['game_state'])
+    return jsonify(res), 200
 
 
 @combat_bp.route('/tactical/start', methods=['POST'])

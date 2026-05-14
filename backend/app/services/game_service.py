@@ -1187,13 +1187,15 @@ def resolve_space_combats(game_state):
         if attacker_fleets:
             loss_ratio = result.get("attacker_loss_ratio", 1.0)
             for fleet in attacker_fleets:
-                fleet["ships"] = apply_losses(fleet, loss_ratio, SHIP_TYPES)
-                fleet["command_points_used"] = _fleet_command_points(fleet)
+                if not fleet.get("invincible"):
+                    fleet["ships"] = apply_losses(fleet, loss_ratio, SHIP_TYPES)
+                    fleet["command_points_used"] = _fleet_command_points(fleet)
         if defender_fleets:
             loss_ratio = result.get("defender_loss_ratio", 1.0)
             for fleet in defender_fleets:
-                fleet["ships"] = apply_losses(fleet, loss_ratio, SHIP_TYPES)
-                fleet["command_points_used"] = _fleet_command_points(fleet)
+                if not fleet.get("invincible"):
+                    fleet["ships"] = apply_losses(fleet, loss_ratio, SHIP_TYPES)
+                    fleet["command_points_used"] = _fleet_command_points(fleet)
 
         events.append(
             {
@@ -1843,18 +1845,22 @@ def apply_cheat(game_state, cheat_code, target=None):
                 )
         return {"message": "All technology unlocked", "game_state": game_state}
     if cheat_code == "flota_invencible":
-        if not target or target.get("type") != "star_system" or not target.get("id"):
-            raise ValueError("Target required")
+        # Default target: player home system
+        system_id = target.get("id") if target and target.get("id") else game_state["player"].get("home_system_id")
+        if not system_id:
+            system_id = game_state["galaxy"]["star_systems"][0]["id"]
+            
         game_state["player"]["fleets"].append(
             {
-                "id": "cheat_invincible",
+                "id": f"cheat_invincible_{random.randint(100,999)}",
                 "name": "Invincible Fleet",
                 "owner": "player",
-                "star_system_id": target["id"],
-                "ships": [{"type": "titan", "count": 10}],
+                "star_system_id": system_id,
+                "ships": [{"type": "doom_star", "count": 10}, {"type": "titan", "count": 10}],
                 "destination": None,
                 "eta_turns": None,
-                "command_points_used": 80,
+                "command_points_used": 0,
+                "invincible": True
             }
         )
         return {"message": "Invincible fleet created", "game_state": game_state}
@@ -1865,25 +1871,32 @@ def apply_cheat(game_state, cheat_code, target=None):
         game_state["victory_condition"] = "Defeat"
         return {"message": "Immediate defeat", "game_state": game_state}
     if cheat_code == "colonizar_todo":
-        if not target or target.get("type") != "star_system" or not target.get("id"):
-            raise ValueError("Target required")
-        system = find_system(game_state, target["id"])
-        if not system:
-            raise ValueError("Star system not found")
-        for planet in system.get("planets", []):
-            if planet.get("colonized_by") is None and PLANET_TYPES.get(planet["type"], {}).get("habitable", False):
-                planet["colonized_by"] = "player"
-                game_state["player"]["colonies"].append(make_colony(system["id"], planet["index"], "player", planet))
-        return {"message": "System fully colonized", "game_state": game_state}
+        # Default: all habitable planets in explored systems
+        target_systems = [find_system(game_state, target["id"])] if target and target.get("id") else game_state["galaxy"]["star_systems"]
+        
+        colonized_count = 0
+        for system in target_systems:
+            if system["id"] not in game_state["galaxy"]["fog_of_war"].get("player", []):
+                continue
+            for planet in system.get("planets", []):
+                if planet.get("colonized_by") is None and PLANET_TYPES.get(planet["type"], {}).get("habitable", False):
+                    planet["colonized_by"] = "player"
+                    game_state["player"]["colonies"].append(make_colony(system["id"], planet["index"], "player", planet))
+                    colonized_count += 1
+        return {"message": f"Colonized {colonized_count} planets", "game_state": game_state}
     if cheat_code == "poblacion_maxima":
-        if not target or target.get("type") != "colony" or not target.get("id"):
-            raise ValueError("Target required")
-        colony = next((item for item in game_state["player"]["colonies"] if item["id"] == target["id"]), None)
-        if not colony:
-            raise ValueError("Colony not found")
-        colony["population"]["total"] = colony["population"]["max"]
-        _normalize_population(colony)
-        return {"message": "Population maximized", "game_state": game_state}
+        target_colonies = []
+        if target and target.get("id"):
+            colony = next((item for item in game_state["player"]["colonies"] if item["id"] == target["id"]), None)
+            if colony: target_colonies = [colony]
+        else:
+            target_colonies = game_state["player"]["colonies"]
+            
+        for colony in target_colonies:
+            colony["population"]["total"] = colony["population"]["max"]
+            _normalize_population(colony)
+        return {"message": f"Population maximized in {len(target_colonies)} colonies", "game_state": game_state}
+
     if cheat_code == "naves_gratis":
         game_state["player"]["resources"]["free_ship"] = True
         return {"message": "Free ships enabled", "game_state": game_state}

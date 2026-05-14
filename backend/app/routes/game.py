@@ -140,19 +140,19 @@ def create_new_game():
     return jsonify({"game_id": game_id, "message": "Game created"}), 201
 
 
+@game_bp.route('/list', methods=['GET'])
+@token_required
+def list_user_games():
+    games = GameModel.list_games(g.user_id)
+    return jsonify(games), 200
+
+
 @game_bp.route('/<game_id>', methods=['GET'])
 @token_required
 def get_game_state(game_id):
     entry, error = _game_entry_or_error(game_id)
     if error: return error
     return jsonify(entry['game_state']), 200
-
-
-@game_bp.route('/list', methods=['GET'])
-@token_required
-def list_user_games():
-    games = GameModel.list_games(g.user_id)
-    return jsonify(games), 200
 
 
 @game_bp.route('/<game_id>', methods=['DELETE'])
