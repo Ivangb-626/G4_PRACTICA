@@ -202,7 +202,7 @@
       <div class="modal-content retro-panel confirm-modal">
         <header class="modal-header">
           <h3>Confirmar fin de turno</h3>
-          <button class="close-btn" type="button" @click="confirmEndTurnOpen = false">Ã—</button>
+          <button class="close-btn" type="button" @click="confirmEndTurnOpen = false">×</button>
         </header>
         <p class="confirm-copy">{{ turnReady ? 'Todo listo. Consecuencias inmediatas:' : 'Puedes avanzar, pero quedan avisos tacticos:' }}</p>
         <div v-if="turnWarnings.length" class="confirm-warning">
@@ -1050,12 +1050,12 @@ kbd {
   box-shadow: 0 4px 20px rgba(0,255,255,0.2);
 }
 
-.confirm-modal,
 .shortcuts-modal {
   max-width: 640px;
 }
 
-.colonies-modal {
+.colonies-modal,
+.confirm-modal {
   width: 96vw;
   max-width: 1400px;
   height: 92vh;
@@ -1063,6 +1063,27 @@ kbd {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.confirm-modal .confirm-copy,
+.confirm-modal .confirm-warning,
+.confirm-modal .impact-list {
+  flex: 0 0 auto;
+}
+
+.confirm-modal .impact-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+.confirm-modal .confirm-actions {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+  justify-content: flex-end;
+  display: flex;
+  gap: 0.6rem;
 }
 
 .colonies-modal .colonies-list {

@@ -213,22 +213,57 @@ def gift(game_state: dict, sender: str, recipient: str, payload: dict) -> dict:
     recipient_emp = _find_empire(game_state, recipient)
     if not sender_emp or not recipient_emp:
         return {"success": False, "reason": "Empire not found"}
+
+    total_delta = 0
+    tech_already_owned = False
+    tech_gifted: Optional[str] = None
+
     if "bc" in payload:
         amount = max(0, int(payload.get("bc", 0)))
         if sender_emp["resources"].get("bc", 0) < amount:
             return {"success": False, "reason": "Not enough BC"}
         sender_emp["resources"]["bc"] -= amount
         recipient_emp["resources"]["bc"] = recipient_emp["resources"].get("bc", 0) + amount
-        _adjust_relation(game_state, sender, recipient, +max(1, amount // 50))
+        bc_delta = max(1, amount // 50)
+        _adjust_relation(game_state, sender, recipient, +bc_delta)
+        total_delta += bc_delta
+
     if "tech_id" in payload:
         tech_id = payload["tech_id"]
-        already = any(item.get("tech_id") == tech_id for item in recipient_emp.get("technologies", {}).get("researched", []))
-        if not already:
+        # Sender must actually own the tech
+        sender_techs = {
+            item.get("tech_id")
+            for item in sender_emp.get("technologies", {}).get("researched", [])
+            if item.get("status") != "discarded"
+        }
+        if tech_id not in sender_techs:
+            return {"success": False, "reason": "Sender does not own this technology"}
+
+        tech_already_owned = any(
+            item.get("tech_id") == tech_id
+            for item in recipient_emp.get("technologies", {}).get("researched", [])
+        )
+        if not tech_already_owned:
+            tech_data = TECHS.get(tech_id, {})
+            field = payload.get("field") or tech_data.get("field", "")
+            level = payload.get("level") or tech_data.get("level", 1)
             recipient_emp.setdefault("technologies", {}).setdefault("researched", []).append(
-                {"tech_id": tech_id, "field": payload.get("field", ""), "level": payload.get("level", 1), "status": "researched"}
+                {"tech_id": tech_id, "field": field, "level": level, "status": "researched"}
             )
-        _adjust_relation(game_state, sender, recipient, +15)
-    return {"success": True}
+            # Diplomacy reward scales with research cost: cheap basic tech
+            # (~50 RP) gives +5, expensive late-game tech (~1500 RP) caps near +50.
+            research_cost = int(tech_data.get("research_cost", 50) or 50)
+            tech_delta = max(5, min(50, research_cost // 30))
+            _adjust_relation(game_state, sender, recipient, +tech_delta)
+            total_delta += tech_delta
+            tech_gifted = tech_id
+
+    return {
+        "success": True,
+        "delta": total_delta,
+        "tech_gifted": tech_gifted,
+        "tech_already_owned": tech_already_owned,
+    }
 
 
 def demand(game_state: dict, sender: str, recipient: str, payload: dict) -> dict:

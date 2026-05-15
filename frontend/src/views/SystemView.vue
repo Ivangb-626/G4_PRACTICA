@@ -49,13 +49,20 @@
           <li><span>Minerales</span><strong>{{ selected.minerals }}</strong></li>
           <li><span>Gravedad</span><strong>{{ selected.gravity }}</strong></li>
           <li><span>Pob. max</span><strong>{{ selected.max_population }}</strong></li>
-          <li><span>Dueno</span><strong :class="ownerClass(selected)">{{ selected.colonized_by || 'libre' }}</strong></li>
+          <li><span>Dueno</span><strong :class="ownerClass(selected)">{{ ownerDisplayName(selected.colonized_by) || 'libre' }}</strong></li>
         </ul>
 
         <div v-if="selected.colonized_by === 'player'" class="hint">Es tuya. Pulsa "Ver colonia" para gestionarla.</div>
         <div v-else-if="selected.colonized_by" class="warn">
-          Pertenece a {{ selected.colonized_by }}.
+          Pertenece a {{ ownerDisplayName(selected.colonized_by) }}.
           <span v-if="canAssault">Puedes asaltar con marines.</span>
+          <div v-if="canAssault" class="assault-odds">
+            Probabilidad de exito: <strong :class="oddsClass">{{ assaultSuccessChance }}%</strong>
+            <small>· {{ assaultBreakdown }}</small>
+          </div>
+          <div v-else-if="!playerTransportFleet" class="assault-odds muted">
+            Necesitas transportes en orbita para asaltar.
+          </div>
         </div>
         <div v-else>
           <div v-if="canColonizeThisPlanet" class="ok-hint">Tu nave colonizadora esta aqui.</div>
@@ -142,6 +149,40 @@
         </div>
       </div>
     </div>
+
+    <div v-if="assaultResult" class="system-modal">
+      <div :class="['system-modal-card', assaultResult.captured ? 'result-win' : 'result-loss']">
+        <header>
+          <strong>{{ assaultResult.captured ? 'ASALTO EXITOSO' : 'ASALTO FALLIDO' }}</strong>
+          <button type="button" @click="assaultResult = null">×</button>
+        </header>
+        <p class="result-headline">{{ assaultResult.headline }}</p>
+        <ul class="result-stats">
+          <li><span>Marines supervivientes</span><strong>{{ assaultResult.attackerRemaining }}</strong></li>
+          <li><span>Defensores supervivientes</span><strong>{{ assaultResult.defenderRemaining }}</strong></li>
+          <li v-if="assaultResult.capturedTech">
+            <span>Tecnologia capturada</span><strong>{{ assaultResult.capturedTech }}</strong>
+          </li>
+          <li v-if="assaultResult.diplomacyDelta !== null">
+            <span>Diplomacia con {{ assaultResult.ownerName }}</span>
+            <strong :class="assaultResult.diplomacyDelta < 0 ? 'odds-bad' : 'odds-good'">
+              {{ assaultResult.diplomacyDelta > 0 ? '+' : '' }}{{ assaultResult.diplomacyDelta }}
+            </strong>
+          </li>
+        </ul>
+        <div class="system-modal-actions">
+          <button
+            v-if="assaultResult.captured"
+            class="retro-btn ok"
+            type="button"
+            @click="openCapturedColony"
+          >
+            VER COLONIA
+          </button>
+          <button class="retro-btn" type="button" @click="assaultResult = null">CERRAR</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -165,6 +206,18 @@ const busy = ref(false)
 const moveDraft = ref<{ fleetId: string }>({ fleetId: '' })
 const pendingAction = ref<null | { type: 'colonize' | 'assault' | 'move'; title: string; body: string }>(null)
 
+type AssaultResult = {
+  captured: boolean
+  headline: string
+  attackerRemaining: number
+  defenderRemaining: number
+  capturedTech: string | null
+  diplomacyDelta: number | null
+  ownerName: string
+  planetIndex: number | null
+}
+const assaultResult = ref<AssaultResult | null>(null)
+
 const sysId = computed(() => String(route.params.sysId || ''))
 const gameId = computed(() => String(route.params.id || gameStore.gameId || ''))
 
@@ -185,6 +238,83 @@ const canColonizeThisPlanet = computed(() => {
   return !!playerColonyShipFleet.value
 })
 const canAssault = computed(() => !!playerTransportFleet.value && selected.value?.colonized_by && selected.value.colonized_by !== 'player')
+
+function findEmpire(ownerId: string | null | undefined): any | null {
+  if (!ownerId) return null
+  const game = gameStore.game as any
+  if (!game) return null
+  if (ownerId === 'player') return game.player
+  return (game.ai_players || []).find((a: any) => a?.id === ownerId) || null
+}
+
+function ownerDisplayName(ownerId: string | null | undefined): string {
+  if (!ownerId) return ''
+  if (ownerId === 'player') return 'Tu imperio'
+  const emp = findEmpire(ownerId)
+  return emp?.race?.name || emp?.name || ownerId
+}
+
+function findColonyAtSelected(): any | null {
+  const planet = selected.value
+  if (!planet || !planet.colonized_by || planet.colonized_by === 'player') return null
+  const emp = findEmpire(planet.colonized_by)
+  if (!emp) return null
+  const colId = `col_${sysId.value}_${planet.index}`
+  return (emp.colonies || []).find((c: any) => c?.id === colId) || null
+}
+
+const assaultMath = computed(() => {
+  if (!canAssault.value || !selected.value) return null
+  const transports = (playerTransportFleet.value?.ships || [])
+    .filter((s: any) => s.type === 'transport')
+    .reduce((acc: number, s: any) => acc + (s.count || 0), 0)
+  const attackerMarines = transports * 6
+  const player = (gameStore.game as any)?.player
+  const attackerBonus = player?.race?.traits?.ground_combat_bonus || 0
+
+  const defenderEmp = findEmpire(selected.value.colonized_by)
+  const defenderBonus = defenderEmp?.race?.traits?.ground_combat_bonus || 0
+  const colony = findColonyAtSelected()
+  let popTotal = 1
+  let groundDefense = 0
+  if (colony) {
+    const pop = colony.population
+    popTotal = typeof pop === 'object' && pop ? (pop.total || 1) : 1
+    groundDefense = colony.ground_defense || 0
+  } else {
+    popTotal = Math.max(1, Math.round((selected.value.max_population || 4) / 2))
+  }
+  const defenderMarines = Math.max(1, groundDefense + popTotal)
+
+  const atkPower = Math.max(0, attackerMarines) * (1 + attackerBonus / 100)
+  const defPower = defenderMarines * (1 + defenderBonus / 100)
+  const total = atkPower + defPower
+  const raw = total > 0 ? atkPower / total : 0
+  const chance = Math.max(0, Math.min(100, Math.round(raw * 100)))
+
+  return {
+    chance,
+    attackerMarines,
+    defenderMarines,
+    visible: !!colony,
+  }
+})
+
+const assaultSuccessChance = computed(() => assaultMath.value?.chance ?? 0)
+
+const assaultBreakdown = computed(() => {
+  const m = assaultMath.value
+  if (!m) return ''
+  const defStr = m.visible ? String(m.defenderMarines) : '?'
+  return `${m.attackerMarines} marines vs ~${defStr} defensores`
+})
+
+const oddsClass = computed(() => {
+  const c = assaultSuccessChance.value
+  if (c >= 65) return 'odds-good'
+  if (c >= 35) return 'odds-mid'
+  return 'odds-bad'
+})
 
 const movableFleets = computed<any[]>(() => {
   const jumps = gameStore.maxJumps
@@ -286,10 +416,12 @@ function requestSystemAction(type: 'colonize' | 'assault' | 'move') {
     return
   }
   if (type === 'assault' && selected.value) {
+    const chance = assaultSuccessChance.value
+    const owner = ownerDisplayName(selected.value.colonized_by)
     pendingAction.value = {
       type,
       title: 'Confirmar asalto',
-      body: `Atacar ${selected.value.name}. Esta accion puede iniciar combate terrestre y consumir transportes.`,
+      body: `Atacar ${selected.value.name} (${owner}). Probabilidad estimada de exito: ${chance}%. Asaltar empeorara la diplomacia con esta raza y consumira los transportes en orbita.`,
     }
     return
   }
@@ -337,16 +469,58 @@ async function assault() {
   busy.value = true
   error.value = ''
   info.value = ''
+  const planetIndex = typeof selected.value.index === 'number' ? selected.value.index : null
+  const planetName = selected.value.name
+  const targetOwner = selected.value.colonized_by
+  const ownerName = ownerDisplayName(targetOwner)
   try {
     const colonyId = `col_${sysId.value}_${selected.value.index}`
     const res = await api.ground.assault(gameId.value, fleet.id, colonyId, false)
-    info.value = res?.colony_captured ? 'Colonia capturada' : 'Asalto resuelto'
-    await Promise.all([reload(), gameStore.fetchFleets(), gameStore.fetchColonies()])
+    const captured = !!res?.colony_captured
+    const combat = res?.result || {}
+    const diploDelta = (res && typeof res.diplomacy_delta === 'number') ? res.diplomacy_delta : null
+    const tech = res?.captured_tech ? prettifyTech(res.captured_tech) : null
+    assaultResult.value = {
+      captured,
+      headline: captured
+        ? `Has tomado ${planetName} a ${ownerName}. La colonia ya forma parte de tu imperio.`
+        : `Tus marines no han podido tomar ${planetName}. ${ownerName} mantiene la colonia.`,
+      attackerRemaining: combat.attacker_remaining ?? 0,
+      defenderRemaining: combat.defender_remaining ?? 0,
+      capturedTech: tech,
+      diplomacyDelta: diploDelta,
+      ownerName,
+      planetIndex,
+    }
+    info.value = captured ? `Colonia capturada de ${ownerName}` : `Asalto fallido contra ${ownerName}`
+    await Promise.all([
+      reload(),
+      gameStore.fetchFleets(),
+      gameStore.fetchColonies(),
+      gameStore.loadGame(gameId.value),
+      gameStore.fetchDiplomacy(),
+    ])
+    if (captured && planetIndex !== null) {
+      const refreshed = system.value?.planets?.find((p: any) => p.index === planetIndex)
+      if (refreshed) selected.value = refreshed
+    }
   } catch (err: any) {
     error.value = err.message || 'No se pudo asaltar'
   } finally {
     busy.value = false
   }
+}
+
+function prettifyTech(id: string): string {
+  return String(id).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function openCapturedColony() {
+  const idx = assaultResult.value?.planetIndex
+  assaultResult.value = null
+  if (idx === null || idx === undefined) return
+  const colId = `col_${sysId.value}_${idx}`
+  router.push(`/game/${gameId.value}/colony/${colId}`)
 }
 
 async function moveHere() {
@@ -604,6 +778,22 @@ onMounted(reload)
 .ok-hint  { color: #44ee88; font-size: 0.72rem; }
 .warn     { color: #ffaa66; font-size: 0.72rem; }
 .actions  { margin-top: 0.4rem; display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.assault-odds {
+  margin-top: 0.3rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px dashed #6a1a2a;
+  background: rgba(80, 10, 20, 0.25);
+  font-size: 0.7rem;
+  color: #ffcc99;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.assault-odds.muted { border-style: dotted; color: #aa7777; background: transparent; }
+.assault-odds small { color: #cc9966; font-size: 0.62rem; }
+.odds-good { color: #88ff88; }
+.odds-mid  { color: #ffeb66; }
+.odds-bad  { color: #ff7799; }
 .impact-preview {
   margin: 0.2rem 0 0;
   padding-left: 1rem;
@@ -688,6 +878,36 @@ onMounted(reload)
   justify-content: flex-end;
   flex-wrap: wrap;
 }
+
+.system-modal-card.result-win {
+  border-color: #88ff88;
+  box-shadow: 0 0 28px rgba(136, 255, 136, 0.32);
+}
+.system-modal-card.result-loss {
+  border-color: #ff5577;
+  box-shadow: 0 0 28px rgba(255, 85, 119, 0.32);
+}
+.result-headline {
+  margin: 0 0 0.6rem;
+  font-size: 0.82rem;
+  color: #cfffd4;
+}
+.result-stats {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.7rem;
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+}
+.result-stats li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.2rem 0.4rem;
+  border-bottom: 1px dashed #1a3a1a;
+}
+.result-stats span { color: #6cc26c; }
+.result-stats strong { color: #cfffd4; }
 
 @media (max-width: 1024px) {
   .system-body { grid-template-columns: 1fr; }

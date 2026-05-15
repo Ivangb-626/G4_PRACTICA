@@ -127,6 +127,7 @@ def process_assimilation(game_state: dict) -> list:
 
 def assault_colony(game_state: dict, attacker_id: str, fleet_id: str, colony_id: str, exterminate: bool = False) -> dict:
     from app.services.combat_service import resolve_ground_combat
+    from app.services.diplomacy_service import _adjust_relation
     attacker = _find_empire(game_state, attacker_id)
     if not attacker:
         return {"success": False, "reason": "Attacker not found"}
@@ -148,6 +149,10 @@ def assault_colony(game_state: dict, attacker_id: str, fleet_id: str, colony_id:
     marines = transports["count"] * 6
     result = resolve_ground_combat(marines, attacker_bonus, colony, defender_bonus)
 
+    target_owner_id = target_emp.get("id") or ("player" if target_emp == game_state.get("player") else None)
+    diplomacy_delta = 0
+    captured_tech = None
+
     if result["winner"] == "attacker":
         target_emp["colonies"] = [c for c in target_emp.get("colonies", []) if c.get("id") != colony_id]
         if exterminate:
@@ -155,8 +160,25 @@ def assault_colony(game_state: dict, attacker_id: str, fleet_id: str, colony_id:
         else:
             post_conquest_setup(colony, attacker_id, target_emp.get("id"))
         attacker.setdefault("colonies", []).append(colony)
+        # Update the planet's ownership in the galaxy so the system view
+        # and any map rendering treats the planet as belonging to the attacker.
+        system_id = colony.get("star_system_id")
+        planet_index = colony.get("planet_index")
+        for system in game_state.get("galaxy", {}).get("star_systems", []):
+            if system.get("id") != system_id:
+                continue
+            planets = system.get("planets", [])
+            if isinstance(planet_index, int) and 0 <= planet_index < len(planets):
+                planets[planet_index]["colonized_by"] = attacker_id
+            # Ensure the attacker has visibility on the newly-captured system.
+            fog = game_state.get("galaxy", {}).setdefault("fog_of_war", {})
+            explored = fog.setdefault(attacker_id, [])
+            if system_id and system_id not in explored:
+                explored.append(system_id)
+            if attacker_id not in system.setdefault("explored_by", []):
+                system["explored_by"].append(attacker_id)
+            break
         # Tech capture chance
-        captured_tech = None
         if random.random() < 0.30:
             target_techs = [t.get("tech_id") for t in target_emp.get("technologies", {}).get("researched", []) if t.get("status") != "discarded"]
             attacker_techs = {t.get("tech_id") for t in attacker.get("technologies", {}).get("researched", []) if t.get("status") != "discarded"}
@@ -164,10 +186,35 @@ def assault_colony(game_state: dict, attacker_id: str, fleet_id: str, colony_id:
             if opt:
                 captured_tech = random.choice(opt)
                 attacker["technologies"]["researched"].append({"tech_id": captured_tech, "field": "", "level": 1, "status": "researched"})
-        transports["count"] = 0
-        fleet["ships"] = [s for s in fleet["ships"] if s.get("count", 0) > 0]
-        return {"success": True, "colony_captured": True, "result": result, "captured_tech": captured_tech}
+        diplomacy_delta = -40 if exterminate else -30
+        captured = True
+    else:
+        diplomacy_delta = -15
+        captured = False
 
     transports["count"] = 0
     fleet["ships"] = [s for s in fleet["ships"] if s.get("count", 0) > 0]
-    return {"success": True, "colony_captured": False, "result": result}
+
+    if target_owner_id and target_owner_id != attacker_id:
+        try:
+            _adjust_relation(game_state, attacker_id, target_owner_id, diplomacy_delta)
+            game_state.setdefault("diplomacy", {}).setdefault("history", []).append({
+                "turn": game_state.get("turn", 1),
+                "type": "colony_assaulted",
+                "by": attacker_id,
+                "against": target_owner_id,
+                "colony_id": colony_id,
+                "captured": captured,
+                "delta": diplomacy_delta,
+            })
+        except Exception:
+            pass
+
+    return {
+        "success": True,
+        "colony_captured": captured,
+        "result": result,
+        "captured_tech": captured_tech if captured else None,
+        "diplomacy_delta": diplomacy_delta,
+        "target_owner": target_owner_id,
+    }

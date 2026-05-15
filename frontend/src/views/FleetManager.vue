@@ -81,6 +81,7 @@
             @click.stop="openTransfer(fleet.id)"
           >TRASPASAR</button>
           <button :style="styles.btnSmall" v-if="canColonize(fleet)" @click.stop="requestColonize(fleet.id)">COLONIZAR</button>
+          <button :style="styles.btnDanger" @click.stop="requestDisband(fleet.id)">ELIMINAR</button>
         </div>
       </div>
     </div>
@@ -154,7 +155,7 @@ const moves = ref<Record<string, string>>({})
 const fleetQuery = ref('')
 const statusFilter = ref<'all' | 'idle' | 'moving' | 'colony'>('all')
 const selectedFleetId = ref('')
-const pendingAction = ref<null | { type: 'move' | 'colonize'; fleetId: string; title: string; body: string }>(null)
+const pendingAction = ref<null | { type: 'move' | 'colonize' | 'disband'; fleetId: string; title: string; body: string }>(null)
 const transferState = ref<null | { fromFleet: any; toFleetId: string; amounts: Record<string, number> }>(null)
 const renamingFleetId = ref<string | null>(null)
 const renameDraft = ref('')
@@ -201,6 +202,7 @@ const styles = {
   subtitle: { margin: '0.3rem 0 0', color: Theme.colors.textMuted, fontSize: '0.85rem' },
   btn: btnStyle(),
   btnSmall: { ...btnStyle(), padding: '0.3rem 0.6rem', fontSize: '0.75rem' },
+  btnDanger: { ...btnStyle(), padding: '0.3rem 0.6rem', fontSize: '0.75rem', borderColor: Theme.colors.danger, color: Theme.colors.danger },
   controlRow: { display: 'flex', gap: '0.5rem', flexWrap: 'wrap' as const, marginBottom: '0.9rem' },
   searchInput: { flex: 1, minWidth: '220px', backgroundColor: Theme.colors.bgDark, color: Theme.colors.primary, border: `1px solid ${Theme.colors.primary}`, padding: '0.45rem 0.55rem', fontSize: '0.85rem' },
   detailsPanel: { display: 'grid', gap: '0.25rem', marginBottom: '0.9rem', padding: '0.75rem', backgroundColor: 'rgba(0,255,255,0.06)', border: `1px solid ${Theme.colors.secondary}`, borderRadius: '6px', color: Theme.colors.text },
@@ -297,12 +299,35 @@ function requestColonize(fleetId: string) {
   }
 }
 
+function requestDisband(fleetId: string) {
+  const fleet = fleets.value.find((f) => f.id === fleetId)
+  if (!fleet) return
+  pendingAction.value = {
+    type: 'disband',
+    fleetId,
+    title: 'Eliminar flota',
+    body: `${fleet.name} sera disuelta y todas sus naves se perderan. Esta accion no se puede deshacer.`,
+  }
+}
+
 async function confirmPendingAction() {
   const action = pendingAction.value
   if (!action) return
   pendingAction.value = null
   if (action.type === 'move') await moveFleet(action.fleetId)
   if (action.type === 'colonize') await colonize(action.fleetId)
+  if (action.type === 'disband') await disbandFleet(action.fleetId)
+}
+
+async function disbandFleet(fleetId: string) {
+  if (!gameStore.gameId) return
+  try {
+    await api.fleet.disband(gameStore.gameId, fleetId)
+    if (selectedFleetId.value === fleetId) selectedFleetId.value = ''
+    await gameStore.fetchFleets()
+  } catch (err: any) {
+    error.value = err.message || 'No se pudo eliminar la flota'
+  }
 }
 
 async function moveFleet(fleetId: string) {

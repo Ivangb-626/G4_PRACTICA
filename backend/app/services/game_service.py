@@ -74,8 +74,8 @@ GALAXY_SIZE_COUNTS = {"small": 20, "medium": 30, "large": 40, "huge": 55}
 DIFFICULTY_LEVELS = ["gardener", "officer", "commander", "lord", "impossible"]
 
 AI_NAME_POOL = [
-    "Alkari", "Bulrathi", "Darloks", "Humans", "Klackons", "Meklar",
-    "Mrrshan", "Psilon", "Sakkra", "Silicoids", "Elerians", "Gnolams",
+    "Bulrathi", "Darloks", "Humans", "Klackons", "Mrrshan", "Psilon",
+    "Sakkra", "Silicoids", "Elerians", "Gnolams",
 ]
 
 SCENARIOS = [
@@ -586,9 +586,15 @@ def generate_game_state(name, scenario):
     galaxy["fog_of_war"]["player"] = [player_system["id"], *player_system["connections"]]
 
     ai_players = []
-    # AI races never match the player's race. If only the player's race is defined,
-    # we cannot spawn AI opponents at all rather than reusing it.
-    available_races = [race_id for race_id in RACES if race_id != scenario["player_race"]]
+    # Each AI must use a different race from the enemy-only pool. Races flagged
+    # player_selectable=False (or absent from the player picker) are reserved
+    # for AI opponents. If the request asks for more opponents than the number
+    # of available enemy races, we cap the loop at the available pool.
+    available_races = [
+        race_id for race_id, race in RACES.items()
+        if race.get("player_selectable", True) is False
+        and race_id != scenario["player_race"]
+    ]
     random.shuffle(available_races)
     # Find suitable AI start systems: skip player's, skip black holes, must have a habitable planet
     candidate_systems = [
@@ -596,18 +602,13 @@ def generate_game_state(name, scenario):
         if s["id"] != player_system["id"] and not s.get("is_black_hole") and s.get("planets") and any(PLANET_TYPES.get(p.get("type"), {}).get("habitable") for p in s["planets"])
     ]
     random.shuffle(candidate_systems)
-    num_opponents = scenario["num_opponents"]
+    requested_opponents = scenario["num_opponents"]
+    num_opponents = min(requested_opponents, len(available_races), len(candidate_systems))
     name_pool = random.sample(AI_NAME_POOL, k=min(num_opponents, len(AI_NAME_POOL)))
     if num_opponents > len(name_pool):
         name_pool += [f"Alien-{i + 1}" for i in range(num_opponents - len(name_pool))]
     for index in range(num_opponents):
-        if index >= len(candidate_systems):
-            break
-        if not available_races:
-            break
-        race_id = available_races[index % len(available_races)]
-        if race_id == scenario["player_race"]:
-            continue
+        race_id = available_races.pop()
         ai_id = f"ai_{index}"
         ai_system = candidate_systems[index]
         ai_system["explored_by"].append(ai_id)
@@ -1259,7 +1260,9 @@ def validate_end_turn(game_state):
     systems = {s.get("id"): s for s in galaxy.get("star_systems", []) if s.get("id")}
 
     if game_state.get("victory_condition"):
-        blockers.append(f"La partida ya termino: {game_state.get('victory_condition')}.")
+        warnings.append(
+            f"La partida ya termino ({game_state.get('victory_condition')}), pero puedes seguir jugando en modo libre."
+        )
     if not player:
         blockers.append("No existe el imperio del jugador en el estado de partida.")
     if not systems:

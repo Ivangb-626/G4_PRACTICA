@@ -77,7 +77,7 @@ const missionTypes = ['steal_tech', 'sabotage', 'incite_rebellion', 'frame']
 const spies = computed<any[]>(() => gameStore.spies || [])
 const aiTargets = computed<Array<{ id: string; name: string }>>(() => {
   const game = gameStore.game as any
-  return (game?.ai_players || []).map((ai: any) => ({ id: ai.id, name: ai.name || ai.id }))
+  return (game?.ai_players || []).map((ai: any) => ({ id: ai.id, name: ai?.race?.name || ai.name || ai.id }))
 })
 
 const styles = {

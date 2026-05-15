@@ -68,5 +68,166 @@
     },
     "special_abilities": ["transdimensional_drive"],
     "description": "Anfibios transdimensionales. +2 velocidad de naves, +1 RP por cientifico, oceanos como ideales."
+  },
+  {
+    "id": "bulrathi",
+    "name": "Bulrathi",
+    "player_selectable": false,
+    "government": "dictatorship",
+    "ai_personality": "aggressive",
+    "homeworld_preferences": {"climate": "terran", "size": "large", "richness": "abundant", "gravity": "heavy"},
+    "traits": {
+      "research_bonus": 0, "ground_combat_bonus": 20, "diplomacy_bonus": -10, "trade_bonus": 0,
+      "food_bonus": 0, "industry_bonus": 0, "population_growth_bonus": 0,
+      "ship_attack_bonus": 0, "ship_defense_bonus": 0, "spy_bonus": 0, "bc_per_capita": 0,
+      "flags": {"heavy_gravity": true}
+    },
+    "special_abilities": ["ursoid_warriors"],
+    "description": "Osos guerreros de planetas de alta gravedad. +20 al combate terrestre."
+  },
+  {
+    "id": "darlok",
+    "name": "Darloks",
+    "player_selectable": false,
+    "government": "dictatorship",
+    "ai_personality": "researcher",
+    "homeworld_preferences": {"climate": "terran", "size": "medium", "richness": "abundant", "gravity": "normal"},
+    "traits": {
+      "research_bonus": 0, "ground_combat_bonus": 0, "diplomacy_bonus": -5, "trade_bonus": 0,
+      "food_bonus": 0, "industry_bonus": 0, "population_growth_bonus": 0,
+      "ship_attack_bonus": 0, "ship_defense_bonus": 0, "spy_bonus": 25, "bc_per_capita": 0,
+      "flags": {"infiltrators": true}
+    },
+    "special_abilities": ["shapeshifter_spies"],
+    "description": "Cambiaformas infiltrados. +25 a espionaje, infiltracion silenciosa."
+  },
+  {
+    "id": "human",
+    "name": "Humans",
+    "player_selectable": false,
+    "government": "democracy",
+    "ai_personality": "balanced",
+    "homeworld_preferences": {"climate": "terran", "size": "medium", "richness": "abundant", "gravity": "normal"},
+    "traits": {
+      "research_bonus": 0, "ground_combat_bonus": 0, "diplomacy_bonus": 15, "trade_bonus": 25, "food_bonus": 0,
+      "industry_bonus": 0, "population_growth_bonus": 0,
+      "ship_attack_bonus": 0, "ship_defense_bonus": 0, "spy_bonus": 0, "bc_per_capita": 0,
+      "flags": {"charismatic": true}
+    },
+    "special_abilities": ["diplomatic_traders"],
+    "description": "Diplomatas y mercaderes. +25 al comercio y bono diplomatico."
+  },
+  {
+    "id": "klackon",
+    "name": "Klackons",
+    "player_selectable": false,
+    "government": "unification",
+    "ai_personality": "industrial_pragmatic",
+    "homeworld_preferences": {"climate": "terran", "size": "medium", "richness": "abundant", "gravity": "normal"},
+    "traits": {
+      "research_bonus": 0, "ground_combat_bonus": 0, "diplomacy_bonus": -5, "trade_bonus": 0,
+      "food_bonus": 1, "industry_bonus": 1, "population_growth_bonus": 0,
+      "ship_attack_bonus": 0, "ship_defense_bonus": 0, "spy_bonus": 0, "bc_per_capita": 0,
+      "flags": {"hive_mind": true}
+    },
+    "special_abilities": ["hive_industry"],
+    "description": "Insectoides de mente colmena. +1 comida y +1 produccion por trabajador."
+  },
+  {
+    "id": "mrrshan",
+    "name": "Mrrshan",
+    "player_selectable": false,
+    "government": "feudal",
+    "ai_personality": "militarist_honorable",
+    "homeworld_preferences": {"climate": "desert", "size": "medium", "richness": "abundant", "gravity": "normal"},
+    "traits": {
+      "research_bonus": 0, "ground_combat_bonus": 10, "diplomacy_bonus": -10, "trade_bonus": 0,
+      "food_bonus": 0, "industry_bonus": 0, "population_growth_bonus": 0,
+      "ship_attack_bonus": 50, "ship_defense_bonus": 0, "spy_bonus": 0, "bc_per_capita": 0,
+      "flags": {}
+    },
+    "special_abilities": ["feline_gunners"],
+    "description": "Felinos cazadores. +50 al ataque naval, agresivos en combate."
+  },
+  {
+    "id": "psilon",
+    "name": "Psilon",
+    "player_selectable": false,
+    "government": "democracy",
+    "ai_personality": "researcher",
+    "homeworld_preferences": {"climate": "terran", "size": "medium", "richness": "abundant", "gravity": "low"},
+    "traits": {
+      "research_bonus": 50, "ground_combat_bonus": -10, "diplomacy_bonus": 0, "trade_bonus": 0,
+      "food_bonus": 0, "industry_bonus": 0, "population_growth_bonus": 0,
+      "ship_attack_bonus": 0, "ship_defense_bonus": 0, "spy_bonus": 0, "bc_per_capita": 0,
+      "research_per_scientist_extra": 1,
+      "flags": {"creative": true}
+    },
+    "special_abilities": ["creative_research"],
+    "description": "Cientificos cabezudos. +50% a investigacion y +1 RP por cientifico."
+  },
+  {
+    "id": "sakkra",
+    "name": "Sakkra",
+    "player_selectable": false,
+    "government": "dictatorship",
+    "ai_personality": "expansionist",
+    "homeworld_preferences": {"climate": "swamp", "size": "large", "richness": "abundant", "gravity": "normal"},
+    "traits": {
+      "research_bonus": 0, "ground_combat_bonus": 0, "diplomacy_bonus": 0, "trade_bonus": 0,
+      "food_bonus": 1, "industry_bonus": 0, "population_growth_bonus": 50,
+      "ship_attack_bonus": 0, "ship_defense_bonus": 0, "spy_bonus": 0, "bc_per_capita": 0,
+      "flags": {}
+    },
+    "special_abilities": ["fast_breeders"],
+    "description": "Reptilianos prolificos. +50% al crecimiento de poblacion."
+  },
+  {
+    "id": "silicoid",
+    "name": "Silicoids",
+    "player_selectable": false,
+    "government": "dictatorship",
+    "ai_personality": "expansionist",
+    "homeworld_preferences": {"climate": "barren", "size": "medium", "richness": "abundant", "gravity": "normal"},
+    "traits": {
+      "research_bonus": 0, "ground_combat_bonus": 0, "diplomacy_bonus": -20, "trade_bonus": 0,
+      "food_bonus": 0, "industry_bonus": 0, "population_growth_bonus": -50,
+      "ship_attack_bonus": 0, "ship_defense_bonus": 0, "spy_bonus": 0, "bc_per_capita": 0,
+      "flags": {"lithovore": true, "tolerant": true}
+    },
+    "special_abilities": ["lithovore_colonists"],
+    "description": "Roca viviente: no necesitan comida y colonizan planetas hostiles, pero crecen despacio."
+  },
+  {
+    "id": "elerian",
+    "name": "Elerians",
+    "player_selectable": false,
+    "government": "feudal",
+    "ai_personality": "militarist_honorable",
+    "homeworld_preferences": {"climate": "terran", "size": "medium", "richness": "abundant", "gravity": "normal"},
+    "traits": {
+      "research_bonus": 0, "ground_combat_bonus": 10, "diplomacy_bonus": 0, "trade_bonus": 0,
+      "food_bonus": 0, "industry_bonus": 0, "population_growth_bonus": 0,
+      "ship_attack_bonus": 20, "ship_defense_bonus": 20, "spy_bonus": 10, "bc_per_capita": 0,
+      "flags": {"telepathic": true, "omniscient": true}
+    },
+    "special_abilities": ["psionic_command"],
+    "description": "Guerreras psionicas. Telepaticas y omniscientes, ven toda la galaxia."
+  },
+  {
+    "id": "gnolam",
+    "name": "Gnolams",
+    "player_selectable": false,
+    "government": "democracy",
+    "ai_personality": "balanced",
+    "homeworld_preferences": {"climate": "terran", "size": "small", "richness": "abundant", "gravity": "low"},
+    "traits": {
+      "research_bonus": 0, "ground_combat_bonus": -10, "diplomacy_bonus": 5, "trade_bonus": 50,
+      "food_bonus": 0, "industry_bonus": 0, "population_growth_bonus": 0,
+      "ship_attack_bonus": 0, "ship_defense_bonus": 0, "spy_bonus": 0, "bc_per_capita": 1,
+      "flags": {"fortune_tellers": true, "low_g_world": true}
+    },
+    "special_abilities": ["merchant_luck"],
+    "description": "Pequenos mercaderes afortunados. +1 BC por habitante y +50% al comercio."
   }
 ]

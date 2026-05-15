@@ -43,8 +43,15 @@
             <Tooltip title="Declarar Guerra" description="Inicia hostilidades.">
               <button :style="styles.btnDanger" @click="declareWar(rel.other)">GUERRA</button>
             </Tooltip>
-            <Tooltip title="Rendirse" description="Termina la partida si estas en guerra.">
-              <button :style="styles.btnDanger" @click="surrender(rel.other)">RENDIRSE</button>
+            <Tooltip
+              :title="rel.state === 'war' ? 'Rendirse' : 'Rendirse (no disponible)'"
+              :description="rel.state === 'war' ? 'Termina la guerra cediendo tus colonias y flotas.' : 'Solo disponible cuando estas en guerra con esta raza.'"
+            >
+              <button
+                :style="rel.state === 'war' ? styles.btnDanger : styles.btnDisabled"
+                :disabled="rel.state !== 'war'"
+                @click="surrender(rel.other)"
+              >RENDIRSE</button>
             </Tooltip>
           </td>
         </tr>
@@ -55,12 +62,38 @@
     <h3 :style="styles.h3">Tratados activos</h3>
     <ul :style="styles.list">
       <li v-for="t in treaties" :key="t.id" :style="styles.li">
-        <strong>{{ t.type.toUpperCase() }}</strong> · {{ (t.parties || []).join(' & ') }}
-        · turno {{ t.signed_at_turn }}
+        <strong>{{ treatyTypeLabel(t.type) }}</strong> entre {{ (t.parties || []).map(partyLabel).join(' y ') }}
+        · firmado en turno {{ t.signed_at_turn }}
         <span v-if="t.expires_at_turn"> - expira en T{{ t.expires_at_turn }}</span>
       </li>
       <li v-if="!treaties.length" :style="styles.empty">No hay tratados activos.</li>
     </ul>
+
+    <!-- Tech gift -->
+    <h3 :style="styles.h3">Regalar tecnologia</h3>
+    <p :style="styles.subtitle">
+      Cede una tecnologia investigada a otra raza. Cuanto mas cara sea la tecnologia (en RP), mayor sera la mejora diplomatica.
+    </p>
+    <div :style="styles.row">
+      <select v-model="techGift.target" :style="styles.select">
+        <option value="">Objetivo</option>
+        <option v-for="rel in relationRows" :key="rel.other" :value="rel.other">{{ rel.label }}</option>
+      </select>
+      <select v-model="techGift.tech" :style="styles.select">
+        <option value="">tech a regalar</option>
+        <option v-for="t in giftableTechs" :key="t.id" :value="t.id">
+          {{ t.label }} ({{ t.cost }} RP, +{{ t.delta }} diplomacia)
+        </option>
+      </select>
+      <button
+        :style="styles.btnSmall"
+        @click="giftTech"
+        :disabled="!techGift.target || !techGift.tech"
+      >REGALAR</button>
+    </div>
+    <p v-if="!giftableTechs.length" :style="styles.empty">
+      Aun no tienes tecnologias investigadas para regalar.
+    </p>
 
     <!-- Tech trade -->
     <h3 :style="styles.h3">Intercambio de tecnologia</h3>
@@ -96,6 +129,7 @@ const gameStore = useGameStore()
 const error = ref('')
 const info = ref('')
 const trade = ref({ target: '', offered: '', requested: '' })
+const techGift = ref({ target: '', tech: '' })
 
 const relations = computed<Record<string, any>>(() => gameStore.diplomacy?.relations || {})
 const treaties = computed<any[]>(() => (gameStore.diplomacy?.treaties || []).filter((t: any) => t.active))
@@ -103,7 +137,29 @@ const treaties = computed<any[]>(() => (gameStore.diplomacy?.treaties || []).fil
 function empireLabel(id: string): string {
   const game = gameStore.game as any
   const ai = (game?.ai_players || []).find((p: any) => p?.id === id)
-  return ai?.name || id
+  return ai?.race?.name || ai?.name || id
+}
+
+function partyLabel(id: string): string {
+  if (id === 'player') {
+    const playerRace = (gameStore.game as any)?.player?.race?.name
+    return playerRace || 'Tu imperio'
+  }
+  return empireLabel(id)
+}
+
+const TREATY_LABELS: Record<string, string> = {
+  non_aggression_pact: 'Pacto de No Agresion',
+  trade_treaty: 'Tratado Comercial',
+  alliance: 'Alianza',
+  research_pact: 'Pacto de Investigacion',
+  tribute: 'Tributo',
+}
+
+function treatyTypeLabel(type: string): string {
+  if (!type) return ''
+  const key = type.toLowerCase()
+  return TREATY_LABELS[key] || type.replace(/_/g, ' ').toUpperCase()
 }
 
 function ownedTechIds(empire: any): Set<string> {
@@ -126,6 +182,36 @@ const offerableTechs = computed(() =>
     .map((id) => ({ id, label: prettifyTechId(id) }))
     .sort((a, b) => a.label.localeCompare(b.label)),
 )
+
+const techCostMap = computed<Record<string, number>>(() => {
+  const map: Record<string, number> = {}
+  const fields = (gameStore.techState as any)?.fields || []
+  for (const field of fields) {
+    const levels = field?.levels || {}
+    for (const lvl of Object.values(levels) as any[]) {
+      for (const tech of (lvl?.options || []) as any[]) {
+        const id = tech?.id
+        const cost = tech?.research_cost ?? tech?.base_cost
+        if (id && typeof cost === 'number') map[id] = cost
+      }
+    }
+  }
+  return map
+})
+
+function predictedTechDelta(cost: number): number {
+  return Math.max(5, Math.min(50, Math.floor((cost || 50) / 30)))
+}
+
+const giftableTechs = computed(() => {
+  const costs = techCostMap.value
+  return Array.from(playerTechIds.value)
+    .map((id) => {
+      const cost = costs[id] ?? 50
+      return { id, label: prettifyTechId(id), cost, delta: predictedTechDelta(cost) }
+    })
+    .sort((a, b) => b.cost - a.cost || a.label.localeCompare(b.label))
+})
 
 const requestableTechs = computed(() => {
   const target = trade.value.target
@@ -165,6 +251,7 @@ const styles = {
   btn: btnStyle(),
   btnSmall: { ...btnStyle(), padding: '0.25rem 0.55rem', fontSize: '0.7rem', marginRight: '0.3rem', marginBottom: '0.3rem' },
   btnDanger: { ...btnStyle(), padding: '0.25rem 0.55rem', fontSize: '0.7rem', borderColor: Theme.colors.danger, color: Theme.colors.danger, marginRight: '0.3rem' },
+  btnDisabled: { ...btnStyle(), padding: '0.25rem 0.55rem', fontSize: '0.7rem', borderColor: Theme.colors.textMuted, color: Theme.colors.textMuted, marginRight: '0.3rem', opacity: 0.45, cursor: 'not-allowed' as const },
   table: { width: '100%', borderCollapse: 'collapse' as const, marginBottom: '0.5rem' },
   th: { textAlign: 'left' as const, padding: '0.5rem', color: Theme.colors.textMuted, fontSize: '0.75rem', textTransform: 'uppercase' as const, borderBottom: `1px solid ${Theme.colors.border}` },
   td: { padding: '0.5rem', borderBottom: '1px solid rgba(89, 170, 255, 0.15)', fontSize: '0.85rem' },
@@ -192,46 +279,81 @@ async function reload() {
   info.value = ''
   if (!gameStore.gameId) return
   try {
-    await gameStore.fetchDiplomacy()
+    await Promise.all([
+      gameStore.fetchDiplomacy(),
+      gameStore.techState ? Promise.resolve() : gameStore.fetchResearch(),
+    ])
   } catch (err: any) {
     error.value = err.message || 'No se pudieron cargar las relaciones'
   }
 }
 
 async function proposeTreaty(target: string, type: string) {
+  const name = empireLabel(target)
+  const treatyName = treatyTypeLabel(type)
   try {
     const res = await gameStore.proposeTreaty(target, type)
-    info.value = res?.accepted ? `${target} acepto ${type}` : `${target} rechazo ${type}`
+    info.value = res?.accepted
+      ? `${name} acepto el ${treatyName}.`
+      : `${name} rechazo el ${treatyName}.`
   } catch (err: any) {
     error.value = err.message || 'Error en la propuesta'
   }
 }
 
 async function declareWar(target: string) {
-  if (!confirm(`Declarar guerra a ${target}?`)) return
+  const name = empireLabel(target)
+  if (!confirm(`Declarar guerra a ${name}?`)) return
   try {
     await gameStore.declareWar(target)
-    info.value = `Guerra declarada a ${target}`
+    info.value = `Guerra declarada a ${name}.`
   } catch (err: any) {
     error.value = err.message
   }
 }
 
 async function surrender(target: string) {
-  if (!confirm(`Rendirse ante ${target}? PERDERAS TUS COLONIAS.`)) return
+  const name = empireLabel(target)
+  if (!confirm(`Rendirse ante ${name}? PERDERAS TUS COLONIAS.`)) return
   try {
     await api.diplomacy.surrender(gameStore.gameId!, target)
-    info.value = 'Rendicion entregada'
+    info.value = `Rendicion entregada a ${name}.`
     await reload()
   } catch (err: any) {
     error.value = err.message
   }
 }
 
+async function giftTech() {
+  const target = techGift.value.target
+  const techId = techGift.value.tech
+  if (!target || !techId || !gameStore.gameId) return
+  const name = empireLabel(target)
+  const techLabel = prettifyTechId(techId)
+  try {
+    const res = await api.diplomacy.gift(gameStore.gameId, target, { tech_id: techId })
+    if (res?.success === false) {
+      error.value = res.reason || 'No se pudo regalar la tecnologia'
+      return
+    }
+    const delta = typeof res?.delta === 'number' ? res.delta : 0
+    if (res?.tech_already_owned) {
+      info.value = `${name} ya conocia ${techLabel}; no hubo cambio diplomatico.`
+    } else {
+      info.value = `Regalaste ${techLabel} a ${name}. Diplomacia +${delta}.`
+    }
+    techGift.value.tech = ''
+    await reload()
+  } catch (err: any) {
+    error.value = err.message || 'No se pudo regalar la tecnologia'
+  }
+}
+
 async function giftBC(target: string) {
+  const name = empireLabel(target)
   try {
     await api.diplomacy.gift(gameStore.gameId!, target, { bc: 50 })
-    info.value = `Regalo de 50 BC enviado a ${target}`
+    info.value = `Regalo de 50 BC enviado a ${name}.`
     await reload()
   } catch (err: any) {
     error.value = err.message
